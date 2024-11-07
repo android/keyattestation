@@ -1,4 +1,4 @@
-package com.google.wireless.android.security.attestationverifier;
+package com.android.keyattestation.verifier;
 
 import com.google.auto.value.AutoBuilder;
 import com.google.auto.value.AutoValue;

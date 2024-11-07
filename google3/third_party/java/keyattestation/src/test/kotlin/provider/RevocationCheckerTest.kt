@@ -1,8 +1,8 @@
-package com.google.wireless.android.security.attestationverifier.provider
+package com.android.keyattestation.verifier.provider
 
-import com.google.wireless.android.security.attestationverifier.testing.Certs
-import com.google.wireless.android.security.attestationverifier.testing.Chains
-import com.google.wireless.android.security.attestationverifier.testing.FakeCalendar
+import com.android.keyattestation.verifier.testing.Certs
+import com.android.keyattestation.verifier.testing.Chains
+import com.android.keyattestation.verifier.testing.FakeCalendar
 import java.security.Security
 import java.security.cert.CertPathValidator
 import java.security.cert.CertPathValidatorException

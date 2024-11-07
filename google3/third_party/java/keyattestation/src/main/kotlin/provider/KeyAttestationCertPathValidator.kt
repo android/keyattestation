@@ -1,4 +1,4 @@
-package com.google.wireless.android.security.attestationverifier.provider
+package com.android.keyattestation.verifier.provider
 
 import java.security.GeneralSecurityException
 import java.security.InvalidAlgorithmParameterException

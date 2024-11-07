@@ -1,10 +1,10 @@
-package com.google.wireless.android.security.attestationverifier
+package com.android.keyattestation.verifier
 
+import com.android.keyattestation.verifier.testing.CertLists
+import com.android.keyattestation.verifier.testing.TestUtils.prodRoot
+import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
-import com.google.wireless.android.security.attestationverifier.testing.CertLists
-import com.google.wireless.android.security.attestationverifier.testing.TestUtils.prodRoot
-import com.google.wireless.android.security.attestationverifier.testing.TestUtils.readCertPath
 import java.security.cert.TrustAnchor
 import kotlin.test.assertIs
 import org.junit.Test

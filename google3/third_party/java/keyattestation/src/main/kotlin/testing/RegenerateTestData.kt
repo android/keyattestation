@@ -1,5 +1,8 @@
-package com.google.wireless.android.security.attestationverifier.testing
+package com.android.keyattestation.verifier.testing
 
+import com.android.keyattestation.verifier.keyDescription
+import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
+import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.devtools.api.source.vcslib.Vcslib
 import com.google.devtools.javatools.formatting.Fmtserver.FileType
 import com.google.devtools.javatools.formatting.Formatter
@@ -8,9 +11,6 @@ import com.google.devtools.javatools.formatting.formatRequest
 import com.google.net.rpc3.client.RpcClientContext
 import com.google.net.rpc3.client.builder.RpcStubParametersBuilder
 import com.google.protobuf.kotlin.toByteStringUtf8
-import com.google.wireless.android.security.attestationverifier.keyDescription
-import com.google.wireless.android.security.attestationverifier.testing.TestUtils.TESTDATA_PATH
-import com.google.wireless.android.security.attestationverifier.testing.TestUtils.readCertPath
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.Path

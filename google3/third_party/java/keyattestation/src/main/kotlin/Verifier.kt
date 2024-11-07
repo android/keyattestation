@@ -1,9 +1,9 @@
-package com.google.wireless.android.security.attestationverifier
+package com.android.keyattestation.verifier
 
+import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
+import com.android.keyattestation.verifier.provider.KeyAttestationProvider
 import com.google.common.time.TimeSource
 import com.google.protobuf.ByteString
-import com.google.wireless.android.security.attestationverifier.provider.KeyAttestationCertPath
-import com.google.wireless.android.security.attestationverifier.provider.KeyAttestationProvider
 import java.nio.ByteBuffer
 import java.security.PublicKey
 import java.security.Security

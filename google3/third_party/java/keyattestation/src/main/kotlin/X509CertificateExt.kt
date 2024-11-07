@@ -1,4 +1,4 @@
-package com.google.wireless.android.security.attestationverifier
+package com.android.keyattestation.verifier
 
 import java.io.InputStream
 import java.security.cert.CertificateException

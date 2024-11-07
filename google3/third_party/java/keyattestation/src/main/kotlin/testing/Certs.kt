@@ -1,10 +1,10 @@
-package com.google.wireless.android.security.attestationverifier.testing
+package com.android.keyattestation.verifier.testing
 
+import com.android.keyattestation.verifier.AuthorizationList
+import com.android.keyattestation.verifier.KeyDescription
+import com.android.keyattestation.verifier.SecurityLevel
+import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.google.protobuf.ByteString
-import com.google.wireless.android.security.attestationverifier.AuthorizationList
-import com.google.wireless.android.security.attestationverifier.KeyDescription
-import com.google.wireless.android.security.attestationverifier.SecurityLevel
-import com.google.wireless.android.security.attestationverifier.provider.KeyAttestationCertPath
 import java.math.BigInteger
 import java.security.KeyPair
 import java.security.KeyPairGenerator

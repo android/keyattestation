@@ -1,13 +1,13 @@
-package com.google.wireless.android.security.attestationverifier
+package com.android.keyattestation.verifier
 
+import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
+import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
+import com.android.keyattestation.verifier.testing.toKeyDescription
 import com.google.common.truth.Truth.assertThat
 import com.google.devtools.build.runtime.RunfilesPaths
 import com.google.protobuf.ByteString
 import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
-import com.google.wireless.android.security.attestationverifier.testing.TestUtils.TESTDATA_PATH
-import com.google.wireless.android.security.attestationverifier.testing.TestUtils.readCertPath
-import com.google.wireless.android.security.attestationverifier.testing.toKeyDescription
 import kotlin.io.path.Path
 import kotlin.io.path.inputStream
 import kotlin.io.path.listDirectoryEntries

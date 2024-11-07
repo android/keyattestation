@@ -1,8 +1,8 @@
-package com.google.wireless.android.security.attestationverifier.provider
+package com.android.keyattestation.verifier.provider
 
+import com.android.keyattestation.verifier.testing.CertLists
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
-import com.google.wireless.android.security.attestationverifier.testing.CertLists
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import kotlin.test.assertFailsWith

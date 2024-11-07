@@ -1,10 +1,10 @@
-package com.google.wireless.android.security.attestationverifier.provider
+package com.android.keyattestation.verifier.provider
 
+import com.android.keyattestation.verifier.testing.Certs.rootAnchor as testAnchor
+import com.android.keyattestation.verifier.testing.Chains
+import com.android.keyattestation.verifier.testing.FakeCalendar
+import com.android.keyattestation.verifier.testing.TestUtils.prodAnchor
 import com.google.common.truth.Truth.assertThat
-import com.google.wireless.android.security.attestationverifier.testing.Certs.rootAnchor as testAnchor
-import com.google.wireless.android.security.attestationverifier.testing.Chains
-import com.google.wireless.android.security.attestationverifier.testing.FakeCalendar
-import com.google.wireless.android.security.attestationverifier.testing.TestUtils.prodAnchor
 import java.security.InvalidAlgorithmParameterException
 import java.security.Security
 import java.security.cert.CertPathParameters

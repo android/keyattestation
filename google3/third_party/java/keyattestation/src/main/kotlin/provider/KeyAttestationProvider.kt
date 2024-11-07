@@ -1,4 +1,4 @@
-package com.google.wireless.android.security.attestationverifier.provider
+package com.android.keyattestation.verifier.provider
 
 import java.security.Provider
 import java.security.ProviderException

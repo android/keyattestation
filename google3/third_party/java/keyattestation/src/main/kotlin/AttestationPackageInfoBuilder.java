@@ -1,4 +1,4 @@
-package com.google.wireless.android.security.attestationverifier;
+package com.android.keyattestation.verifier;
 
 import com.google.auto.value.AutoBuilder;
 import java.math.BigInteger;

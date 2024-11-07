@@ -1,10 +1,10 @@
-package com.google.wireless.android.security.attestationverifier.provider
+package com.android.keyattestation.verifier.provider
 
+import com.android.keyattestation.verifier.asX509Certificate
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.toImmutableList
 import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
-import com.google.wireless.android.security.attestationverifier.asX509Certificate
 import java.security.cert.CertPath
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate

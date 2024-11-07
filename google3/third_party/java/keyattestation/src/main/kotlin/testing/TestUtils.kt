@@ -1,11 +1,11 @@
-package com.google.wireless.android.security.attestationverifier.testing
+package com.android.keyattestation.verifier.testing
 
+import com.android.keyattestation.verifier.KeyDescription
+import com.android.keyattestation.verifier.asX509Certificate
+import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.google.devtools.build.runtime.RunfilesPaths
 import com.google.gson.Gson
 import com.google.protobuf.ByteString
-import com.google.wireless.android.security.attestationverifier.KeyDescription
-import com.google.wireless.android.security.attestationverifier.asX509Certificate
-import com.google.wireless.android.security.attestationverifier.provider.KeyAttestationCertPath
 import com.squareup.moshi.FromJson
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.ToJson
