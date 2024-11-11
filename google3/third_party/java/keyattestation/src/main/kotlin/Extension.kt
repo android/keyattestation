@@ -51,7 +51,7 @@ data class KeyDescription(
 
   companion object {
     /* OID for the key attestation extension.
-     * https://developer.android.com/privacy-and-security/security-key-attestation#key_attestation_ext_schema
+     * https://source.android.com/docs/security/features/keystore/attestation#schema
      */
     @JvmField val OID = ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.17")
 
@@ -91,8 +91,7 @@ data class KeyDescription(
 /**
  * Representation of the SecurityLevel enum contained within [KeyDescription].
  *
- * @see
- *   https://developer.android.com/privacy-and-security/security-key-attestation#key_attestation_ext_schema_authorizationlist
+ * @see https://source.android.com/docs/security/features/keystore/attestation#securitylevel-values
  */
 enum class SecurityLevel(val value: Int) {
   // LINT.IfChange(security_level)
@@ -157,7 +156,7 @@ enum class KeyMintTag(val value: Int) {
  * Representation of the AuthorizationList sequence contained within [KeyDescription].
  *
  * @see
- *   https://developer.android.com/privacy-and-security/security-key-attestation#key_attestation_ext_schema_authorizationlist
+ *   https://source.android.com/docs/security/features/keystore/attestation#authorizationlist-fields
  */
 @JsonClass(generateAdapter = true)
 data class AuthorizationList(
@@ -335,7 +334,7 @@ data class AuthorizationList(
  * Representation of the AttestationApplicationId sequence contained within [AuthorizationList].
  *
  * @see
- *   https://developer.android.com/privacy-and-security/security-key-attestation#key_attestation_ext_schema_attestationid
+ *   https://source.android.com/docs/security/features/keystore/attestation#attestationapplicationid-schema
  */
 @JsonClass(generateAdapter = true)
 data class AttestationApplicationId(
@@ -367,7 +366,7 @@ data class AttestationApplicationId(
  * [AttestationApplicationId].
  *
  * @see
- *   https://developer.android.com/privacy-and-security/security-key-attestation#key_attestation_ext_schema_attestationid
+ *   https://source.android.com/docs/security/features/keystore/attestation#attestationapplicationid-schema
  */
 @JsonClass(generateAdapter = true)
 data class AttestationPackageInfo(val name: String, val version: BigInteger) {
@@ -394,8 +393,7 @@ data class AttestationPackageInfo(val name: String, val version: BigInteger) {
 /**
  * Representation of the RootOfTrust sequence contained within [AuthorizationList].
  *
- * @see
- *   https://developer.android.com/privacy-and-security/security-key-attestation#key_attestation_ext_schema_rootoftrust
+ * @see https://source.android.com/docs/security/features/keystore/attestation#rootoftrust-fields
  */
 @JsonClass(generateAdapter = true)
 data class RootOfTrust(
@@ -432,7 +430,7 @@ data class RootOfTrust(
  * Representation of the VerifiedBootState enum contained within [RootOfTrust].
  *
  * @see
- *   https://developer.android.com/privacy-and-security/security-key-attestation#key_attestation_ext_schema_verifiedbootstate
+ *   https://source.android.com/docs/security/features/keystore/attestation#verifiedbootstate-values
  */
 enum class VerifiedBootState(val value: Int) {
   VERIFIED(0),
