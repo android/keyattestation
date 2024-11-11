@@ -38,7 +38,8 @@ class ExtensionTest {
   }
 
   enum class TestCase(val model: String, val sdk: Int) {
-    PIXEL_3_SDK28("blueline", 28)
+    PIXEL_3_SDK28("blueline", 28),
+    PIXEL_8A_SDK34("akita", 34),
   }
 
   // TODO: b/374316734 - replace this test data with a certificate generated on a Pixel.
