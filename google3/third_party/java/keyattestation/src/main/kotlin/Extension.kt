@@ -1,6 +1,7 @@
 package com.android.keyattestation.verifier
 
 import com.google.protobuf.ByteString
+import com.google.protobuf.kotlin.toByteString
 import com.squareup.moshi.JsonClass
 import java.math.BigInteger
 import java.security.cert.X509Certificate
@@ -75,14 +76,14 @@ data class KeyDescription(
     private fun from(seq: ASN1Sequence): KeyDescription {
       require(seq.size() == 8)
       return KeyDescription(
-        attestationVersion = seq.getObjectAt(0).asInt(),
-        attestationSecurityLevel = seq.getObjectAt(1).asSecurityLevel(),
-        keymasterVersion = seq.getObjectAt(2).asInt(),
-        keymasterSecurityLevel = seq.getObjectAt(3).asSecurityLevel(),
-        attestationChallenge = seq.getObjectAt(4).asByteString(),
-        uniqueId = seq.getObjectAt(5).asByteString(),
-        softwareEnforced = seq.getObjectAt(6).asAuthorizationList(),
-        teeEnforced = seq.getObjectAt(7).asAuthorizationList(),
+        attestationVersion = seq.getObjectAt(0).toInt(),
+        attestationSecurityLevel = seq.getObjectAt(1).toSecurityLevel(),
+        keymasterVersion = seq.getObjectAt(2).toInt(),
+        keymasterSecurityLevel = seq.getObjectAt(3).toSecurityLevel(),
+        attestationChallenge = seq.getObjectAt(4).toByteString(),
+        uniqueId = seq.getObjectAt(5).toByteString(),
+        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(),
+        teeEnforced = seq.getObjectAt(7).toAuthorizationList(),
       )
     }
   }
@@ -200,66 +201,66 @@ data class AuthorizationList(
    */
   internal fun toAsn1() =
     buildList {
-        purposes?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.PURPOSE)) }
-        algorithms?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.ALGORITHM)) }
-        keySize?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.KEY_SIZE)) }
-        digests?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.DIGEST)) }
-        paddings?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.PADDING)) }
-        ecCurve?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.EC_CURVE)) }
-        rsaPublicExponent?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.RSA_PUBLIC_EXPONENT)) }
-        activeDateTime?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.ACTIVE_DATE_TIME)) }
+        purposes?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.PURPOSE)) }
+        algorithms?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ALGORITHM)) }
+        keySize?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.KEY_SIZE)) }
+        digests?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.DIGEST)) }
+        paddings?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.PADDING)) }
+        ecCurve?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.EC_CURVE)) }
+        rsaPublicExponent?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.RSA_PUBLIC_EXPONENT)) }
+        activeDateTime?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ACTIVE_DATE_TIME)) }
         originationExpireDateTime?.toAsn1()?.let {
-          add(it.asTaggedObject(KeyMintTag.ORIGINATION_EXPIRE_DATE_TIME))
+          add(it.toTaggedObject(KeyMintTag.ORIGINATION_EXPIRE_DATE_TIME))
         }
         usageExpireDateTime?.toAsn1()?.let {
-          add(it.asTaggedObject(KeyMintTag.USAGE_EXPIRE_DATE_TIME))
+          add(it.toTaggedObject(KeyMintTag.USAGE_EXPIRE_DATE_TIME))
         }
         if (noAuthRequired != null) {
           check(noAuthRequired) { "noAuthRequired must be null or true" }
-          add(DERNull.INSTANCE.asTaggedObject(KeyMintTag.NO_AUTH_REQUIRED))
+          add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.NO_AUTH_REQUIRED))
         }
-        userAuthType?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.USER_AUTH_TYPE)) }
-        authTimeout?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.AUTH_TIMEOUT)) }
+        userAuthType?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.USER_AUTH_TYPE)) }
+        authTimeout?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.AUTH_TIMEOUT)) }
         if (trustedUserPresenceRequired != null) {
           check(trustedUserPresenceRequired) { "trustedUserPresenceRequired must be null or true" }
-          add(DERNull.INSTANCE.asTaggedObject(KeyMintTag.TRUSTED_USER_PRESENCE_REQUIRED))
+          add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.TRUSTED_USER_PRESENCE_REQUIRED))
         }
-        creationDateTime?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.CREATION_DATE_TIME)) }
-        origin?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.ORIGIN)) }
+        creationDateTime?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.CREATION_DATE_TIME)) }
+        origin?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ORIGIN)) }
         if (rollbackResistant != null) {
           check(rollbackResistant) { "rollbackResistant must be null or true" }
-          add(DERNull.INSTANCE.asTaggedObject(KeyMintTag.ROLLBACK_RESISTANT))
+          add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.ROLLBACK_RESISTANT))
         }
-        rootOfTrust?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.ROOT_OF_TRUST)) }
-        osVersion?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.OS_VERSION)) }
-        osPatchLevel?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.OS_PATCH_LEVEL)) }
+        rootOfTrust?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ROOT_OF_TRUST)) }
+        osVersion?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.OS_VERSION)) }
+        osPatchLevel?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.OS_PATCH_LEVEL)) }
         attestationApplicationId?.toAsn1()?.let {
-          add(DEROctetString(it).asTaggedObject(KeyMintTag.ATTESTATION_APPLICATION_ID))
+          add(DEROctetString(it).toTaggedObject(KeyMintTag.ATTESTATION_APPLICATION_ID))
         }
         attestationIdBrand?.toAsn1()?.let {
-          add(it.asTaggedObject(KeyMintTag.ATTESTATION_ID_BRAND))
+          add(it.toTaggedObject(KeyMintTag.ATTESTATION_ID_BRAND))
         }
         attestationIdDevice?.toAsn1()?.let {
-          add(it.asTaggedObject(KeyMintTag.ATTESTATION_ID_DEVICE))
+          add(it.toTaggedObject(KeyMintTag.ATTESTATION_ID_DEVICE))
         }
         attestationIdProduct?.toAsn1()?.let {
-          add(it.asTaggedObject(KeyMintTag.ATTESTATION_ID_PRODUCT))
+          add(it.toTaggedObject(KeyMintTag.ATTESTATION_ID_PRODUCT))
         }
         attestationIdSerial?.toAsn1()?.let {
-          add(it.asTaggedObject(KeyMintTag.ATTESTATION_ID_SERIAL))
+          add(it.toTaggedObject(KeyMintTag.ATTESTATION_ID_SERIAL))
         }
-        attestationIdImei?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.ATTESTATION_ID_IMEI)) }
-        attestationIdMeid?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.ATTESTATION_ID_MEID)) }
+        attestationIdImei?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ATTESTATION_ID_IMEI)) }
+        attestationIdMeid?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ATTESTATION_ID_MEID)) }
         attestationIdManufacturer?.toAsn1()?.let {
-          add(it.asTaggedObject(KeyMintTag.ATTESTATION_ID_MANUFACTURER))
+          add(it.toTaggedObject(KeyMintTag.ATTESTATION_ID_MANUFACTURER))
         }
         attestationIdModel?.toAsn1()?.let {
-          add(it.asTaggedObject(KeyMintTag.ATTESTATION_ID_MODEL))
+          add(it.toTaggedObject(KeyMintTag.ATTESTATION_ID_MODEL))
         }
-        vendorPatchLevel?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.VENDOR_PATCH_LEVEL)) }
-        bootPatchLevel?.toAsn1()?.let { add(it.asTaggedObject(KeyMintTag.BOOT_PATCH_LEVEL)) }
+        vendorPatchLevel?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.VENDOR_PATCH_LEVEL)) }
+        bootPatchLevel?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.BOOT_PATCH_LEVEL)) }
         attestationIdSecondImei?.toAsn1()?.let {
-          add(it.asTaggedObject(KeyMintTag.ATTESTATION_ID_SECOND_IMEI))
+          add(it.toTaggedObject(KeyMintTag.ATTESTATION_ID_SECOND_IMEI))
         }
       }
       .let { DERSequence(it.toTypedArray()) }
@@ -291,40 +292,40 @@ data class AuthorizationList(
       }
 
       return AuthorizationList(
-        purposes = objects[KeyMintTag.PURPOSE]?.asSetOf<ASN1Integer>()?.map { it.value }?.toSet(),
-        algorithms = objects[KeyMintTag.ALGORITHM]?.asInt(),
-        keySize = objects[KeyMintTag.KEY_SIZE]?.asInt(),
-        digests = objects[KeyMintTag.DIGEST]?.asSetOf<ASN1Integer>()?.map { it.value }?.toSet(),
-        paddings = objects[KeyMintTag.PADDING]?.asSetOf<ASN1Integer>()?.map { it.value }?.toSet(),
-        ecCurve = objects[KeyMintTag.EC_CURVE]?.asInt(),
-        rsaPublicExponent = objects[KeyMintTag.RSA_PUBLIC_EXPONENT]?.asInt(),
-        activeDateTime = objects[KeyMintTag.ACTIVE_DATE_TIME]?.asInt(),
-        originationExpireDateTime = objects[KeyMintTag.ORIGINATION_EXPIRE_DATE_TIME]?.asInt(),
-        usageExpireDateTime = objects[KeyMintTag.USAGE_EXPIRE_DATE_TIME]?.asInt(),
+        purposes = objects[KeyMintTag.PURPOSE]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
+        algorithms = objects[KeyMintTag.ALGORITHM]?.toInt(),
+        keySize = objects[KeyMintTag.KEY_SIZE]?.toInt(),
+        digests = objects[KeyMintTag.DIGEST]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
+        paddings = objects[KeyMintTag.PADDING]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
+        ecCurve = objects[KeyMintTag.EC_CURVE]?.toInt(),
+        rsaPublicExponent = objects[KeyMintTag.RSA_PUBLIC_EXPONENT]?.toInt(),
+        activeDateTime = objects[KeyMintTag.ACTIVE_DATE_TIME]?.toInt(),
+        originationExpireDateTime = objects[KeyMintTag.ORIGINATION_EXPIRE_DATE_TIME]?.toInt(),
+        usageExpireDateTime = objects[KeyMintTag.USAGE_EXPIRE_DATE_TIME]?.toInt(),
         noAuthRequired = if (objects.containsKey(KeyMintTag.NO_AUTH_REQUIRED)) true else null,
-        userAuthType = objects[KeyMintTag.USER_AUTH_TYPE]?.asInt(),
-        authTimeout = objects[KeyMintTag.AUTH_TIMEOUT]?.asInt(),
+        userAuthType = objects[KeyMintTag.USER_AUTH_TYPE]?.toInt(),
+        authTimeout = objects[KeyMintTag.AUTH_TIMEOUT]?.toInt(),
         trustedUserPresenceRequired =
           if (objects.containsKey(KeyMintTag.TRUSTED_USER_PRESENCE_REQUIRED)) true else null,
-        creationDateTime = objects[KeyMintTag.CREATION_DATE_TIME]?.asInt(),
-        origin = objects[KeyMintTag.ORIGIN]?.asInt(),
+        creationDateTime = objects[KeyMintTag.CREATION_DATE_TIME]?.toInt(),
+        origin = objects[KeyMintTag.ORIGIN]?.toInt(),
         rollbackResistant = if (objects.containsKey(KeyMintTag.ROLLBACK_RESISTANT)) true else null,
-        rootOfTrust = objects[KeyMintTag.ROOT_OF_TRUST]?.asRootOfTrust(),
-        osVersion = objects[KeyMintTag.OS_VERSION]?.asInt(),
-        osPatchLevel = objects[KeyMintTag.OS_PATCH_LEVEL]?.asInt(),
+        rootOfTrust = objects[KeyMintTag.ROOT_OF_TRUST]?.toRootOfTrust(),
+        osVersion = objects[KeyMintTag.OS_VERSION]?.toInt(),
+        osPatchLevel = objects[KeyMintTag.OS_PATCH_LEVEL]?.toInt(),
         attestationApplicationId =
-          objects[KeyMintTag.ATTESTATION_APPLICATION_ID]?.asAttestationApplicationId(),
-        attestationIdBrand = objects[KeyMintTag.ATTESTATION_ID_BRAND]?.asString(),
-        attestationIdDevice = objects[KeyMintTag.ATTESTATION_ID_DEVICE]?.asString(),
-        attestationIdProduct = objects[KeyMintTag.ATTESTATION_ID_PRODUCT]?.asString(),
-        attestationIdSerial = objects[KeyMintTag.ATTESTATION_ID_SERIAL]?.asString(),
-        attestationIdImei = objects[KeyMintTag.ATTESTATION_ID_IMEI]?.asString(),
-        attestationIdMeid = objects[KeyMintTag.ATTESTATION_ID_MEID]?.asString(),
-        attestationIdManufacturer = objects[KeyMintTag.ATTESTATION_ID_MANUFACTURER]?.asString(),
-        attestationIdModel = objects[KeyMintTag.ATTESTATION_ID_MODEL]?.asString(),
-        vendorPatchLevel = objects[KeyMintTag.VENDOR_PATCH_LEVEL]?.asInt(),
-        bootPatchLevel = objects[KeyMintTag.BOOT_PATCH_LEVEL]?.asInt(),
-        attestationIdSecondImei = objects[KeyMintTag.ATTESTATION_ID_SECOND_IMEI]?.asString(),
+          objects[KeyMintTag.ATTESTATION_APPLICATION_ID]?.toAttestationApplicationId(),
+        attestationIdBrand = objects[KeyMintTag.ATTESTATION_ID_BRAND]?.toStr(),
+        attestationIdDevice = objects[KeyMintTag.ATTESTATION_ID_DEVICE]?.toStr(),
+        attestationIdProduct = objects[KeyMintTag.ATTESTATION_ID_PRODUCT]?.toStr(),
+        attestationIdSerial = objects[KeyMintTag.ATTESTATION_ID_SERIAL]?.toStr(),
+        attestationIdImei = objects[KeyMintTag.ATTESTATION_ID_IMEI]?.toStr(),
+        attestationIdMeid = objects[KeyMintTag.ATTESTATION_ID_MEID]?.toStr(),
+        attestationIdManufacturer = objects[KeyMintTag.ATTESTATION_ID_MANUFACTURER]?.toStr(),
+        attestationIdModel = objects[KeyMintTag.ATTESTATION_ID_MODEL]?.toStr(),
+        vendorPatchLevel = objects[KeyMintTag.VENDOR_PATCH_LEVEL]?.toInt(),
+        bootPatchLevel = objects[KeyMintTag.BOOT_PATCH_LEVEL]?.toInt(),
+        attestationIdSecondImei = objects[KeyMintTag.ATTESTATION_ID_SECOND_IMEI]?.toStr(),
       )
     }
   }
@@ -351,11 +352,11 @@ data class AttestationApplicationId(
   internal companion object {
     fun from(seq: ASN1Sequence): AttestationApplicationId {
       require(seq.size() == 2)
-      val attestationPackageInfos = (seq.getObjectAt(0).asSetOf<ASN1Sequence>())
-      val signatureDigests = seq.getObjectAt(1).asSetOf<ASN1OctetString>()
+      val attestationPackageInfos = (seq.getObjectAt(0).toSet<ASN1Sequence>())
+      val signatureDigests = seq.getObjectAt(1).toSet<ASN1OctetString>()
       return AttestationApplicationId(
         attestationPackageInfos.map { AttestationPackageInfo.from(it) }.toSet(),
-        signatureDigests.map { it.asByteString() }.toSet(),
+        signatureDigests.map { it.toByteString() }.toSet(),
       )
     }
   }
@@ -383,8 +384,8 @@ data class AttestationPackageInfo(val name: String, val version: BigInteger) {
         "AttestationPackageInfo sequence must have 2 elements, had ${attestationPackageInfo.size()}"
       }
       return AttestationPackageInfo(
-        name = attestationPackageInfo.getObjectAt(0).asString(),
-        version = attestationPackageInfo.getObjectAt(1).asInt(),
+        name = attestationPackageInfo.getObjectAt(0).toStr(),
+        version = attestationPackageInfo.getObjectAt(1).toInt(),
       )
     }
   }
@@ -414,13 +415,13 @@ data class RootOfTrust(
   internal companion object {
     fun from(rootOfTrust: ASN1Sequence): RootOfTrust {
       require(rootOfTrust.size() == 3 || rootOfTrust.size() == 4)
-      val verifiedBootState = rootOfTrust.getObjectAt(2).asEnumerated()
+      val verifiedBootState = rootOfTrust.getObjectAt(2).toEnumerated()
       return RootOfTrust(
-        verifiedBootKey = rootOfTrust.getObjectAt(0).asByteString(),
-        deviceLocked = rootOfTrust.getObjectAt(1).asBoolean(),
+        verifiedBootKey = rootOfTrust.getObjectAt(0).toByteString(),
+        deviceLocked = rootOfTrust.getObjectAt(1).toBoolean(),
         VerifiedBootState.from(verifiedBootState),
         verifiedBootHash =
-          if (rootOfTrust.size() > 3) rootOfTrust.getObjectAt(3).asByteString() else null,
+          if (rootOfTrust.size() > 3) rootOfTrust.getObjectAt(3).toByteString() else null,
       )
     }
   }
@@ -447,7 +448,7 @@ enum class VerifiedBootState(val value: Int) {
   }
 }
 
-private fun ASN1Encodable.asAttestationApplicationId(): AttestationApplicationId {
+private fun ASN1Encodable.toAttestationApplicationId(): AttestationApplicationId {
   require(this is ASN1OctetString) {
     "Object must be an ASN1OctetString, was ${this::class.simpleName}"
   }
@@ -455,45 +456,45 @@ private fun ASN1Encodable.asAttestationApplicationId(): AttestationApplicationId
 }
 
 // TODO: b/356172932 - `validateTagOrder` should default to true after making it user configurable.
-private fun ASN1Encodable.asAuthorizationList(
+private fun ASN1Encodable.toAuthorizationList(
   validateTagOrder: Boolean = false
 ): AuthorizationList {
   check(this is ASN1Sequence) { "Object must be an ASN1Sequence, was ${this::class.simpleName}" }
   return AuthorizationList.from(this, validateTagOrder)
 }
 
-private fun ASN1Encodable.asBoolean(): Boolean {
+private fun ASN1Encodable.toBoolean(): Boolean {
   check(this is ASN1Boolean) { "Must be an ASN1Boolean, was ${this::class.simpleName}" }
   return this.isTrue
 }
 
-private fun ASN1Encodable.asByteArray(): ByteArray {
+private fun ASN1Encodable.toByteArray(): ByteArray {
   check(this is ASN1OctetString) { "Must be an ASN1OctetString, was ${this::class.simpleName}" }
   return this.octets
 }
 
-private fun ASN1Encodable.asByteString() = ByteString.copyFrom(this.asByteArray())
+private fun ASN1Encodable.toByteString() = this.toByteArray().toByteString()
 
-private fun ASN1Encodable.asEnumerated(): ASN1Enumerated {
+private fun ASN1Encodable.toEnumerated(): ASN1Enumerated {
   check(this is ASN1Enumerated) { "Must be an ASN1Enumerated, was ${this::class.simpleName}" }
   return this
 }
 
-private fun ASN1Encodable.asInt(): BigInteger {
+private fun ASN1Encodable.toInt(): BigInteger {
   check(this is ASN1Integer) { "Must be an ASN1Integer, was ${this::class.simpleName}" }
   return this.value
 }
 
-private fun ASN1Encodable.asRootOfTrust(): RootOfTrust {
+private fun ASN1Encodable.toRootOfTrust(): RootOfTrust {
   check(this is ASN1Sequence) { "Object must be an ASN1Sequence, was ${this::class.simpleName}" }
   return RootOfTrust.from(this)
 }
 
-private fun ASN1Encodable.asSecurityLevel(): SecurityLevel =
-  SecurityLevel.values().firstOrNull { it.value.toBigInteger() == this.asEnumerated().value }
-    ?: throw IllegalStateException("unknown value: ${this.asEnumerated().value}")
+private fun ASN1Encodable.toSecurityLevel(): SecurityLevel =
+  SecurityLevel.values().firstOrNull { it.value.toBigInteger() == this.toEnumerated().value }
+    ?: throw IllegalStateException("unknown value: ${this.toEnumerated().value}")
 
-private inline fun <reified T> ASN1Encodable.asSetOf(): Set<T> {
+private inline fun <reified T> ASN1Encodable.toSet(): Set<T> {
   check(this is ASN1Set) { "Object must be an ASN1Set, was ${this::class.simpleName}" }
   return this.map {
       check(it is T) { "Object must be a ${T::class.simpleName}, was ${this::class.simpleName}" }
@@ -502,9 +503,9 @@ private inline fun <reified T> ASN1Encodable.asSetOf(): Set<T> {
     .toSet()
 }
 
-private fun ASN1Encodable.asString() = this.asByteArray().toString(UTF_8)
+private fun ASN1Encodable.toStr() = this.toByteArray().toString(UTF_8)
 
-private fun ASN1Encodable.asTaggedObject(tag: KeyMintTag) = DERTaggedObject(tag.value, this)
+private fun ASN1Encodable.toTaggedObject(tag: KeyMintTag) = DERTaggedObject(tag.value, this)
 
 private fun BigInteger.toAsn1() = ASN1Integer(this)
 
