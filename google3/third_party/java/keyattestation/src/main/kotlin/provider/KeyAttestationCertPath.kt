@@ -64,7 +64,7 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
    * Remotely provisioned certificates can be identified by the presence of the "provisioning
    * information" extension.
    *
-   * https://developer.android.com/privacy-and-security/security-key-attestation#provisioning_attestation_ext_schema
+   * https://source.android.com/docs/security/features/keystore/attestation#provisioninginfo_extension
    *
    * @return true if an attestation certificate is present in the chain and was remotely
    *   provisioned, or false otherwise.
