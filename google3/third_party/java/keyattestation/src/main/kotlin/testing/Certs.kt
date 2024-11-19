@@ -374,6 +374,8 @@ object FakeCalendar {
 
   @JvmStatic fun today(): Date = today.toDate()
 
+  @JvmStatic fun now(): Instant = today.atStartOfDay(ZoneId.of("UTC")).toInstant()
+
   fun yesterday(): Date = today.minusDays(1).toDate()
 
   fun tomorrow(): Date = today.plusDays(1).toDate()
