@@ -20,6 +20,8 @@ import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
 import com.squareup.moshi.JsonClass
 import java.math.BigInteger
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
 import java.security.cert.X509Certificate
 import kotlin.text.Charsets.UTF_8
 import org.bouncycastle.asn1.ASN1Boolean
@@ -37,6 +39,11 @@ import org.bouncycastle.asn1.DERSequence
 import org.bouncycastle.asn1.DERSet
 import org.bouncycastle.asn1.DERTaggedObject
 import org.bouncycastle.asn1.x509.Extension
+
+private val strictUtf8Decoder =
+  UTF_8.newDecoder()
+    .onMalformedInput(CodingErrorAction.REPORT)
+    .onUnmappableCharacter(CodingErrorAction.REPORT)
 
 @JsonClass(generateAdapter = true)
 data class KeyDescription(
@@ -489,6 +496,8 @@ private fun ASN1Encodable.toByteArray(): ByteArray {
   return this.octets
 }
 
+private fun ASN1Encodable.toByteBuffer() = ByteBuffer.wrap(this.toByteArray())
+
 private fun ASN1Encodable.toByteString() = this.toByteArray().toByteString()
 
 private fun ASN1Encodable.toEnumerated(): ASN1Enumerated {
@@ -519,7 +528,7 @@ private inline fun <reified T> ASN1Encodable.toSet(): Set<T> {
     .toSet()
 }
 
-private fun ASN1Encodable.toStr() = this.toByteArray().toString(UTF_8)
+private fun ASN1Encodable.toStr() = strictUtf8Decoder.decode(this.toByteBuffer()).toString()
 
 private fun ASN1Encodable.toTaggedObject(tag: KeyMintTag) = DERTaggedObject(tag.value, this)
 
