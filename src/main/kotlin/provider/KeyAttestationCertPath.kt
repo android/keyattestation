@@ -17,9 +17,6 @@
 package com.android.keyattestation.verifier.provider
 
 import com.android.keyattestation.verifier.asX509Certificate
-import com.google.common.collect.ImmutableList
-import com.google.common.collect.toImmutableList
-import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
 import java.security.cert.CertPath
 import java.security.cert.CertificateException
@@ -44,9 +41,8 @@ import java.security.cert.X509Certificate
  *
  * https://docs.oracle.com/en/java/javase/21/security/java-pki-programmers-guide.html#GUID-E47B8A0E-6B3A-4B49-994D-CF185BF441EC
  */
-@ThreadSafe
 class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
-  val certificatesWithAnchor: ImmutableList<X509Certificate>
+  val certificatesWithAnchor: List<X509Certificate>
 
   init {
     if (certs.size < 3) throw CertificateException("At least 3 certificates are required")
@@ -56,7 +52,7 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
       else -> throw CertificateException("Attestation extension on unexpected certificate")
     }
     if (!certs.last().isSelfIssued()) throw CertificateException("Root certificate not found")
-    this.certificatesWithAnchor = certs.toImmutableList()
+    this.certificatesWithAnchor = certs
   }
 
   constructor(vararg certificates: X509Certificate) : this(certificates.toList())
