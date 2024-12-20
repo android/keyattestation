@@ -52,6 +52,8 @@ abstract class AuthorizationListBuilder {
     trustedUserPresenceRequired: Boolean
   ): AuthorizationListBuilder
 
+  abstract fun setUnlockedDeviceRequired(unlockedDeviceRequired: Boolean): AuthorizationListBuilder
+
   abstract fun setAuthTimeout(authTimeout: BigInteger): AuthorizationListBuilder
 
   abstract fun setCreationDateTime(creationDateTime: BigInteger): AuthorizationListBuilder
@@ -93,6 +95,8 @@ abstract class AuthorizationListBuilder {
   abstract fun setBootPatchLevel(bootPatchLevel: BigInteger): AuthorizationListBuilder
 
   abstract fun setAttestationIdSecondImei(attestationIdSecondImei: String): AuthorizationListBuilder
+
+  abstract fun setModuleHash(moduleHash: String): AuthorizationListBuilder
 
   abstract fun build(): AuthorizationList
 

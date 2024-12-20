@@ -198,6 +198,7 @@ enum class KeyMintTag(val value: Int) {
   USER_AUTH_TYPE(504),
   AUTH_TIMEOUT(505),
   TRUSTED_USER_PRESENCE_REQUIRED(507),
+  UNLOCKED_DEVICE_REQUIRED(509),
   CREATION_DATE_TIME(701),
   ORIGIN(702),
   ROLLBACK_RESISTANT(703),
@@ -215,7 +216,8 @@ enum class KeyMintTag(val value: Int) {
   ATTESTATION_ID_MODEL(717),
   VENDOR_PATCH_LEVEL(718),
   BOOT_PATCH_LEVEL(719),
-  ATTESTATION_ID_SECOND_IMEI(723);
+  ATTESTATION_ID_SECOND_IMEI(723),
+  MODULE_HASH(724);
 
   companion object {
     fun from(value: Int) =
@@ -246,6 +248,7 @@ data class AuthorizationList(
   val userAuthType: BigInteger? = null,
   val authTimeout: BigInteger? = null,
   val trustedUserPresenceRequired: Boolean? = null,
+  val unlockedDeviceRequired: Boolean? = null,
   val creationDateTime: BigInteger? = null,
   val origin: BigInteger? = null,
   val rollbackResistant: Boolean? = null,
@@ -264,6 +267,7 @@ data class AuthorizationList(
   val vendorPatchLevel: BigInteger? = null,
   val bootPatchLevel: BigInteger? = null,
   val attestationIdSecondImei: String? = null,
+  val moduleHash: String? = null,
 ) {
   /**
    * Converts the representation of an [AuthorizationList] to an ASN.1 sequence.
@@ -295,6 +299,10 @@ data class AuthorizationList(
         if (trustedUserPresenceRequired != null) {
           check(trustedUserPresenceRequired) { "trustedUserPresenceRequired must be null or true" }
           add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.TRUSTED_USER_PRESENCE_REQUIRED))
+        }
+        if (unlockedDeviceRequired != null) {
+          check(unlockedDeviceRequired) { "unlockedDeviceRequired must be null or true" }
+          add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.UNLOCKED_DEVICE_REQUIRED))
         }
         creationDateTime?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.CREATION_DATE_TIME)) }
         origin?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ORIGIN)) }
@@ -333,6 +341,7 @@ data class AuthorizationList(
         attestationIdSecondImei?.toAsn1()?.let {
           add(it.toTaggedObject(KeyMintTag.ATTESTATION_ID_SECOND_IMEI))
         }
+        moduleHash?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.MODULE_HASH)) }
       }
       .let { DERSequence(it.toTypedArray()) }
 
@@ -378,6 +387,8 @@ data class AuthorizationList(
         authTimeout = objects[KeyMintTag.AUTH_TIMEOUT]?.toInt(),
         trustedUserPresenceRequired =
           if (objects.containsKey(KeyMintTag.TRUSTED_USER_PRESENCE_REQUIRED)) true else null,
+        unlockedDeviceRequired =
+          if (objects.containsKey(KeyMintTag.UNLOCKED_DEVICE_REQUIRED)) true else null,
         creationDateTime = objects[KeyMintTag.CREATION_DATE_TIME]?.toInt(),
         origin = objects[KeyMintTag.ORIGIN]?.toInt(),
         rollbackResistant = if (objects.containsKey(KeyMintTag.ROLLBACK_RESISTANT)) true else null,
@@ -397,6 +408,7 @@ data class AuthorizationList(
         vendorPatchLevel = objects[KeyMintTag.VENDOR_PATCH_LEVEL]?.toInt(),
         bootPatchLevel = objects[KeyMintTag.BOOT_PATCH_LEVEL]?.toInt(),
         attestationIdSecondImei = objects[KeyMintTag.ATTESTATION_ID_SECOND_IMEI]?.toStr(),
+        moduleHash = objects[KeyMintTag.MODULE_HASH]?.toStr(),
       )
     }
   }
