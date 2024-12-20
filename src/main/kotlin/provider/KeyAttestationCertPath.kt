@@ -94,7 +94,7 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
    */
   fun leafCert(): X509Certificate = certificates[0]
 
-  private fun attestationCert(): X509Certificate = certificates[1]
+  fun attestationCert(): X509Certificate = certificates[1]
 
   companion object {
     private const val KEY_DESCRIPTION_OID = "1.3.6.1.4.1.11129.2.1.17"

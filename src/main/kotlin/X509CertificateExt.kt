@@ -37,3 +37,11 @@ fun InputStream.asX509Certificate() =
  *   extension is not present in the certificate.
  */
 fun X509Certificate.keyDescription() = KeyDescription.parseFrom(this)
+
+/**
+ * Returns the Android Key Attestation extension for provisioning info.
+ *
+ * @return the DER-encoded OCTET string containing the ProvisioningInfo sequence or null if the
+ *   extension is not present in the certificate.
+ */
+fun X509Certificate.provisioningInfo() = ProvisioningInfoMap.parseFrom(this)

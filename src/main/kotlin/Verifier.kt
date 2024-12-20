@@ -38,6 +38,7 @@ sealed interface VerificationResult {
     val challenge: ByteString,
     val securityLevel: SecurityLevel,
     val verifiedBootState: VerifiedBootState,
+    val deviceInformation: ProvisioningInfoMap?,
   ) : VerificationResult
 
   data object ChallengeMismatch : VerificationResult
@@ -115,11 +116,18 @@ class Verifier(private val anchors: Set<TrustAnchor>) {
       }
     val rootOfTrust =
       keyDescription.teeEnforced.rootOfTrust ?: return VerificationResult.ExtensionParsingFailure
+    val deviceInformation =
+      if (certPath.isRemotelyProvisioned()) {
+        certPath.attestationCert().provisioningInfo()
+      } else {
+        null
+      }
     return VerificationResult.Success(
       pathValidationResult.publicKey,
       keyDescription.attestationChallenge,
       securityLevel,
       rootOfTrust.verifiedBootState,
+      deviceInformation,
     )
   }
 }

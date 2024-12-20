@@ -16,6 +16,16 @@
 
 package com.android.keyattestation.verifier
 
+import co.nstant.`in`.cbor.CborException
+import co.nstant.`in`.cbor.model.DataItem
+import co.nstant.`in`.cbor.model.MajorType
+import co.nstant.`in`.cbor.model.Map
+import co.nstant.`in`.cbor.model.SimpleValue
+import co.nstant.`in`.cbor.model.SimpleValueType
+import co.nstant.`in`.cbor.model.Special
+import co.nstant.`in`.cbor.model.SpecialType
+import co.nstant.`in`.cbor.model.UnsignedInteger
+import com.google.cose.utils.CborUtils
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
 import com.squareup.moshi.JsonClass
@@ -44,6 +54,44 @@ private val strictUtf8Decoder =
   UTF_8.newDecoder()
     .onMalformedInput(CodingErrorAction.REPORT)
     .onUnmappableCharacter(CodingErrorAction.REPORT)
+
+@JsonClass(generateAdapter = true)
+data class ProvisioningInfoMap(
+  val certificatesIssued: Int,
+  // copybara:strip_begin(Internal marker for droidfood)
+  val isDroidfood: Boolean,
+  // copybara:strip_end
+  val manufacturer: String?,
+) {
+  companion object {
+    /* OID for the provisioning info map extension.
+     * https://developer.android.com/privacy-and-security/security-key-attestation#provisioning_attestation_ext_schema
+     */
+    @JvmField val OID = ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.30")
+
+    @JvmStatic fun parseFrom(cert: X509Certificate) = parseFrom(cert.getExtensionValue(OID.id))
+
+    @JvmStatic
+    fun parseFrom(bytes: ByteArray?) =
+      try {
+        val cborBytes = ASN1OctetString.getInstance(bytes).octets
+        from(CborUtils.decode(cborBytes).asMap())
+      } catch (e: CborException) {
+        throw IllegalArgumentException(e)
+      }
+
+    private fun from(seq: Map): ProvisioningInfoMap {
+      require(seq.keys.size >= 1)
+      return ProvisioningInfoMap(
+        certificatesIssued = seq.get(UnsignedInteger(1L)).asInteger(),
+        // copybara:strip_begin(Internal marker for droidfood)
+        isDroidfood = seq.get(UnsignedInteger(2L))?.asBoolean() ?: false,
+        // copybara:strip_end
+        manufacturer = seq.get(UnsignedInteger(3L))?.asString(),
+      )
+    }
+  }
+}
 
 @JsonClass(generateAdapter = true)
 data class KeyDescription(
@@ -541,3 +589,29 @@ private fun ByteString.toAsn1() = DEROctetString(this.toByteArray())
 private fun Set<BigInteger>.toAsn1() = DERSet(this.map { it.toAsn1() }.toTypedArray())
 
 private fun String.toAsn1() = DEROctetString(this.toByteArray(UTF_8))
+
+// copybara:strip_begin(Internal marker for droidfood)
+private fun DataItem.asBoolean(): Boolean {
+  check(
+    this.majorType == MajorType.SPECIAL && (this as Special).specialType == SpecialType.SIMPLE_VALUE
+  ) {
+    "Must be a SimpleValueType, was ${this::class.simpleName}"
+  }
+  check(
+    (this as SimpleValue).simpleValueType == SimpleValueType.TRUE ||
+      this.simpleValueType == SimpleValueType.FALSE
+  ) {
+    "Must be either TRUE or FALSE value"
+  }
+  return this.simpleValueType == SimpleValueType.TRUE
+}
+
+// copybara:strip_end
+
+private fun DataItem.asInteger() = CborUtils.asInteger(this)
+
+private fun DataItem.asMap() = CborUtils.asMap(this)
+
+private fun DataItem.asString() = CborUtils.getString(this)
+
+private fun Long.asUnsignedInteger() = co.nstant.`in`.cbor.model.UnsignedInteger(this)

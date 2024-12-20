@@ -24,6 +24,7 @@ import com.google.devtools.build.runtime.RunfilesPaths
 import com.google.protobuf.ByteString
 import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
+import java.util.Base64
 import kotlin.io.path.Path
 import kotlin.io.path.inputStream
 import kotlin.io.path.listDirectoryEntries
@@ -38,6 +39,25 @@ import org.junit.runner.RunWith
 @RunWith(TestParameterInjector::class)
 class ExtensionTest {
   private val testData = RunfilesPaths.resolve(TESTDATA_PATH)
+
+  // copybara: strip_begin(Test cases for internal marker)
+  @Test
+  fun parseFrom_success_non_droidfood() {
+    val provisioningInfoBase64 = "BAOhAQA="
+    val decoded = Base64.getDecoder().decode(provisioningInfoBase64)
+    val provisioningInfo = ProvisioningInfoMap.parseFrom(decoded)
+    assertThat(provisioningInfo.isDroidfood).isFalse()
+  }
+
+  @Test
+  fun parseFrom_success_droidfood() {
+    val provisioningInfoBase64 = "BA6jARiAAvUDZkdvb2dsZQ=="
+    val decoded = Base64.getDecoder().decode(provisioningInfoBase64)
+    val provisioningInfo = ProvisioningInfoMap.parseFrom(decoded)
+    assertThat(provisioningInfo.isDroidfood).isTrue()
+  }
+
+  // copybara: strip_end
 
   @Test
   fun parseFrom_success(@TestParameter testCase: TestCase) {
