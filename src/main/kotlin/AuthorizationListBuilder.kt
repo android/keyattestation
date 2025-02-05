@@ -17,6 +17,7 @@
 package com.android.keyattestation.verifier
 
 import com.google.auto.value.AutoBuilder
+import com.google.protobuf.ByteString
 import java.math.BigInteger
 
 /** Builder for [AuthorizationList]. */
@@ -96,7 +97,7 @@ abstract class AuthorizationListBuilder {
 
   abstract fun setAttestationIdSecondImei(attestationIdSecondImei: String): AuthorizationListBuilder
 
-  abstract fun setModuleHash(moduleHash: String): AuthorizationListBuilder
+  abstract fun setModuleHash(moduleHash: ByteString): AuthorizationListBuilder
 
   abstract fun build(): AuthorizationList
 

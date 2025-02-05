@@ -267,7 +267,7 @@ data class AuthorizationList(
   val vendorPatchLevel: BigInteger? = null,
   val bootPatchLevel: BigInteger? = null,
   val attestationIdSecondImei: String? = null,
-  val moduleHash: String? = null,
+  val moduleHash: ByteString? = null,
 ) {
   /**
    * Converts the representation of an [AuthorizationList] to an ASN.1 sequence.
@@ -408,7 +408,7 @@ data class AuthorizationList(
         vendorPatchLevel = objects[KeyMintTag.VENDOR_PATCH_LEVEL]?.toInt(),
         bootPatchLevel = objects[KeyMintTag.BOOT_PATCH_LEVEL]?.toInt(),
         attestationIdSecondImei = objects[KeyMintTag.ATTESTATION_ID_SECOND_IMEI]?.toStr(),
-        moduleHash = objects[KeyMintTag.MODULE_HASH]?.toStr(),
+        moduleHash = objects[KeyMintTag.MODULE_HASH]?.toByteString(),
       )
     }
   }
