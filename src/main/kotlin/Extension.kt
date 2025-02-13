@@ -16,19 +16,22 @@
 
 package com.android.keyattestation.verifier
 
+import co.nstant.`in`.cbor.CborDecoder
 import co.nstant.`in`.cbor.CborException
 import co.nstant.`in`.cbor.model.DataItem
 import co.nstant.`in`.cbor.model.MajorType
 import co.nstant.`in`.cbor.model.Map
+import co.nstant.`in`.cbor.model.NegativeInteger
 import co.nstant.`in`.cbor.model.SimpleValue
 import co.nstant.`in`.cbor.model.SimpleValueType
 import co.nstant.`in`.cbor.model.Special
 import co.nstant.`in`.cbor.model.SpecialType
+import co.nstant.`in`.cbor.model.UnicodeString
 import co.nstant.`in`.cbor.model.UnsignedInteger
-import com.google.cose.utils.CborUtils
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
 import com.squareup.moshi.JsonClass
+import java.io.ByteArrayInputStream
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
@@ -75,7 +78,7 @@ data class ProvisioningInfoMap(
     fun parseFrom(bytes: ByteArray?) =
       try {
         val cborBytes = ASN1OctetString.getInstance(bytes).octets
-        from(CborUtils.decode(cborBytes).asMap())
+        from(cborDecode(cborBytes).asMap())
       } catch (e: CborException) {
         throw IllegalArgumentException(e)
       }
@@ -620,10 +623,44 @@ private fun DataItem.asBoolean(): Boolean {
 
 // copybara:strip_end
 
-private fun DataItem.asInteger() = CborUtils.asInteger(this)
+fun cborDecode(data: ByteArray): DataItem {
+  val bais = ByteArrayInputStream(data)
+  val dataItems = CborDecoder(bais).decode()
+  if (dataItems.size != 1) {
+    throw CborException(
+      "Byte stream cannot be decoded properly. Expected 1 item, found ${dataItems.size}"
+    )
+  }
+  return dataItems[0]
+}
 
-private fun DataItem.asMap() = CborUtils.asMap(this)
+fun DataItem.asInteger(): Int {
+  if (this.majorType == MajorType.UNSIGNED_INTEGER) {
+    return (this as UnsignedInteger).value.toInt()
+  }
+  if (this.majorType == MajorType.NEGATIVE_INTEGER) {
+    return (this as NegativeInteger).value.toInt()
+  }
+  throw CborException("Expected a number, got ${this.majorType}")
+}
 
-private fun DataItem.asString() = CborUtils.getString(this)
+private fun DataItem.asMap(): Map {
+  if (this.majorType != MajorType.MAP) {
+    throw CborException("Expected a map, got ${this.majorType.name}")
+  }
+  @Suppress("UNCHECKED_CAST")
+  return this as Map
+}
+
+fun DataItem.asUnicodeString(): UnicodeString {
+  if (this.majorType != MajorType.UNICODE_STRING) {
+    throw CborException("Expected a unicode string, got ${this.majorType.name}")
+  }
+  return this as UnicodeString
+}
+
+fun DataItem.asString(): String {
+  return this.asUnicodeString().string
+}
 
 private fun Long.asUnsignedInteger() = co.nstant.`in`.cbor.model.UnsignedInteger(this)

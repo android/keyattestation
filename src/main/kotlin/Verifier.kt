@@ -18,7 +18,6 @@ package com.android.keyattestation.verifier
 
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.android.keyattestation.verifier.provider.KeyAttestationProvider
-import com.google.common.time.TimeSource
 import com.google.protobuf.ByteString
 import java.nio.ByteBuffer
 import java.security.PublicKey
@@ -87,8 +86,7 @@ class Verifier(private val anchors: Set<TrustAnchor>) {
   fun verify(certPath: KeyAttestationCertPath, challenge: ByteArray? = null): VerificationResult {
     val pathValidationResult =
       try {
-        val params =
-          PKIXParameters(anchors).apply { date = Date.from(TimeSource.system().instant()) }
+        val params = PKIXParameters(anchors).apply { date = Date() }
         certPathValidator.validate(certPath, params) as PKIXCertPathValidatorResult
       } catch (e: CertPathValidatorException) {
         return VerificationResult.PathValidationFailure
