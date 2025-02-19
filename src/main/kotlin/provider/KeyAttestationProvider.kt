@@ -24,8 +24,9 @@ import java.security.ProviderException
  *
  * https://docs.oracle.com/en/java/javase/21/security/howtoimplaprovider.html
  */
-class KeyAttestationProvider :
-  Provider("KeyAttestation", "0.1", "Android Key Attestation Provider") {
+// The replacement constructor was added in Java 11 and is not available on Android.
+@Suppress("DEPRECATION")
+class KeyAttestationProvider : Provider("KeyAttestation", 0.1, "Android Key Attestation Provider") {
   init {
     putService(
       ProviderService(
