@@ -18,6 +18,7 @@ package com.android.keyattestation.verifier
 
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.android.keyattestation.verifier.provider.KeyAttestationProvider
+import com.android.keyattestation.verifier.provider.ProvisioningMethod
 import com.google.protobuf.ByteString
 import java.nio.ByteBuffer
 import java.security.PublicKey
@@ -115,7 +116,7 @@ class Verifier(private val anchors: Set<TrustAnchor>) {
     val rootOfTrust =
       keyDescription.teeEnforced.rootOfTrust ?: return VerificationResult.ExtensionParsingFailure
     val deviceInformation =
-      if (certPath.isRemotelyProvisioned()) {
+      if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
         certPath.attestationCert().provisioningInfo()
       } else {
         null

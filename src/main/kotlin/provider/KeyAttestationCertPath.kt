@@ -65,25 +65,6 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
   override fun getCertificates(): List<X509Certificate> = certificatesWithAnchor.dropLast(1)
 
-  /**
-   * Returns true if the attestation certificate was remotely provisioned.
-   *
-   * Key Attestation certificates can either be provisioned at the factory or remotely. A factory
-   * provisioned certificate is static for the lifetime of the device and shares a key pair with a
-   * large number of devices. Remotely provisioned certificates are short-lived and are
-   * authenticated by a device unique key.
-   *
-   * Remotely provisioned certificates can be identified by the presence of the "provisioning
-   * information" extension.
-   *
-   * https://source.android.com/docs/security/features/keystore/attestation#provisioninginfo_extension
-   *
-   * @return true if an attestation certificate is present in the chain and was remotely
-   *   provisioned, or false otherwise.
-   */
-  fun isRemotelyProvisioned(): Boolean =
-    attestationCert().getExtensionValue(PROVISIONING_INFO_OID) != null
-
   fun provisioningMethod(): ProvisioningMethod = intermediateCert().provisioningMethod()
 
   /**
@@ -102,7 +83,6 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
   companion object {
     private const val KEY_DESCRIPTION_OID = "1.3.6.1.4.1.11129.2.1.17"
-    private const val PROVISIONING_INFO_OID = "1.3.6.1.4.1.11129.2.1.30"
 
     @JvmStatic
     @Throws(CertificateException::class)

@@ -72,7 +72,8 @@ data class ProvisioningInfoMap(
      */
     @JvmField val OID = ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.30")
 
-    @JvmStatic fun parseFrom(cert: X509Certificate) = parseFrom(cert.getExtensionValue(OID.id))
+    @JvmStatic
+    fun parseFrom(cert: X509Certificate) = cert.getExtensionValue(OID.id)?.let { parseFrom(it) }
 
     @JvmStatic
     fun parseFrom(bytes: ByteArray?) =
