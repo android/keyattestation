@@ -58,10 +58,10 @@ class KeyAttestationCertPathValidatorTest {
   @Test
   fun nullParameters_throwsInvalidAlgorithmParameterException() {
     assertFailsWith<InvalidAlgorithmParameterException> {
-      certPathValidator.validate(Chains.valid, null)
+      certPathValidator.validate(Chains.validFactoryProvisioned, null)
     }
     assertFailsWith<InvalidAlgorithmParameterException> {
-      pkixCertPathValidator.validate(Chains.valid, null)
+      pkixCertPathValidator.validate(Chains.validFactoryProvisioned, null)
     }
   }
 
@@ -69,10 +69,10 @@ class KeyAttestationCertPathValidatorTest {
   fun wrongParameterType_throwsInvalidAlgorithmParameterException() {
     val params = CertPathParameters { throw UnsupportedOperationException() }
     assertFailsWith<InvalidAlgorithmParameterException> {
-      certPathValidator.validate(Chains.valid, params)
+      certPathValidator.validate(Chains.validFactoryProvisioned, params)
     }
     assertFailsWith<InvalidAlgorithmParameterException> {
-      pkixCertPathValidator.validate(Chains.valid, params)
+      pkixCertPathValidator.validate(Chains.validFactoryProvisioned, params)
     }
   }
 
@@ -80,11 +80,17 @@ class KeyAttestationCertPathValidatorTest {
   fun nullDate_throwsCertPathValidatorException() {
     val exception =
       assertFailsWith<CertPathValidatorException> {
-        certPathValidator.validate(Chains.valid, PKIXParameters(setOf(testAnchor)))
+        certPathValidator.validate(
+          Chains.validFactoryProvisioned,
+          PKIXParameters(setOf(testAnchor)),
+        )
       }
     val pkixException =
       assertFailsWith<CertPathValidatorException> {
-        pkixCertPathValidator.validate(Chains.valid, PKIXParameters(setOf(testAnchor)))
+        pkixCertPathValidator.validate(
+          Chains.validFactoryProvisioned,
+          PKIXParameters(setOf(testAnchor)),
+        )
       }
     assertThat(exception.reason).isEqualTo(BasicReason.EXPIRED)
     assertThat(pkixException.reason).isEqualTo(BasicReason.EXPIRED)
@@ -92,7 +98,16 @@ class KeyAttestationCertPathValidatorTest {
 
   @Test
   fun validChain_returnsSuccess() {
-    val certPath = Chains.valid
+    val certPath = Chains.validFactoryProvisioned
+    val result = certPathValidator.validate(certPath, testParams) as PKIXCertPathValidatorResult
+    assertThat(result.trustAnchor).isEqualTo(testAnchor)
+    assertThat(result.policyTree).isNull()
+    assertThat(result.publicKey).isEqualTo(certPath.certificates.first().publicKey)
+  }
+
+  @Test
+  fun remotelyProvisioned_returnsSuccess() {
+    val certPath = Chains.validRemotelyProvisioned
     val result = certPathValidator.validate(certPath, testParams) as PKIXCertPathValidatorResult
     assertThat(result.trustAnchor).isEqualTo(testAnchor)
     assertThat(result.policyTree).isNull()
@@ -101,7 +116,7 @@ class KeyAttestationCertPathValidatorTest {
 
   @Test
   fun multipleAnchors_returnsSuccess() {
-    val certPath = Chains.valid
+    val certPath = Chains.validFactoryProvisioned
     val params = PKIXParameters(setOf(prodAnchor, testAnchor)).apply { date = FakeCalendar.today() }
     val result = certPathValidator.validate(certPath, params) as PKIXCertPathValidatorResult
     assertThat(result.trustAnchor).isEqualTo(testAnchor)
@@ -120,7 +135,7 @@ class KeyAttestationCertPathValidatorTest {
 
   @Test
   fun wrongAnchor_throwsCertPathValidatorException() {
-    val certPath = Chains.valid
+    val certPath = Chains.validFactoryProvisioned
     val exception =
       assertFailsWith<CertPathValidatorException> {
         certPathValidator.validate(certPath, prodParams)
@@ -138,7 +153,7 @@ class KeyAttestationCertPathValidatorTest {
     val params = PKIXParameters(setOf(prodAnchor, prodAnchor)).apply { date = FakeCalendar.today() }
     val exception =
       assertFailsWith<CertPathValidatorException> {
-        certPathValidator.validate(Chains.valid, params)
+        certPathValidator.validate(Chains.validFactoryProvisioned, params)
       }
     assertThat(exception.reason).isEqualTo(PKIXReason.NO_TRUST_ANCHOR)
   }
@@ -197,7 +212,7 @@ class KeyAttestationCertPathValidatorTest {
   fun additionalCertPathChecker_isCalled() {
     assertFailsWith<FakeChecker.Exception> {
       certPathValidator.validate(
-        Chains.valid,
+        Chains.validFactoryProvisioned,
         testParams.apply { addCertPathChecker(FakeChecker()) },
       )
     }

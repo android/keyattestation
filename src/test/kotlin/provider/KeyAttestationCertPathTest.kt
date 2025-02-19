@@ -17,6 +17,7 @@
 package com.android.keyattestation.verifier.provider
 
 import com.android.keyattestation.verifier.testing.CertLists
+import com.android.keyattestation.verifier.testing.Chains
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import java.security.cert.CertificateException
@@ -30,18 +31,25 @@ import org.junit.runners.JUnit4
 class KeyAttestationCertPathTest {
   @Test
   fun constructor_noleaf_throwsCertificateException() {
-    assertFailsWith<CertificateException> { KeyAttestationCertPath(CertLists.valid.drop(1)) }
+    assertFailsWith<CertificateException> {
+      KeyAttestationCertPath(CertLists.validFactoryProvisioned.drop(1))
+    }
   }
 
   @Test
   fun constructor_noRoot_throwsException() {
-    assertFailsWith<CertificateException> { KeyAttestationCertPath(CertLists.valid.dropLast(1)) }
+    assertFailsWith<CertificateException> {
+      KeyAttestationCertPath(CertLists.validFactoryProvisioned.dropLast(1))
+    }
   }
 
   @Test
   fun constructor_tooShort_throwsException() {
     assertFailsWith<CertificateException> {
-      KeyAttestationCertPath(CertLists.valid.first(), CertLists.valid.last())
+      KeyAttestationCertPath(
+        CertLists.validFactoryProvisioned.first(),
+        CertLists.validFactoryProvisioned.last(),
+      )
     }
   }
 
@@ -54,7 +62,7 @@ class KeyAttestationCertPathTest {
   fun generateFrom() {
     val unused =
       KeyAttestationCertPath.generateFrom(
-        CertLists.valid.map(X509Certificate::getEncoded).map(ByteString::copyFrom)
+        CertLists.validFactoryProvisioned.map(X509Certificate::getEncoded).map(ByteString::copyFrom)
       )
   }
 
@@ -68,41 +76,40 @@ class KeyAttestationCertPathTest {
   @Test
   fun getEncodings_throwsUnsupportedOperationException() {
     assertFailsWith<UnsupportedOperationException> {
-      KeyAttestationCertPath(CertLists.valid).getEncodings()
+      KeyAttestationCertPath(CertLists.validFactoryProvisioned).getEncodings()
     }
   }
 
   @Test
   fun getEncoded_throwsUnsupportedOperationException() {
     assertFailsWith<UnsupportedOperationException> {
-      KeyAttestationCertPath(CertLists.valid).getEncoded()
+      KeyAttestationCertPath(CertLists.validFactoryProvisioned).getEncoded()
     }
     assertFailsWith<UnsupportedOperationException> {
-      KeyAttestationCertPath(CertLists.valid).getEncoded("null")
+      KeyAttestationCertPath(CertLists.validFactoryProvisioned).getEncoded("null")
     }
   }
 
   @Test
   fun getCertificates_inCorrectOrderWithoutRoot() {
-    assertThat(KeyAttestationCertPath(CertLists.valid).getCertificates())
-      .containsExactlyElementsIn(CertLists.valid.dropLast(1))
+    assertThat(KeyAttestationCertPath(CertLists.validFactoryProvisioned).getCertificates())
+      .containsExactlyElementsIn(CertLists.validFactoryProvisioned.dropLast(1))
       .inOrder()
   }
 
   @Test
   fun leafCert_returnsExpectedCert() {
-    assertThat(KeyAttestationCertPath(CertLists.valid).leafCert())
-      .isEqualTo(CertLists.valid.first())
+    assertThat(KeyAttestationCertPath(CertLists.validFactoryProvisioned).leafCert())
+      .isEqualTo(CertLists.validFactoryProvisioned.first())
   }
 
   @Test
-  fun isRemotelyProvisioned_returnsTrue() {
-    assertThat(KeyAttestationCertPath(CertLists.remotelyProvisioned).isRemotelyProvisioned())
-      .isTrue()
-  }
-
-  @Test
-  fun isRemotelyProvisioned_returnsFalse() {
-    assertThat(KeyAttestationCertPath(CertLists.valid).isRemotelyProvisioned()).isFalse()
+  fun provisioningMethod_returnsExpectedType() {
+    assertThat(Chains.validFactoryProvisioned.provisioningMethod())
+      .isEqualTo(ProvisioningMethod.FACTORY_PROVISIONED)
+    assertThat(Chains.validRemotelyProvisioned.provisioningMethod())
+      .isEqualTo(ProvisioningMethod.REMOTELY_PROVISIONED)
+    assertThat(Chains.wrongIntermediateSubject.provisioningMethod())
+      .isEqualTo(ProvisioningMethod.UNKNOWN)
   }
 }
