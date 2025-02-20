@@ -37,7 +37,14 @@ class RevocationCheckerTest {
       date = FakeCalendar.today()
     }
   private val revocationChecker =
-    RevocationChecker(setOf(Chains.REVOKED_SERIAL_NUMBER.toString(16)))
+    RevocationChecker(
+      setOf(
+        Chains.REVOKED_SERIAL_NUMBER.toString(16),
+        Chains.REVOKED_SERIAL_NUMBER_BIG.toString(16),
+        Chains.REVOKED_SERIAL_NUMBER_LONG_STRING.toString(16),
+        Chains.REVOKED_SERIAL_NUMBER_ODD_LENGTH.toString(16),
+      )
+    )
   private val validator = CertPathValidator.getInstance("KeyAttestation")
   private val pkixValidator = CertPathValidator.getInstance("PKIX")
 

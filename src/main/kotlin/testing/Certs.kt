@@ -245,6 +245,10 @@ object Chains {
   }
 
   @JvmField val REVOKED_SERIAL_NUMBER = 42.toBigInteger()
+  @JvmField val REVOKED_SERIAL_NUMBER_BIG = 8000000000000.toBigInteger()
+  @JvmField
+  val REVOKED_SERIAL_NUMBER_LONG_STRING = "c35747a084470c3135aeefe2b8d40cd6".toBigInteger(16)
+  @JvmField val REVOKED_SERIAL_NUMBER_ODD_LENGTH = 1228286566665971148.toBigInteger()
 
   @JvmStatic
   val revoked by lazy {
