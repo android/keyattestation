@@ -28,6 +28,7 @@ import co.nstant.`in`.cbor.model.Special
 import co.nstant.`in`.cbor.model.SpecialType
 import co.nstant.`in`.cbor.model.UnicodeString
 import co.nstant.`in`.cbor.model.UnsignedInteger
+import com.google.errorprone.annotations.Immutable
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
 import com.squareup.moshi.JsonClass
@@ -58,6 +59,7 @@ private val strictUtf8Decoder =
     .onMalformedInput(CodingErrorAction.REPORT)
     .onUnmappableCharacter(CodingErrorAction.REPORT)
 
+@Immutable
 @JsonClass(generateAdapter = true)
 data class ProvisioningInfoMap(
   val certificatesIssued: Int,
@@ -97,6 +99,7 @@ data class ProvisioningInfoMap(
   }
 }
 
+@Immutable
 @JsonClass(generateAdapter = true)
 data class KeyDescription(
   val attestationVersion: BigInteger,
@@ -236,13 +239,14 @@ enum class KeyMintTag(val value: Int) {
  * @see
  *   https://source.android.com/docs/security/features/keystore/attestation#authorizationlist-fields
  */
+@Immutable
 @JsonClass(generateAdapter = true)
 data class AuthorizationList(
-  val purposes: Set<BigInteger>? = null,
+  @SuppressWarnings("Immutable") val purposes: Set<BigInteger>? = null,
   val keySize: BigInteger? = null,
   val algorithms: BigInteger? = null,
-  val digests: Set<BigInteger>? = null,
-  val paddings: Set<BigInteger>? = null,
+  @SuppressWarnings("Immutable") val digests: Set<BigInteger>? = null,
+  @SuppressWarnings("Immutable") val paddings: Set<BigInteger>? = null,
   val ecCurve: BigInteger? = null,
   val rsaPublicExponent: BigInteger? = null,
   val activeDateTime: BigInteger? = null,
@@ -424,10 +428,11 @@ data class AuthorizationList(
  * @see
  *   https://source.android.com/docs/security/features/keystore/attestation#attestationapplicationid-schema
  */
+@Immutable
 @JsonClass(generateAdapter = true)
 data class AttestationApplicationId(
-  val packages: Set<AttestationPackageInfo>,
-  val signatures: Set<ByteString>,
+  @SuppressWarnings("Immutable") val packages: Set<AttestationPackageInfo>,
+  @SuppressWarnings("Immutable") val signatures: Set<ByteString>,
 ) {
   fun toAsn1() =
     buildList {
@@ -483,6 +488,7 @@ data class AttestationPackageInfo(val name: String, val version: BigInteger) {
  *
  * @see https://source.android.com/docs/security/features/keystore/attestation#rootoftrust-fields
  */
+@Immutable
 @JsonClass(generateAdapter = true)
 data class RootOfTrust(
   val verifiedBootKey: ByteString,
