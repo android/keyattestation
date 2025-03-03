@@ -34,7 +34,7 @@ class RevocationCheckerTest {
   private val params =
     PKIXParameters(setOf(Certs.rootAnchor)).apply {
       isRevocationEnabled = false
-      date = FakeCalendar.today()
+      date = FakeCalendar.DEFAULT.today()
     }
   private val revocationChecker =
     RevocationChecker(
