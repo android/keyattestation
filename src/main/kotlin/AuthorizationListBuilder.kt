@@ -17,21 +17,32 @@
 package com.android.keyattestation.verifier
 
 import com.google.auto.value.AutoBuilder
+import com.google.common.collect.ImmutableSet
+import com.google.common.collect.toImmutableSet
 import com.google.protobuf.ByteString
 import java.math.BigInteger
 
 /** Builder for [AuthorizationList]. */
 @AutoBuilder(ofClass = AuthorizationList::class)
 abstract class AuthorizationListBuilder {
-  abstract fun setPurposes(purpose: Set<BigInteger>): AuthorizationListBuilder
+  abstract fun setPurposes(purpose: ImmutableSet<BigInteger>): AuthorizationListBuilder
+
+  fun setPurposes(purposes: Set<BigInteger>): AuthorizationListBuilder =
+    setPurposes(purposes.toImmutableSet())
 
   abstract fun setAlgorithms(algorithm: BigInteger): AuthorizationListBuilder
 
   abstract fun setKeySize(keySize: BigInteger): AuthorizationListBuilder
 
-  abstract fun setDigests(digests: Set<BigInteger>): AuthorizationListBuilder
+  abstract fun setDigests(digests: ImmutableSet<BigInteger>): AuthorizationListBuilder
 
-  abstract fun setPaddings(paddings: Set<BigInteger>): AuthorizationListBuilder
+  fun setDigests(digests: Set<BigInteger>): AuthorizationListBuilder =
+    setDigests(digests.toImmutableSet())
+
+  abstract fun setPaddings(paddings: ImmutableSet<BigInteger>): AuthorizationListBuilder
+
+  fun setPaddings(paddings: Set<BigInteger>): AuthorizationListBuilder =
+    setPaddings(paddings.toImmutableSet())
 
   abstract fun setEcCurve(ecCurve: BigInteger): AuthorizationListBuilder
 

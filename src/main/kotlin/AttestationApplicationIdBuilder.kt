@@ -18,16 +18,23 @@ package com.android.keyattestation.verifier
 
 import com.google.auto.value.AutoBuilder
 import com.google.common.collect.ImmutableSet
+import com.google.common.collect.toImmutableSet
 import com.google.protobuf.ByteString
 
 /** Builder for [AttestationApplicationId]. */
 @AutoBuilder(ofClass = AttestationApplicationId::class)
 abstract class AttestationApplicationIdBuilder {
   abstract fun setPackages(
-    packages: MutableSet<AttestationPackageInfo>
+    packages: ImmutableSet<AttestationPackageInfo>
   ): AttestationApplicationIdBuilder
 
-  abstract fun setSignatures(signatures: Set<ByteString>): AttestationApplicationIdBuilder
+  fun setPackages(packages: Set<AttestationPackageInfo>): AttestationApplicationIdBuilder =
+    setPackages(packages.toImmutableSet())
+
+  abstract fun setSignatures(signatures: ImmutableSet<ByteString>): AttestationApplicationIdBuilder
+
+  fun setSignatures(signatures: Set<ByteString>): AttestationApplicationIdBuilder =
+    setSignatures(signatures.toImmutableSet())
 
   abstract fun build(): AttestationApplicationId
 
