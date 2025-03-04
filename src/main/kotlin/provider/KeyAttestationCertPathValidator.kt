@@ -149,6 +149,14 @@ class KeyAttestationCertPathValidator : CertPathValidatorSpi() {
     }
 }
 
+enum class Step {
+  FACTORY_INTERMEDIATE,
+  RKP_INTERMEDIATE,
+  RKP_SERVER,
+  ATTESTATION,
+  TARGET,
+}
+
 private class BasicChecker(
   anchor: TrustAnchor,
   val certPathLen: Int,
@@ -159,6 +167,7 @@ private class BasicChecker(
   private val caName = anchor.trustedCert?.subjectX500Principal ?: anchor.ca
   private var prevPubKey: PublicKey? = null
   private var prevSubject: X500Principal? = null
+  private var prevStep: Step? = null
   private var remainingCerts = 0
 
   /** The public key of the last certificate that was checked. */
@@ -169,6 +178,7 @@ private class BasicChecker(
     if (forward) throw CertPathValidatorException("forward checking not supported")
     prevPubKey = trustedPublicKey
     prevSubject = caName
+    prevStep = null
     remainingCerts = certPathLen
   }
 
@@ -181,8 +191,31 @@ private class BasicChecker(
     verifyNameChaining(cert as X509Certificate) // cert will always be an X509Certificate
     verifySignature(cert)
     verifyValidity(cert)
+    verifyExpectations(cert)
     prevPubKey = cert.publicKey
     prevSubject = cert.subjectX500Principal
+    prevStep =
+      when (prevStep) {
+        null -> {
+          if (cert.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
+            Step.RKP_INTERMEDIATE
+          } else {
+            Step.FACTORY_INTERMEDIATE
+          }
+        }
+        Step.RKP_INTERMEDIATE -> Step.RKP_SERVER
+        Step.RKP_SERVER -> Step.ATTESTATION
+        Step.FACTORY_INTERMEDIATE -> Step.ATTESTATION
+        Step.ATTESTATION -> Step.TARGET
+        Step.TARGET ->
+          throw CertPathValidatorException(
+            "Unexpected certificate after the target certificate",
+            null,
+            null,
+            -1,
+            PKIXReason.PATH_TOO_LONG,
+          )
+      }
   }
 
   private fun verifyNameChaining(cert: X509Certificate) {
@@ -240,6 +273,55 @@ private class BasicChecker(
       )
     } catch (e: CertificateExpiredException) {
       throw CertPathValidatorException("Validity check failed", e, null, -1, BasicReason.EXPIRED)
+    }
+  }
+
+  private fun verifyExpectations(cert: X509Certificate) {
+    when (prevStep) {
+      Step.FACTORY_INTERMEDIATE -> {
+        if (remainingCerts > 1) {
+          throw CertPathValidatorException(
+            "Factory provisioned path has more than 2 certificates after the intermediate",
+            null,
+            null,
+            -1,
+            PKIXReason.PATH_TOO_LONG,
+          )
+        }
+      }
+      Step.RKP_INTERMEDIATE -> {
+        if (remainingCerts > 2) {
+          throw CertPathValidatorException(
+            "Remotely provisioned path has more than 3 certificates after the intermediate",
+            null,
+            null,
+            -1,
+            PKIXReason.PATH_TOO_LONG,
+          )
+        }
+      }
+      Step.ATTESTATION -> {
+        if (!cert.hasAttestationExtension()) {
+          throw CertPathValidatorException(
+            "Target certificate does not contain an attestation extension",
+            null,
+            null,
+            -1,
+            BasicReason.UNSPECIFIED,
+          )
+        }
+      }
+      else -> {
+        if (cert.hasAttestationExtension()) {
+          throw CertPathValidatorException(
+            "Only the target certificate should contain an attestation extension",
+            null,
+            null,
+            -1,
+            BasicReason.UNSPECIFIED,
+          )
+        }
+      }
     }
   }
 }

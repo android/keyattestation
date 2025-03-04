@@ -212,6 +212,16 @@ class KeyAttestationCertPathValidatorTest {
   }
 
   @Test
+  fun forgedKeybox_throwsCertPathValidatorException() {
+    val certPath = Chains.forgedKeybox
+    val exception =
+      assertFailsWith<CertPathValidatorException> {
+        certPathValidator.validate(certPath, testParams)
+      }
+    assertThat(exception.reason).isEqualTo(PKIXReason.PATH_TOO_LONG)
+  }
+
+  @Test
   fun additionalCertPathChecker_isCalled() {
     assertFailsWith<FakeChecker.Exception> {
       certPathValidator.validate(

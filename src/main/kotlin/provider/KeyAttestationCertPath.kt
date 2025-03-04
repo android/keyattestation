@@ -82,37 +82,11 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
   fun intermediateCert(): X509Certificate = certificates.last()
 
   companion object {
-    private const val KEY_DESCRIPTION_OID = "1.3.6.1.4.1.11129.2.1.17"
-
     @JvmStatic
     @Throws(CertificateException::class)
     fun generateFrom(certs: List<ByteString>): KeyAttestationCertPath =
       KeyAttestationCertPath(certs.map { it.newInput().asX509Certificate() })
 
     private fun X509Certificate.isSelfIssued() = issuerX500Principal == subjectX500Principal
-
-    private fun X509Certificate.hasAttestationExtension() =
-      nonCriticalExtensionOIDs?.contains(KEY_DESCRIPTION_OID) ?: false
-
-    private fun parseDN(dn: String): Map<String, String> {
-      val attributes = mutableMapOf<String, String>()
-      val parts = dn.split(",")
-
-      for (part in parts) {
-        val keyValue = part.trim().split("=", limit = 2)
-        if (keyValue.size == 2) {
-          attributes[keyValue[0].trim()] = keyValue[1].trim()
-        }
-      }
-      return attributes
-    }
-
-    private fun isFactoryProvisioned(rdn: Map<String, String>): Boolean {
-      return rdn.containsKey("OID.2.5.4.5") && rdn["OID.2.5.4.12"] in setOf("TEE", "StrongBox")
-    }
-
-    private fun isRemoteProvisioned(rdn: Map<String, String>): Boolean {
-      return rdn["CN"] == "Droid CA2"
-    }
   }
 }

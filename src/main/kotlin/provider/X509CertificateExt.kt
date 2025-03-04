@@ -3,6 +3,11 @@ package com.android.keyattestation.verifier.provider
 import java.security.cert.X509Certificate
 import javax.security.auth.x500.X500Principal
 
+private const val KEY_DESCRIPTION_OID = "1.3.6.1.4.1.11129.2.1.17"
+
+internal fun X509Certificate.hasAttestationExtension() =
+  nonCriticalExtensionOIDs?.contains(KEY_DESCRIPTION_OID) ?: false
+
 enum class ProvisioningMethod {
   UNKNOWN,
   FACTORY_PROVISIONED,

@@ -229,4 +229,28 @@ object Chains {
       certFactory.root,
     )
   }
+
+  val forgedKeybox by lazy {
+    val compromisedAttestationKey = certFactory.generateEcKeyPair()
+    val name = X500Name("O=Honest Achmed's Used Cars and Certificates")
+    KeyAttestationCertPath(
+      certFactory.generateLeafCert(),
+      // Attestation certificate signed by the attacker created keybox
+      certFactory.generateAttestationCert(
+        signingKey = compromisedAttestationKey.private,
+        issuer = name,
+      ),
+      // Attacker created keybox signed by the compromised keybox
+      certFactory.generateIntermediateCertificate(
+        compromisedAttestationKey.public,
+        certFactory.intermediateKey.private,
+        subject = name,
+        issuer = Certs.factoryIntermediate.subject,
+      ),
+      // Google signed keybox that was compromised
+      Certs.factoryIntermediate,
+      // Google signed root certificate
+      Certs.root,
+    )
+  }
 }
