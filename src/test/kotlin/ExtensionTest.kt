@@ -87,6 +87,14 @@ class ExtensionTest {
   }
 
   @Test
+  @Ignore("b/399272143 - unignore in cl/735538301")
+  fun parseFrom_containsAllowWhileOnBody_success() {
+    val unused =
+      testData.resolve("allow_while_on_body.pem").inputStream().asX509Certificate().keyDescription()
+    // assertThat(keyDescription.teeEnforced.allowWhileOnBody).isTrue()
+  }
+
+  @Test
   @Ignore("TODO: b/356172932 - Reenable test once enabling tag order validator is configurable.")
   fun parseFrom_tagsNotInAscendingOrder_Throws() {
     assertFailsWith<IllegalArgumentException> {
