@@ -47,7 +47,9 @@ sealed interface VerificationResult {
 
   data object ChainParsingFailure : VerificationResult
 
-  data object ExtensionParsingFailure : VerificationResult
+  data class ExtensionParsingFailure(val cause: Exception) : VerificationResult
+
+  data class ExtensionConstraintViolation(val cause: String) : VerificationResult
 }
 
 /**
@@ -97,7 +99,7 @@ class Verifier(private val anchors: Set<TrustAnchor>) {
       try {
         checkNotNull(certPath.leafCert().keyDescription()) { "Key attestation extension not found" }
       } catch (e: Exception) {
-        return VerificationResult.ExtensionParsingFailure
+        return VerificationResult.ExtensionParsingFailure(e)
       }
 
     if (
@@ -111,10 +113,13 @@ class Verifier(private val anchors: Set<TrustAnchor>) {
       if (keyDescription.attestationSecurityLevel == keyDescription.keymasterSecurityLevel) {
         keyDescription.attestationSecurityLevel
       } else {
-        return VerificationResult.ExtensionParsingFailure
+        return VerificationResult.ExtensionConstraintViolation(
+          "attestationSecurityLevel != keymasterSecurityLevel: ${keyDescription.attestationSecurityLevel} != ${keyDescription.keymasterSecurityLevel}"
+        )
       }
     val rootOfTrust =
-      keyDescription.teeEnforced.rootOfTrust ?: return VerificationResult.ExtensionParsingFailure
+      keyDescription.teeEnforced.rootOfTrust
+        ?: return VerificationResult.ExtensionConstraintViolation("teeEnforced.rootOfTrust is null")
     val deviceInformation =
       if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
         certPath.attestationCert().provisioningInfo()
