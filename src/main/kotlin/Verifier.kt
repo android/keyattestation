@@ -19,6 +19,8 @@ package com.android.keyattestation.verifier
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.android.keyattestation.verifier.provider.KeyAttestationProvider
 import com.android.keyattestation.verifier.provider.ProvisioningMethod
+import com.android.keyattestation.verifier.provider.RevocationChecker
+import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
 import java.nio.ByteBuffer
 import java.security.PublicKey
@@ -60,12 +62,15 @@ sealed interface VerificationResult {
  * @param anchor a [TrustAnchor] to use for certificate path verification.
  */
 // TODO: b/356234568 - Verify intermediate certificate revocation status.
-class Verifier(private val anchors: Set<TrustAnchor>) {
+@ThreadSafe
+open class Verifier(
+  private val trustAnchorsSource: () -> Set<TrustAnchor>,
+  private val revokedSerialsSource: () -> Set<String>,
+  private val instantSource: InstantSource,
+) {
   init {
     Security.addProvider(KeyAttestationProvider())
   }
-
-  private val certPathValidator = CertPathValidator.getInstance("KeyAttestation")
 
   fun verify(chain: List<X509Certificate>, challenge: ByteArray? = null): VerificationResult {
     val certPath =
@@ -87,10 +92,15 @@ class Verifier(private val anchors: Set<TrustAnchor>) {
    */
   @JvmOverloads
   fun verify(certPath: KeyAttestationCertPath, challenge: ByteArray? = null): VerificationResult {
+    val certPathValidator = CertPathValidator.getInstance("KeyAttestation")
+    val certPathParameters =
+      PKIXParameters(trustAnchorsSource()).apply {
+        date = Date.from(instantSource.instant())
+        addCertPathChecker(RevocationChecker(revokedSerialsSource()))
+      }
     val pathValidationResult =
       try {
-        val params = PKIXParameters(anchors).apply { date = Date() }
-        certPathValidator.validate(certPath, params) as PKIXCertPathValidatorResult
+        certPathValidator.validate(certPath, certPathParameters) as PKIXCertPathValidatorResult
       } catch (e: CertPathValidatorException) {
         return VerificationResult.PathValidationFailure
       }
