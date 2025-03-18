@@ -18,6 +18,7 @@ package com.android.keyattestation.verifier.testing
 
 import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
+import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x509.Extension
 
 class KeyAttestationCertPathFactory(val fakeCalendar: FakeCalendar = FakeCalendar()) {
@@ -29,15 +30,36 @@ class KeyAttestationCertPathFactory(val fakeCalendar: FakeCalendar = FakeCalenda
     keyDescription: KeyDescription,
     remotelyProvisioned: Boolean = false,
   ): KeyAttestationCertPath {
-    val attestationCertExtension =
-      Extension(ObjectIds.PROVISIONING_INFO, /* critical= */ false, byteArrayOf()).takeIf {
-        remotelyProvisioned
-      }
-    return KeyAttestationCertPath(
-      certFactory.generateLeafCert(extension = keyDescription.asExtension()),
-      certFactory.generateAttestationCert(extraExtension = attestationCertExtension),
-      certFactory.factoryIntermediate,
-      certFactory.root,
-    )
+    if (remotelyProvisioned) {
+      val rkpKey = certFactory.generateEcKeyPair()
+      val rkpIntermediate =
+        certFactory.generateIntermediateCertificate(
+          publicKey = rkpKey.public,
+          signingKey = certFactory.intermediateKey.private,
+          subject = X500Name("CN=RKP"),
+          issuer = certFactory.remoteIntermediate.subject,
+        )
+      val attestationCertWithProvisioningInfoExt =
+        certFactory.generateAttestationCert(
+          signingKey = rkpKey.private,
+          issuer = rkpIntermediate.subject,
+          extraExtension =
+            Extension(ObjectIds.PROVISIONING_INFO, /* critical= */ false, byteArrayOf()),
+        )
+      return KeyAttestationCertPath(
+        certFactory.generateLeafCert(extension = keyDescription.asExtension()),
+        attestationCertWithProvisioningInfoExt,
+        rkpIntermediate,
+        certFactory.remoteIntermediate,
+        certFactory.root,
+      )
+    } else {
+      return KeyAttestationCertPath(
+        certFactory.generateLeafCert(extension = keyDescription.asExtension()),
+        certFactory.generateAttestationCert(),
+        certFactory.factoryIntermediate,
+        certFactory.root,
+      )
+    }
   }
 }
