@@ -54,11 +54,6 @@ import org.bouncycastle.asn1.DERSet
 import org.bouncycastle.asn1.DERTaggedObject
 import org.bouncycastle.asn1.x509.Extension
 
-private val strictUtf8Decoder =
-  UTF_8.newDecoder()
-    .onMalformedInput(CodingErrorAction.REPORT)
-    .onUnmappableCharacter(CodingErrorAction.REPORT)
-
 @Immutable
 @JsonClass(generateAdapter = true)
 data class ProvisioningInfoMap(
@@ -599,7 +594,12 @@ private inline fun <reified T> ASN1Encodable.toSet(): Set<T> {
     .toSet()
 }
 
-private fun ASN1Encodable.toStr() = strictUtf8Decoder.decode(this.toByteBuffer()).toString()
+private fun ASN1Encodable.toStr() =
+  UTF_8.newDecoder()
+    .onMalformedInput(CodingErrorAction.REPORT)
+    .onUnmappableCharacter(CodingErrorAction.REPORT)
+    .decode(this.toByteBuffer())
+    .toString()
 
 private fun ASN1Encodable.toTaggedObject(tag: KeyMintTag) = DERTaggedObject(tag.value, this)
 
