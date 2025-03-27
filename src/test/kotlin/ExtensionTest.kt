@@ -74,16 +74,9 @@ class ExtensionTest {
   }
 
   enum class TestCase(val model: String, val sdk: Int) {
+    PIXEL_SDK29("marlin", 29),
     PIXEL_3_SDK28("blueline", 28),
     PIXEL_8A_SDK34("akita", 34),
-  }
-
-  // TODO: b/374316734 - replace this test data with a certificate generated on a Pixel.
-  @Test
-  fun parseFrom_containsRollbackResistant_success() {
-    val keyDescription =
-      testData.resolve("rollback_resistant.pem").inputStream().asX509Certificate().keyDescription()
-    assertThat(keyDescription.teeEnforced.rollbackResistant).isTrue()
   }
 
   @Test
