@@ -19,6 +19,7 @@ plugins { id("org.jetbrains.kotlin.jvm") version "2.0.21" }
 repositories { mavenCentral() }
 
 dependencies {
+  implementation("co.nstant.in:cbor:0.9")
   implementation("com.google.code.gson:gson:2.11.0")
   implementation("com.google.guava:guava:33.3.1-android")
   implementation("com.google.protobuf:protobuf-javalite:4.28.3")
