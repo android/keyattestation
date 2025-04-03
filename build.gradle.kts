@@ -25,7 +25,7 @@ dependencies {
   implementation("com.google.protobuf:protobuf-javalite:4.28.3")
   implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
   implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
-  implementation("org.jetbrains.kotlin:kotlin-stdlib:2.1.20")
+  implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
 
   testImplementation(kotlin("test"))
   testImplementation("com.google.truth:truth:1.4.4")
