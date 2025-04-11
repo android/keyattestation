@@ -113,10 +113,6 @@ object CertLists {
 }
 
 object Chains {
-  @Deprecated("Use CertLists.validFactoryProvisioned instead")
-  @JvmStatic
-  val valid = KeyAttestationCertPath(CertLists.validFactoryProvisioned)
-
   @JvmStatic val validFactoryProvisioned = KeyAttestationCertPath(CertLists.validFactoryProvisioned)
 
   @JvmStatic
