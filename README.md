@@ -44,6 +44,18 @@ when (result) {
 ./gradlew test
 ```
 
+## Roots
+
+Android Key Attestation root certificates are documented
+[here](https://developer.android.com/privacy-and-security/security-key-attestation#root_certificate).
+
+## Getting Revoked Serials
+
+The revoked serials may be retrieved from https://android.googleapis.com/attestation/status.
+
+See [here](https://developer.android.com/privacy-and-security/security-key-attestation#certificate_status)
+for more information about the format of the data.
+
 ## License
 
 This project is licensed under the Apache License 2.0 - see the
