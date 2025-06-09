@@ -125,8 +125,8 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
     KeyDescription(
         attestationVersion = 1.toBigInteger(),
         attestationSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
-        keymasterVersion = 1.toBigInteger(),
-        keymasterSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+        keyMintVersion = 1.toBigInteger(),
+        keyMintSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
         attestationChallenge = ByteString.copyFromUtf8("A random 40-byte challenge for no reason"),
         uniqueId = ByteString.empty(),
         softwareEnforced = AuthorizationList(),

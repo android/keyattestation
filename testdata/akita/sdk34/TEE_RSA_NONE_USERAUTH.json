@@ -1,8 +1,8 @@
 {
   "attestationVersion": "300",
   "attestationSecurityLevel": "TRUSTED_ENVIRONMENT",
-  "keymasterVersion": "300",
-  "keymasterSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "keyMintVersion": "300",
+  "keyMintSecurityLevel": "TRUSTED_ENVIRONMENT",
   "attestationChallenge": "Y2hhbGxlbmdl",
   "uniqueId": "",
   "softwareEnforced": {
