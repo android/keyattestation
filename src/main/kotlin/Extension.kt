@@ -100,14 +100,14 @@ data class ProvisioningInfoMap(
 
 @JsonClass(generateAdapter = true)
 data class DeviceIdentity(
-  val brand: String?,
-  val device: String?,
-  val product: String?,
-  val serialNumber: String?,
-  val imeis: Set<String>,
-  val meid: String?,
-  val manufacturer: String?,
-  val model: String?,
+  val brand: String? = null,
+  val device: String? = null,
+  val product: String? = null,
+  val serialNumber: String? = null,
+  val imeis: Set<String> = emptySet(),
+  val meid: String? = null,
+  val manufacturer: String? = null,
+  val model: String? = null,
 ) {
   companion object {
     @JvmStatic
@@ -139,6 +139,7 @@ data class KeyDescription(
   val uniqueId: ByteString,
   val softwareEnforced: AuthorizationList,
   val hardwareEnforced: AuthorizationList,
+  @SuppressWarnings("Immutable") @Transient val infoMessages: List<String>? = listOf(),
 ) {
   fun asExtension(): Extension {
     return Extension(OID, /* critical= */ false, encodeToAsn1())
@@ -182,6 +183,7 @@ data class KeyDescription(
 
     private fun from(seq: ASN1Sequence): KeyDescription {
       require(seq.size() == 8)
+      val infoMessages = mutableListOf<String>()
       return KeyDescription(
         attestationVersion = seq.getObjectAt(0).toInt(),
         attestationSecurityLevel = seq.getObjectAt(1).toSecurityLevel(),
@@ -189,8 +191,9 @@ data class KeyDescription(
         keyMintSecurityLevel = seq.getObjectAt(3).toSecurityLevel(),
         attestationChallenge = seq.getObjectAt(4).toByteString(),
         uniqueId = seq.getObjectAt(5).toByteString(),
-        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(),
-        hardwareEnforced = seq.getObjectAt(7).toAuthorizationList(),
+        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(infoMessages = infoMessages),
+        hardwareEnforced = seq.getObjectAt(7).toAuthorizationList(infoMessages = infoMessages),
+        infoMessages = infoMessages.toList(),
       )
     }
   }
@@ -396,7 +399,11 @@ data class AuthorizationList(
       .let { DERSequence(it.toTypedArray()) }
 
   internal companion object {
-    fun from(seq: ASN1Sequence, validateTagOrder: Boolean = false): AuthorizationList {
+    fun from(
+      seq: ASN1Sequence,
+      validateTagOrder: Boolean = false,
+      infoMessages: MutableList<String>? = null,
+    ): AuthorizationList {
       val objects =
         seq.associate {
           require(it is ASN1TaggedObject) {
@@ -417,8 +424,12 @@ data class AuthorizationList(
        *    of their tag numbers.
        */
       // TODO: b/356172932 - Add test data once an example certificate is found in the wild.
-      if (validateTagOrder && !objects.keys.zipWithNext().all { (lhs, rhs) -> rhs > lhs }) {
-        throw IllegalArgumentException("AuthorizationList tags must appear in ascending order")
+      if (!objects.keys.zipWithNext().all { (lhs, rhs) -> rhs > lhs }) {
+        if (validateTagOrder) {
+          throw IllegalArgumentException("AuthorizationList tags must appear in ascending order")
+        } else {
+          infoMessages?.add("AuthorizationList tags must appear in ascending order")
+        }
       }
 
       return AuthorizationList(
@@ -444,7 +455,15 @@ data class AuthorizationList(
         rollbackResistant = if (objects.containsKey(KeyMintTag.ROLLBACK_RESISTANT)) true else null,
         rootOfTrust = objects[KeyMintTag.ROOT_OF_TRUST]?.toRootOfTrust(),
         osVersion = objects[KeyMintTag.OS_VERSION]?.toInt(),
-        osPatchLevel = objects[KeyMintTag.OS_PATCH_LEVEL]?.toPatchLevel(),
+        osPatchLevel =
+          objects[KeyMintTag.OS_PATCH_LEVEL]?.let {
+            try {
+              it.toPatchLevel()
+            } catch (e: DateTimeParseException) {
+              infoMessages?.add("Invalid OS patch level: ${e.getParsedString()}")
+              null
+            }
+          },
         attestationApplicationId =
           objects[KeyMintTag.ATTESTATION_APPLICATION_ID]?.toAttestationApplicationId(),
         attestationIdBrand = objects[KeyMintTag.ATTESTATION_ID_BRAND]?.toStr(),
@@ -455,8 +474,24 @@ data class AuthorizationList(
         attestationIdMeid = objects[KeyMintTag.ATTESTATION_ID_MEID]?.toStr(),
         attestationIdManufacturer = objects[KeyMintTag.ATTESTATION_ID_MANUFACTURER]?.toStr(),
         attestationIdModel = objects[KeyMintTag.ATTESTATION_ID_MODEL]?.toStr(),
-        vendorPatchLevel = objects[KeyMintTag.VENDOR_PATCH_LEVEL]?.toPatchLevel(),
-        bootPatchLevel = objects[KeyMintTag.BOOT_PATCH_LEVEL]?.toPatchLevel(),
+        vendorPatchLevel =
+          objects[KeyMintTag.VENDOR_PATCH_LEVEL]?.let {
+            try {
+              it.toPatchLevel()
+            } catch (e: DateTimeParseException) {
+              infoMessages?.add("Invalid vendor patch level: ${e.getParsedString()}")
+              null
+            }
+          },
+        bootPatchLevel =
+          objects[KeyMintTag.BOOT_PATCH_LEVEL]?.let {
+            try {
+              it.toPatchLevel()
+            } catch (e: DateTimeParseException) {
+              infoMessages?.add("Invalid boot patch level: ${e.getParsedString()}")
+              null
+            }
+          },
         attestationIdSecondImei = objects[KeyMintTag.ATTESTATION_ID_SECOND_IMEI]?.toStr(),
         moduleHash = objects[KeyMintTag.MODULE_HASH]?.toByteString(),
       )
@@ -475,24 +510,20 @@ data class PatchLevel(val yearMonth: YearMonth, val version: Int? = null) {
   }
 
   companion object {
-    fun from(patchLevel: ASN1Encodable): PatchLevel? {
+    fun from(patchLevel: ASN1Encodable): PatchLevel {
       check(patchLevel is ASN1Integer) { "Must be an ASN1Integer, was ${this::class.simpleName}" }
       return from(patchLevel.value.toString())
     }
 
     @JvmStatic
-    fun from(patchLevel: String): PatchLevel? {
+    fun from(patchLevel: String): PatchLevel {
       if (patchLevel.length != 6 && patchLevel.length != 8) {
-        return null
+        throw DateTimeParseException("Invalid patch level length:", patchLevel, 0)
       }
-      try {
-        val yearMonth =
-          DateTimeFormatter.ofPattern("yyyyMM").parse(patchLevel.substring(0, 6), YearMonth::from)
-        val version = if (patchLevel.length == 8) patchLevel.substring(6).toInt() else null
-        return PatchLevel(yearMonth, version)
-      } catch (e: DateTimeParseException) {
-        return null
-      }
+      val yearMonth =
+        DateTimeFormatter.ofPattern("yyyyMM").parse(patchLevel.substring(0, 6), YearMonth::from)
+      val version = if (patchLevel.length == 8) patchLevel.substring(6).toInt() else null
+      return PatchLevel(yearMonth, version)
     }
   }
 }
@@ -625,10 +656,11 @@ private fun ASN1Encodable.toAttestationApplicationId(): AttestationApplicationId
 
 // TODO: b/356172932 - `validateTagOrder` should default to true after making it user configurable.
 private fun ASN1Encodable.toAuthorizationList(
-  validateTagOrder: Boolean = false
+  validateTagOrder: Boolean = false,
+  infoMessages: MutableList<String>? = null,
 ): AuthorizationList {
   check(this is ASN1Sequence) { "Object must be an ASN1Sequence, was ${this::class.simpleName}" }
-  return AuthorizationList.from(this, validateTagOrder)
+  return AuthorizationList.from(this, validateTagOrder, infoMessages)
 }
 
 private fun ASN1Encodable.toBoolean(): Boolean {

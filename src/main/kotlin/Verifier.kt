@@ -45,14 +45,28 @@ sealed interface VerificationResult {
 
   data object ChallengeMismatch : VerificationResult
 
-  data object PathValidationFailure : VerificationResult
+  data class PathValidationFailure(val cause: Exception) : VerificationResult
 
-  data object ChainParsingFailure : VerificationResult
+  data class ChainParsingFailure(val cause: Exception) : VerificationResult
 
   data class ExtensionParsingFailure(val cause: Exception) : VerificationResult
 
   data class ExtensionConstraintViolation(val cause: String) : VerificationResult
 }
+
+/** Interface for logging info level key attestation events and information. */
+interface LogHook {
+  fun logVerificationEvent(verificationEvent: VerificationEvent)
+}
+
+data class VerificationEvent(
+  val inputChain: List<X509Certificate>,
+  val result: VerificationResult,
+  val keyDescription: KeyDescription? = null,
+  val provisioningInfoMap: ProvisioningInfoMap? = null,
+  val certSerialNumbers: List<String>? = null,
+  val infoMessages: List<String>? = null,
+)
 
 /**
  * Verifier for Android Key Attestation certificate chain.
@@ -83,14 +97,19 @@ open class Verifier(
   fun verify(
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
+    log: LogHook? = null,
   ): VerificationResult {
     val certPath =
       try {
         KeyAttestationCertPath(chain)
       } catch (e: Exception) {
-        return VerificationResult.ChainParsingFailure
+        val result = VerificationResult.ChainParsingFailure(e)
+        log?.logVerificationEvent(VerificationEvent(inputChain = chain, result = result))
+        return result
       }
-    return verify(certPath, challengeChecker)
+    val verificationEvent = internalVerify(certPath, challengeChecker)
+    log?.logVerificationEvent(verificationEvent)
+    return verificationEvent.result
   }
 
   /**
@@ -99,48 +118,95 @@ open class Verifier(
    * @param chain The attestation certificate chain to verify.
    * @param challengeChecker The challenge checker to use for additional validation of the challenge
    *   in the attestation chain.
-   * @return [VerificationResult]
+   * @return [VerificationEvent]
    *
    * TODO: b/366058500 - Make the challenge required after Apparat's changes are rollback safe.
    */
-  @JvmOverloads
   fun verify(
     certPath: KeyAttestationCertPath,
     challengeChecker: ChallengeChecker? = null,
+    log: LogHook? = null,
   ): VerificationResult {
+    val verificationEvent = internalVerify(certPath, challengeChecker)
+    log?.logVerificationEvent(verificationEvent)
+    return verificationEvent.result
+  }
+
+  internal fun internalVerify(
+    certPath: KeyAttestationCertPath,
+    challengeChecker: ChallengeChecker? = null,
+  ): VerificationEvent {
+    val serialNumbers =
+      certPath.certificatesWithAnchor.subList(1, certPath.certificatesWithAnchor.size).map {
+        it.serialNumber.toString(16)
+      }
     val certPathValidator = CertPathValidator.getInstance("KeyAttestation")
     val certPathParameters =
       PKIXParameters(trustAnchorsSource()).apply {
         date = Date.from(instantSource.instant())
         addCertPathChecker(RevocationChecker(revokedSerialsSource()))
       }
+
+    val deviceInformation =
+      if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
+        certPath.attestationCert().provisioningInfo()
+      } else {
+        null
+      }
     val pathValidationResult =
       try {
         certPathValidator.validate(certPath, certPathParameters) as PKIXCertPathValidatorResult
       } catch (e: CertPathValidatorException) {
-        return VerificationResult.PathValidationFailure
+        return VerificationEvent(
+          inputChain = certPath.getCertificates(),
+          result = VerificationResult.PathValidationFailure(e),
+          certSerialNumbers = serialNumbers,
+          provisioningInfoMap = deviceInformation,
+        )
       }
 
     val keyDescription =
       try {
         checkNotNull(certPath.leafCert().keyDescription()) { "Key attestation extension not found" }
       } catch (e: Exception) {
-        return VerificationResult.ExtensionParsingFailure(e)
+        return VerificationEvent(
+          inputChain = certPath.getCertificates(),
+          result = VerificationResult.ExtensionParsingFailure(e),
+          certSerialNumbers = serialNumbers,
+          provisioningInfoMap = deviceInformation,
+        )
       }
+
+    val infoMessages = keyDescription.infoMessages
 
     if (
       challengeChecker != null &&
         !challengeChecker.checkChallenge(keyDescription.attestationChallenge)
     ) {
-      return VerificationResult.ChallengeMismatch
+      return VerificationEvent(
+        inputChain = certPath.getCertificates(),
+        result = VerificationResult.ChallengeMismatch,
+        certSerialNumbers = serialNumbers,
+        keyDescription = keyDescription,
+        infoMessages = infoMessages,
+        provisioningInfoMap = deviceInformation,
+      )
     }
 
     if (
       keyDescription.hardwareEnforced.origin == null ||
         keyDescription.hardwareEnforced.origin != Origin.GENERATED
     ) {
-      return VerificationResult.ExtensionConstraintViolation(
-        "origin != GENERATED: ${keyDescription.hardwareEnforced.origin}"
+      return VerificationEvent(
+        result =
+          VerificationResult.ExtensionConstraintViolation(
+            "hardwareEnforced.origin is not GENERATED: ${keyDescription.hardwareEnforced.origin}"
+          ),
+        inputChain = certPath.getCertificates(),
+        certSerialNumbers = serialNumbers,
+        keyDescription = keyDescription,
+        infoMessages = infoMessages,
+        provisioningInfoMap = deviceInformation,
       )
     }
 
@@ -148,28 +214,44 @@ open class Verifier(
       if (keyDescription.attestationSecurityLevel == keyDescription.keyMintSecurityLevel) {
         keyDescription.attestationSecurityLevel
       } else {
-        return VerificationResult.ExtensionConstraintViolation(
-          "attestationSecurityLevel != keyMintSecurityLevel: ${keyDescription.attestationSecurityLevel} != ${keyDescription.keyMintSecurityLevel}"
+        return VerificationEvent(
+          result =
+            VerificationResult.ExtensionConstraintViolation(
+              "attestationSecurityLevel != keymintSecurityLevel: ${keyDescription.attestationSecurityLevel} != ${keyDescription.keyMintSecurityLevel}"
+            ),
+          inputChain = certPath.getCertificates(),
+          certSerialNumbers = serialNumbers,
+          keyDescription = keyDescription,
+          infoMessages = infoMessages,
+          provisioningInfoMap = deviceInformation,
         )
       }
     val rootOfTrust =
       keyDescription.hardwareEnforced.rootOfTrust
-        ?: return VerificationResult.ExtensionConstraintViolation(
-          "hardwareEnforced.rootOfTrust is null"
+        ?: return VerificationEvent(
+          result =
+            VerificationResult.ExtensionConstraintViolation("hardwareEnforced.rootOfTrust is null"),
+          keyDescription = keyDescription,
+          inputChain = certPath.getCertificates(),
+          certSerialNumbers = serialNumbers,
+          infoMessages = infoMessages,
+          provisioningInfoMap = deviceInformation,
         )
-    val deviceInformation =
-      if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
-        certPath.attestationCert().provisioningInfo()
-      } else {
-        null
-      }
-    return VerificationResult.Success(
-      pathValidationResult.publicKey,
-      keyDescription.attestationChallenge,
-      securityLevel,
-      rootOfTrust.verifiedBootState,
-      deviceInformation,
-      DeviceIdentity.parseFrom(keyDescription),
+    return VerificationEvent(
+      result =
+        VerificationResult.Success(
+          pathValidationResult.publicKey,
+          keyDescription.attestationChallenge,
+          securityLevel,
+          rootOfTrust.verifiedBootState,
+          deviceInformation,
+          DeviceIdentity.parseFrom(keyDescription),
+        ),
+      inputChain = certPath.getCertificates(),
+      certSerialNumbers = serialNumbers,
+      keyDescription = keyDescription,
+      infoMessages = infoMessages,
+      provisioningInfoMap = deviceInformation,
     )
   }
 }
