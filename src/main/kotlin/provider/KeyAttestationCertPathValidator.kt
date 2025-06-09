@@ -253,11 +253,9 @@ private class BasicChecker(
 
   private fun verifyValidity(cert: X509Certificate) {
     /*
-     * KAVS does not check the validity of the final certificate in the path. For the purposes of
-     * migration this path validator is intended to be bug compatible with KAVS, so we do not check
-     * the validity of the final certificate either.
-     *
-     * TODO: b/355190989 - explore if is viable to check the validity of the final certificate.
+     * Do not check the validity of the final certificate in the path. The
+     * validity period of the final cert is set on the device so could both be
+     * subject to tampering and could be impacted by clock skew.
      */
     if (remainingCerts == 0) return
     try {
