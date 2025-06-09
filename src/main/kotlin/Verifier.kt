@@ -22,6 +22,7 @@ import com.android.keyattestation.verifier.provider.ProvisioningMethod
 import com.android.keyattestation.verifier.provider.RevocationChecker
 import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
+import com.google.protobuf.kotlin.toByteString
 import java.security.PublicKey
 import java.security.Security
 import java.security.cert.CertPathValidator
@@ -45,13 +46,28 @@ sealed interface VerificationResult {
 
   data object ChallengeMismatch : VerificationResult
 
-  data object PathValidationFailure : VerificationResult
+  data class PathValidationFailure(val cause: Exception) : VerificationResult
 
-  data object ChainParsingFailure : VerificationResult
+  data class ChainParsingFailure(val cause: Exception) : VerificationResult
 
   data class ExtensionParsingFailure(val cause: Exception) : VerificationResult
 
   data class ExtensionConstraintViolation(val cause: String) : VerificationResult
+}
+
+/** Interface for logging info level key attestation events and information. */
+interface LogHook {
+  fun logInputChain(inputChain: List<ByteString>)
+
+  fun logResult(result: VerificationResult)
+
+  fun logKeyDescription(keyDescription: KeyDescription)
+
+  fun logProvisioningInfoMap(provisioningInfoMap: ProvisioningInfoMap)
+
+  fun logCertSerialNumbers(certSerialNumbers: List<String>)
+
+  fun logInfoMessage(infoMessage: String)
 }
 
 /**
@@ -61,7 +77,6 @@ sealed interface VerificationResult {
  *
  * @param anchor a [TrustAnchor] to use for certificate path verification.
  */
-// TODO: b/356234568 - Verify intermediate certificate revocation status.
 @ThreadSafe
 open class Verifier(
   private val trustAnchorsSource: () -> Set<TrustAnchor>,
@@ -83,14 +98,20 @@ open class Verifier(
   fun verify(
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
+    log: LogHook? = null,
   ): VerificationResult {
     val certPath =
       try {
         KeyAttestationCertPath(chain)
       } catch (e: Exception) {
-        return VerificationResult.ChainParsingFailure
+        val result = VerificationResult.ChainParsingFailure(e)
+        log?.logInputChain(chain.map { it.getEncoded().toByteString() })
+        log?.logResult(result)
+        return result
       }
-    return verify(certPath, challengeChecker)
+    val result = internalVerify(certPath, challengeChecker)
+    log?.logResult(result)
+    return result
   }
 
   /**
@@ -99,35 +120,59 @@ open class Verifier(
    * @param chain The attestation certificate chain to verify.
    * @param challengeChecker The challenge checker to use for additional validation of the challenge
    *   in the attestation chain.
-   * @return [VerificationResult]
-   *
-   * TODO: b/366058500 - Make the challenge required after Apparat's changes are rollback safe.
+   * @return [VerificationEvent]
    */
-  @JvmOverloads
   fun verify(
     certPath: KeyAttestationCertPath,
     challengeChecker: ChallengeChecker? = null,
+    log: LogHook? = null,
   ): VerificationResult {
+    val result = internalVerify(certPath, challengeChecker)
+    log?.logResult(result)
+    return result
+  }
+
+  internal fun internalVerify(
+    certPath: KeyAttestationCertPath,
+    challengeChecker: ChallengeChecker? = null,
+    log: LogHook? = null,
+  ): VerificationResult {
+    log?.logInputChain(certPath.certificatesWithAnchor.map { it.getEncoded().toByteString() })
+    log?.logCertSerialNumbers(
+      certPath.certificatesWithAnchor.subList(1, certPath.certificatesWithAnchor.size).map {
+        it.serialNumber.toString(16)
+      }
+    )
     val certPathValidator = CertPathValidator.getInstance("KeyAttestation")
     val certPathParameters =
       PKIXParameters(trustAnchorsSource()).apply {
         date = Date.from(instantSource.instant())
         addCertPathChecker(RevocationChecker(revokedSerialsSource()))
       }
+
+    val deviceInformation =
+      if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
+        certPath.attestationCert().provisioningInfo()
+      } else {
+        null
+      }
+    deviceInformation?.let { log?.logProvisioningInfoMap(it) }
     val pathValidationResult =
       try {
         certPathValidator.validate(certPath, certPathParameters) as PKIXCertPathValidatorResult
       } catch (e: CertPathValidatorException) {
-        return VerificationResult.PathValidationFailure
+        return VerificationResult.PathValidationFailure(e)
       }
 
     val keyDescription =
       try {
-        checkNotNull(certPath.leafCert().keyDescription()) { "Key attestation extension not found" }
+        checkNotNull(KeyDescription.parseFrom(certPath.leafCert())) {
+          "Key attestation extension not found"
+        }
       } catch (e: Exception) {
         return VerificationResult.ExtensionParsingFailure(e)
       }
-
+    log?.logKeyDescription(keyDescription)
     if (
       challengeChecker != null &&
         !challengeChecker.checkChallenge(keyDescription.attestationChallenge)
@@ -140,7 +185,7 @@ open class Verifier(
         keyDescription.hardwareEnforced.origin != Origin.GENERATED
     ) {
       return VerificationResult.ExtensionConstraintViolation(
-        "origin != GENERATED: ${keyDescription.hardwareEnforced.origin}"
+        "hardwareEnforced.origin is not GENERATED: ${keyDescription.hardwareEnforced.origin}"
       )
     }
 
@@ -149,7 +194,7 @@ open class Verifier(
         keyDescription.attestationSecurityLevel
       } else {
         return VerificationResult.ExtensionConstraintViolation(
-          "attestationSecurityLevel != keyMintSecurityLevel: ${keyDescription.attestationSecurityLevel} != ${keyDescription.keyMintSecurityLevel}"
+          "attestationSecurityLevel != keymintSecurityLevel: ${keyDescription.attestationSecurityLevel} != ${keyDescription.keyMintSecurityLevel}"
         )
       }
     val rootOfTrust =
@@ -157,12 +202,6 @@ open class Verifier(
         ?: return VerificationResult.ExtensionConstraintViolation(
           "hardwareEnforced.rootOfTrust is null"
         )
-    val deviceInformation =
-      if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
-        certPath.attestationCert().provisioningInfo()
-      } else {
-        null
-      }
     return VerificationResult.Success(
       pathValidationResult.publicKey,
       keyDescription.attestationChallenge,
