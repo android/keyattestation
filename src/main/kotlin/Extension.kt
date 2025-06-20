@@ -140,7 +140,7 @@ data class KeyDescription(
   val uniqueId: ByteString,
   val softwareEnforced: AuthorizationList,
   // TODO: Rename to hardwareEnforced b/c could be TEE or StrongBox.
-  val teeEnforced: AuthorizationList,
+  val hardwareEnforced: AuthorizationList,
 ) {
   fun asExtension(): Extension {
     return Extension(OID, /* critical= */ false, encodeToAsn1())
@@ -155,7 +155,7 @@ data class KeyDescription(
         add(attestationChallenge.toAsn1())
         add(uniqueId.toAsn1())
         add(softwareEnforced.toAsn1())
-        add(teeEnforced.toAsn1())
+        add(hardwareEnforced.toAsn1())
       }
       .let { DERSequence(it.toTypedArray()).encoded }
 
