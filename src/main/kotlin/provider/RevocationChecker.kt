@@ -27,8 +27,6 @@ import java.security.cert.X509Certificate
  *
  * Currently, this class is a clone of the as-built revocation checker from KAVS. It is only
  * intended to be for migrating the bespoke KAVS path validation logic to this provider.
- *
- * http://google3/java/com/google/wireless/android/work/boq/unspoofableid/common/VerifyCertificateChain.java;l=107;rcl=677835266
  */
 class RevocationChecker(private val revokedSerials: Set<String>) : PKIXRevocationChecker() {
   override fun init(forward: Boolean) {

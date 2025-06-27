@@ -12,7 +12,7 @@
       "signatures": []
     }
   },
-  "teeEnforced": {
+  "hardwareEnforced": {
     "purposes": ["2"],
     "keySize": "2048",
     "algorithms": "1",

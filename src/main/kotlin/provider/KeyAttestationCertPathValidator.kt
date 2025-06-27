@@ -256,7 +256,6 @@ private class BasicChecker(
      * KAVS does not check the validity of the final certificate in the path. For the purposes of
      * migration this path validator is intended to be bug compatible with KAVS, so we do not check
      * the validity of the final certificate either.
-     * http://google3/java/com/google/wireless/android/work/boq/unspoofableid/common/VerifyCertificateChain.java;l=173;rcl=679670181
      *
      * TODO: b/355190989 - explore if is viable to check the validity of the final certificate.
      */

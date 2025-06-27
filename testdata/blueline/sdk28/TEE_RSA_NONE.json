@@ -17,7 +17,7 @@
       "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
     }
   },
-  "teeEnforced": {
+  "hardwareEnforced": {
     "purposes": ["2"],
     "keySize": "2048",
     "algorithms": "1",

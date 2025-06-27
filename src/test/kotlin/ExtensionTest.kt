@@ -67,7 +67,7 @@ class ExtensionTest {
   fun parseFrom_containsAllowWhileOnBody_success() {
     val unused =
       testData.resolve("allow_while_on_body.pem").inputStream().asX509Certificate().keyDescription()
-    // assertThat(keyDescription.teeEnforced.allowWhileOnBody).isTrue()
+    // assertThat(keyDescription.hardwareEnforced.allowWhileOnBody).isTrue()
   }
 
   @Test
@@ -142,7 +142,7 @@ class ExtensionTest {
         attestationChallenge = ByteString.empty(),
         uniqueId = ByteString.empty(),
         softwareEnforced = authorizationList,
-        teeEnforced = authorizationList,
+        hardwareEnforced = authorizationList,
       )
     assertThat(KeyDescription.parseFrom(keyDescription.encodeToAsn1())).isEqualTo(keyDescription)
   }
