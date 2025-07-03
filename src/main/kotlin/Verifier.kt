@@ -121,11 +121,11 @@ open class Verifier(
     }
 
     if (
-      keyDescription.teeEnforced.origin == null ||
-        keyDescription.teeEnforced.origin != Origin.GENERATED
+      keyDescription.hardwareEnforced.origin == null ||
+        keyDescription.hardwareEnforced.origin != Origin.GENERATED
     ) {
       return VerificationResult.ExtensionConstraintViolation(
-        "origin != GENERATED: ${keyDescription.teeEnforced.origin}"
+        "origin != GENERATED: ${keyDescription.hardwareEnforced.origin}"
       )
     }
 
@@ -138,8 +138,10 @@ open class Verifier(
         )
       }
     val rootOfTrust =
-      keyDescription.teeEnforced.rootOfTrust
-        ?: return VerificationResult.ExtensionConstraintViolation("teeEnforced.rootOfTrust is null")
+      keyDescription.hardwareEnforced.rootOfTrust
+        ?: return VerificationResult.ExtensionConstraintViolation(
+          "hardwareEnforced.rootOfTrust is null"
+        )
     val deviceInformation =
       if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
         certPath.attestationCert().provisioningInfo()
