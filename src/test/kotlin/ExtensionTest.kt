@@ -127,7 +127,7 @@ class ExtensionTest {
         attestationIdSerial = "serial",
         attestationIdImei = "imei",
         attestationIdMeid = "meid",
-        attestationIdManufacturer = "manufacturer",
+        attestationIdManufacturer = "attestationIdManufacturer",
         attestationIdModel = "model",
         vendorPatchLevel = PatchLevel(YearMonth.of(2024, 4), 5),
         bootPatchLevel = PatchLevel(YearMonth.of(2024, 4), 5),

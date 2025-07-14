@@ -50,7 +50,6 @@ class KeyAttestationCertPathFactory(val fakeCalendar: FakeCalendar = FakeCalenda
               /* critical= */ false,
               ProvisioningInfoMap(
                   certificatesIssued = 1,
-                  manufacturer = keyDescription.hardwareEnforced.attestationIdManufacturer,
                 )
                 .encodeToAsn1(),
             ),

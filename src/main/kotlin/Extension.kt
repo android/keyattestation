@@ -62,12 +62,10 @@ import org.bouncycastle.asn1.x509.Extension
 @JsonClass(generateAdapter = true)
 data class ProvisioningInfoMap(
   val certificatesIssued: Int,
-  val manufacturer: String?,
 ) {
   fun encodeToAsn1(): ByteArray {
     val map = Map()
     map.put(UnsignedInteger(1L), certificatesIssued.asDataItem())
-    if (manufacturer != null) map.put(UnsignedInteger(3L), manufacturer.asDataItem())
     return DEROctetString(cborEncode(map)).encoded
   }
 
@@ -93,7 +91,6 @@ data class ProvisioningInfoMap(
       require(seq.keys.size >= 1)
       return ProvisioningInfoMap(
         certificatesIssued = seq.get(UnsignedInteger(1L)).asInteger(),
-        manufacturer = seq.get(UnsignedInteger(3L))?.asString(),
       )
     }
   }
