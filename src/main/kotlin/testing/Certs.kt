@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.testing
 
+import com.android.keyattestation.verifier.ProvisioningInfoMap
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import java.security.cert.TrustAnchor
 import org.bouncycastle.asn1.ASN1ObjectIdentifier
@@ -86,7 +87,14 @@ object CertLists {
         signingKey = rkpKey.private,
         issuer = rkpIntermediate.subject,
         extraExtension =
-          Extension(ObjectIds.PROVISIONING_INFO, /* critical= */ false, byteArrayOf()),
+          Extension(
+            ObjectIds.PROVISIONING_INFO,
+            /* critical= */ false,
+            ProvisioningInfoMap(
+                certificatesIssued = 1,
+              )
+              .cborEncode(),
+          ),
       )
     listOf(
       certFactory.generateLeafCert(),

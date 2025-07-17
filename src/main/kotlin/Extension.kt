@@ -63,11 +63,13 @@ import org.bouncycastle.asn1.x509.Extension
 data class ProvisioningInfoMap(
   val certificatesIssued: Int,
 ) {
-  fun encodeToAsn1(): ByteArray {
+  fun cborEncode(): ByteArray {
     val map = Map()
     map.put(UnsignedInteger(1L), certificatesIssued.asDataItem())
-    return DEROctetString(cborEncode(map)).encoded
+    return cborEncode(map)
   }
+
+  fun encodeToAsn1(): ByteArray = DEROctetString(cborEncode()).encoded
 
   companion object {
     /* OID for the provisioning info map extension.

@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier
 
+import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.android.keyattestation.verifier.testing.toKeyDescription
@@ -26,7 +27,6 @@ import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
 import com.google.testing.junit.testparameterinjector.TestParameters
 import java.time.YearMonth
-import java.util.Base64
 import kotlin.io.path.Path
 import kotlin.io.path.inputStream
 import kotlin.io.path.listDirectoryEntries
@@ -41,6 +41,18 @@ import org.junit.runner.RunWith
 @RunWith(TestParameterInjector::class)
 class ExtensionTest {
   private val testData = Path("testdata")
+
+  @Test
+  fun parseFrom_provisioningInfoFromAttestationCert_success() {
+    // The provisioning info in `validRemotelyProvisioned` from CertLists.kt
+    val expectedProvisioningInfo =
+      ProvisioningInfoMap(
+        certificatesIssued = 1,
+      )
+    val provisioningInfo =
+      ProvisioningInfoMap.parseFrom(Chains.validRemotelyProvisioned.attestationCert())
+    assertThat(provisioningInfo).isEqualTo(expectedProvisioningInfo)
+  }
 
   @Test
   fun parseFrom_success(@TestParameter testCase: TestCase) {
