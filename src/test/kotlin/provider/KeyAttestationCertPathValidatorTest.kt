@@ -19,7 +19,7 @@ package com.android.keyattestation.verifier.provider
 import com.android.keyattestation.verifier.testing.Certs.rootAnchor as testAnchor
 import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeCalendar
-import com.android.keyattestation.verifier.testing.TestUtils.prodAnchor
+import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
 import com.google.common.truth.Truth.assertThat
 import java.security.InvalidAlgorithmParameterException
 import java.security.Security
@@ -42,7 +42,7 @@ import org.junit.runners.JUnit4
 class KeyAttestationCertPathValidatorTest {
   private val certPathValidator = CertPathValidator.getInstance("KeyAttestation")
   private val pkixCertPathValidator = CertPathValidator.getInstance("PKIX")
-  private val prodParams = PKIXParameters(setOf(prodAnchor))
+  private val prodParams = PKIXParameters(prodAnchors)
   private val testParams =
     PKIXParameters(setOf(testAnchor)).apply { date = FakeCalendar.DEFAULT.today() }
 
@@ -116,10 +116,10 @@ class KeyAttestationCertPathValidatorTest {
   }
 
   @Test
-  fun multipleAnchors_returnsSuccess() {
+  fun additionalAnchors_returnsSuccess() {
     val certPath = Chains.validFactoryProvisioned
-    val params =
-      PKIXParameters(setOf(prodAnchor, testAnchor)).apply { date = FakeCalendar.DEFAULT.today() }
+    val moreAnchors = prodAnchors.union(setOf(testAnchor))
+    val params = PKIXParameters(moreAnchors).apply { date = FakeCalendar.DEFAULT.today() }
     val result = certPathValidator.validate(certPath, params) as PKIXCertPathValidatorResult
     assertThat(result.trustAnchor).isEqualTo(testAnchor)
     assertThat(result.policyTree).isNull()
@@ -136,7 +136,7 @@ class KeyAttestationCertPathValidatorTest {
   }
 
   @Test
-  fun wrongAnchor_throwsCertPathValidatorException() {
+  fun multipleWrongAnchors_throwsCertPathValidatorException() {
     val certPath = Chains.validFactoryProvisioned
     val exception =
       assertFailsWith<CertPathValidatorException> {
@@ -146,14 +146,15 @@ class KeyAttestationCertPathValidatorTest {
       assertFailsWith<CertPathValidatorException> {
         pkixCertPathValidator.validate(certPath, prodParams)
       }
+    assertThat(prodParams.trustAnchors.size).isAtLeast(2)
     assertThat(exception.reason).isEqualTo(PKIXReason.NO_TRUST_ANCHOR)
     assertThat(pkixException.reason).isEqualTo(PKIXReason.NO_TRUST_ANCHOR)
   }
 
   @Test
-  fun multipleWrongAnchors_throwsCertPathValidatorException() {
+  fun singleWrongAnchor_throwsCertPathValidatorException() {
     val params =
-      PKIXParameters(setOf(prodAnchor, prodAnchor)).apply { date = FakeCalendar.DEFAULT.today() }
+      PKIXParameters(setOf(prodAnchors.first())).apply { date = FakeCalendar.DEFAULT.today() }
     val exception =
       assertFailsWith<CertPathValidatorException> {
         certPathValidator.validate(Chains.validFactoryProvisioned, params)
