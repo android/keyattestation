@@ -17,11 +17,10 @@
 package com.android.keyattestation.verifier
 
 import com.android.keyattestation.verifier.testing.CertLists
-import com.android.keyattestation.verifier.testing.TestUtils.prodRoot
+import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
-import java.security.cert.TrustAnchor
 import java.time.Instant
 import kotlin.test.assertIs
 import org.junit.Test
@@ -31,12 +30,7 @@ import org.junit.runners.JUnit4
 /** Unit tests for [Verifier]. */
 @RunWith(JUnit4::class)
 class VerifierTest {
-  private val verifier =
-    Verifier(
-      { setOf(TrustAnchor(prodRoot, /* nameConstraints= */ null)) },
-      { setOf<String>() },
-      { Instant.now() },
-    )
+  private val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { Instant.now() })
 
   @Test
   fun verify_validChain_returnsSuccess() {

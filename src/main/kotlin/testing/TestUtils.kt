@@ -38,9 +38,8 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
 import org.bouncycastle.openssl.PEMParser
 
 object TestUtils {
-  private const val PROD_ROOT_PATH =
-    "googledata/html/external_content/android_googleapis_com/attestation/root"
-  const val TESTDATA_PATH = "third_party/java/keyattestation/testdata"
+  private const val PROD_ROOT_PATH = "roots.json"
+  const val TESTDATA_PATH = "testdata"
 
   fun readCertPath(subpath: String): KeyAttestationCertPath =
     readCertPath(readFile(Path(base = TESTDATA_PATH, /* subpaths...= */ subpath)))
@@ -60,13 +59,12 @@ object TestUtils {
       .let { KeyAttestationCertPath(it) }
   }
 
-  val prodRoot by lazy {
-    val certs = Gson().fromJson(readFile(PROD_ROOT_PATH), Array<String>::class.java).toSet()
-    check(certs.size == 1) { "Multiple certificates in the root file are not yet supported" }
-    certs.first().asX509Certificate()
+  val prodAnchors by lazy {
+    Gson()
+      .fromJson(readFile(PROD_ROOT_PATH), Array<String>::class.java)
+      .map { TrustAnchor(it.asX509Certificate(), null) }
+      .toSet()
   }
-
-  val prodAnchor = TrustAnchor(prodRoot, null)
 
   private fun readFile(path: Path) = path.reader()
   private fun readFile(path: String) = path.reader()
