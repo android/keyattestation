@@ -38,6 +38,7 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
 import org.bouncycastle.openssl.PEMParser
 
 object TestUtils {
+  // Adding this so it's changed.
   private const val PROD_ROOT_PATH =
     "googledata/html/external_content/android_googleapis_com/attestation/root"
   const val TESTDATA_PATH = "third_party/java/keyattestation/testdata"
