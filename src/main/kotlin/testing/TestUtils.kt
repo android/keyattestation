@@ -67,7 +67,7 @@ object TestUtils {
   }
 
   private fun readFile(path: Path) = path.reader()
-  private fun readFile(path: String) = path.reader()
+  private fun readFile(path: String) = readFile(Path(path))
 }
 
 object Base64ByteStringAdapter {

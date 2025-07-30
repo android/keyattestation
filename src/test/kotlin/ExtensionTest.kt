@@ -25,7 +25,6 @@ import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
-import com.google.testing.junit.testparameterinjector.TestParameters
 import java.time.YearMonth
 import kotlin.io.path.Path
 import kotlin.io.path.inputStream
@@ -91,10 +90,9 @@ class ExtensionTest {
   }
 
   @Test
-  @TestParameters("{patchLevel: '202400'}")
-  @TestParameters("{patchLevel: '00000000'}")
-  @TestParameters("{patchLevel: '2000231'}")
-  fun parseFrom_invalidPatchLevel_returnsNull(patchLevel: String) {
+  fun parseFrom_invalidPatchLevel_returnsNull(
+    @TestParameter("202400", "00000000", "2000231") patchLevel: String
+  ) {
     assertThat(PatchLevel.from(patchLevel)).isNull()
   }
 

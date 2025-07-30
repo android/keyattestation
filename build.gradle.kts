@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
-plugins { id("org.jetbrains.kotlin.jvm") version "2.0.21" }
+plugins {
+  id("com.adarshr.test-logger") version "4.0.0"
+  id("com.google.devtools.ksp") version ("2.2.0-2.0.2")
+  id("org.jetbrains.kotlin.jvm") version "2.2.0"
+}
 
 repositories { mavenCentral() }
 
@@ -25,13 +29,24 @@ dependencies {
   implementation("com.google.protobuf:protobuf-javalite:4.28.3")
   implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
   implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
-  implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
+  implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
 
   testImplementation(kotlin("test"))
   testImplementation("com.google.testparameterinjector:test-parameter-injector:1.18")
   testImplementation("com.google.truth:truth:1.4.4")
+
+  // Required to run JUnit 4 tests.
+  testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
+
+  // Required for JSON generated classes.
+  ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.1")
 }
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 
-tasks { test { useJUnitPlatform() } }
+tasks {
+  test {
+    useJUnitPlatform()
+    testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+  }
+}
