@@ -130,11 +130,11 @@ open class Verifier(
     }
 
     val securityLevel =
-      if (keyDescription.attestationSecurityLevel == keyDescription.keymasterSecurityLevel) {
+      if (keyDescription.attestationSecurityLevel == keyDescription.keyMintSecurityLevel) {
         keyDescription.attestationSecurityLevel
       } else {
         return VerificationResult.ExtensionConstraintViolation(
-          "attestationSecurityLevel != keymasterSecurityLevel: ${keyDescription.attestationSecurityLevel} != ${keyDescription.keymasterSecurityLevel}"
+          "attestationSecurityLevel != keyMintSecurityLevel: ${keyDescription.attestationSecurityLevel} != ${keyDescription.keyMintSecurityLevel}"
         )
       }
     val rootOfTrust =

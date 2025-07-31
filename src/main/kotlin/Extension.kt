@@ -133,8 +133,8 @@ data class DeviceIdentity(
 data class KeyDescription(
   val attestationVersion: BigInteger,
   val attestationSecurityLevel: SecurityLevel,
-  val keymasterVersion: BigInteger,
-  val keymasterSecurityLevel: SecurityLevel,
+  val keyMintVersion: BigInteger,
+  val keyMintSecurityLevel: SecurityLevel,
   val attestationChallenge: ByteString,
   val uniqueId: ByteString,
   val softwareEnforced: AuthorizationList,
@@ -148,8 +148,8 @@ data class KeyDescription(
     buildList {
         add(attestationVersion.toAsn1())
         add(attestationSecurityLevel.toAsn1())
-        add(keymasterVersion.toAsn1())
-        add(keymasterSecurityLevel.toAsn1())
+        add(keyMintVersion.toAsn1())
+        add(keyMintSecurityLevel.toAsn1())
         add(attestationChallenge.toAsn1())
         add(uniqueId.toAsn1())
         add(softwareEnforced.toAsn1())
@@ -185,8 +185,8 @@ data class KeyDescription(
       return KeyDescription(
         attestationVersion = seq.getObjectAt(0).toInt(),
         attestationSecurityLevel = seq.getObjectAt(1).toSecurityLevel(),
-        keymasterVersion = seq.getObjectAt(2).toInt(),
-        keymasterSecurityLevel = seq.getObjectAt(3).toSecurityLevel(),
+        keyMintVersion = seq.getObjectAt(2).toInt(),
+        keyMintSecurityLevel = seq.getObjectAt(3).toSecurityLevel(),
         attestationChallenge = seq.getObjectAt(4).toByteString(),
         uniqueId = seq.getObjectAt(5).toByteString(),
         softwareEnforced = seq.getObjectAt(6).toAuthorizationList(),
