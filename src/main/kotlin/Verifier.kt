@@ -22,7 +22,6 @@ import com.android.keyattestation.verifier.provider.ProvisioningMethod
 import com.android.keyattestation.verifier.provider.RevocationChecker
 import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
-import java.nio.ByteBuffer
 import java.security.PublicKey
 import java.security.Security
 import java.security.cert.CertPathValidator
@@ -73,26 +72,42 @@ open class Verifier(
     Security.addProvider(KeyAttestationProvider())
   }
 
-  fun verify(chain: List<X509Certificate>, challenge: ByteArray? = null): VerificationResult {
+  /**
+   * Verifies an Android Key Attestation certificate chain.
+   *
+   * @param chain The attestation certificate chain to verify.
+   * @param challengeChecker The challenge checker to use for additional challenge validation.
+   * @return [VerificationResult]
+   */
+  @JvmOverloads
+  fun verify(
+    chain: List<X509Certificate>,
+    challengeChecker: ChallengeChecker? = null,
+  ): VerificationResult {
     val certPath =
       try {
         KeyAttestationCertPath(chain)
       } catch (e: Exception) {
         return VerificationResult.ChainParsingFailure
       }
-    return verify(certPath, challenge)
+    return verify(certPath, challengeChecker)
   }
 
   /**
    * Verifies an Android Key Attestation certificate chain.
    *
    * @param chain The attestation certificate chain to verify.
+   * @param challengeChecker The challenge checker to use for additional validation of the challenge
+   *   in the attestation chain.
    * @return [VerificationResult]
    *
    * TODO: b/366058500 - Make the challenge required after Apparat's changes are rollback safe.
    */
   @JvmOverloads
-  fun verify(certPath: KeyAttestationCertPath, challenge: ByteArray? = null): VerificationResult {
+  fun verify(
+    certPath: KeyAttestationCertPath,
+    challengeChecker: ChallengeChecker? = null,
+  ): VerificationResult {
     val certPathValidator = CertPathValidator.getInstance("KeyAttestation")
     val certPathParameters =
       PKIXParameters(trustAnchorsSource()).apply {
@@ -114,8 +129,8 @@ open class Verifier(
       }
 
     if (
-      challenge != null &&
-        keyDescription.attestationChallenge.asReadOnlyByteBuffer() != ByteBuffer.wrap(challenge)
+      challengeChecker != null &&
+        !challengeChecker.checkChallenge(keyDescription.attestationChallenge)
     ) {
       return VerificationResult.ChallengeMismatch
     }
