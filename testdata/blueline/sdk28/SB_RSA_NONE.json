@@ -1,8 +1,8 @@
 {
   "attestationVersion": "3",
   "attestationSecurityLevel": "STRONG_BOX",
-  "keymasterVersion": "4",
-  "keymasterSecurityLevel": "STRONG_BOX",
+  "keyMintVersion": "4",
+  "keyMintSecurityLevel": "STRONG_BOX",
   "attestationChallenge": "Y2hhbGxlbmdl",
   "uniqueId": "",
   "softwareEnforced": {
