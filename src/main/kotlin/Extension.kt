@@ -100,14 +100,14 @@ data class ProvisioningInfoMap(
 
 @JsonClass(generateAdapter = true)
 data class DeviceIdentity(
-  val brand: String?,
-  val device: String?,
-  val product: String?,
-  val serialNumber: String?,
-  val imeis: Set<String>,
-  val meid: String?,
-  val manufacturer: String?,
-  val model: String?,
+  val brand: String? = null,
+  val device: String? = null,
+  val product: String? = null,
+  val serialNumber: String? = null,
+  val imeis: Set<String> = emptySet(),
+  val meid: String? = null,
+  val manufacturer: String? = null,
+  val model: String? = null,
 ) {
   companion object {
     @JvmStatic
@@ -133,12 +133,13 @@ data class DeviceIdentity(
 data class KeyDescription(
   val attestationVersion: BigInteger,
   val attestationSecurityLevel: SecurityLevel,
-  val keymasterVersion: BigInteger,
-  val keymasterSecurityLevel: SecurityLevel,
+  val keyMintVersion: BigInteger,
+  val keyMintSecurityLevel: SecurityLevel,
   val attestationChallenge: ByteString,
   val uniqueId: ByteString,
   val softwareEnforced: AuthorizationList,
   val hardwareEnforced: AuthorizationList,
+  @SuppressWarnings("Immutable") @Transient val infoMessages: List<String>? = listOf(),
 ) {
   fun asExtension(): Extension {
     return Extension(OID, /* critical= */ false, encodeToAsn1())
@@ -148,8 +149,8 @@ data class KeyDescription(
     buildList {
         add(attestationVersion.toAsn1())
         add(attestationSecurityLevel.toAsn1())
-        add(keymasterVersion.toAsn1())
-        add(keymasterSecurityLevel.toAsn1())
+        add(keyMintVersion.toAsn1())
+        add(keyMintSecurityLevel.toAsn1())
         add(attestationChallenge.toAsn1())
         add(uniqueId.toAsn1())
         add(softwareEnforced.toAsn1())
@@ -182,15 +183,17 @@ data class KeyDescription(
 
     private fun from(seq: ASN1Sequence): KeyDescription {
       require(seq.size() == 8)
+      val infoMessages = mutableListOf<String>()
       return KeyDescription(
         attestationVersion = seq.getObjectAt(0).toInt(),
         attestationSecurityLevel = seq.getObjectAt(1).toSecurityLevel(),
-        keymasterVersion = seq.getObjectAt(2).toInt(),
-        keymasterSecurityLevel = seq.getObjectAt(3).toSecurityLevel(),
+        keyMintVersion = seq.getObjectAt(2).toInt(),
+        keyMintSecurityLevel = seq.getObjectAt(3).toSecurityLevel(),
         attestationChallenge = seq.getObjectAt(4).toByteString(),
         uniqueId = seq.getObjectAt(5).toByteString(),
-        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(),
-        hardwareEnforced = seq.getObjectAt(7).toAuthorizationList(),
+        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(infoMessages = infoMessages),
+        hardwareEnforced = seq.getObjectAt(7).toAuthorizationList(infoMessages = infoMessages),
+        infoMessages = infoMessages.toList(),
       )
     }
   }
@@ -396,7 +399,11 @@ data class AuthorizationList(
       .let { DERSequence(it.toTypedArray()) }
 
   internal companion object {
-    fun from(seq: ASN1Sequence, validateTagOrder: Boolean = false): AuthorizationList {
+    fun from(
+      seq: ASN1Sequence,
+      validateTagOrder: Boolean = false,
+      infoMessages: MutableList<String>? = null,
+    ): AuthorizationList {
       val objects =
         seq.associate {
           require(it is ASN1TaggedObject) {
@@ -417,8 +424,12 @@ data class AuthorizationList(
        *    of their tag numbers.
        */
       // TODO: b/356172932 - Add test data once an example certificate is found in the wild.
-      if (validateTagOrder && !objects.keys.zipWithNext().all { (lhs, rhs) -> rhs > lhs }) {
-        throw IllegalArgumentException("AuthorizationList tags must appear in ascending order")
+      if (!objects.keys.zipWithNext().all { (lhs, rhs) -> rhs > lhs }) {
+        if (validateTagOrder) {
+          throw IllegalArgumentException("AuthorizationList tags must appear in ascending order")
+        } else {
+          infoMessages?.add("AuthorizationList tags must appear in ascending order")
+        }
       }
 
       return AuthorizationList(
@@ -625,10 +636,11 @@ private fun ASN1Encodable.toAttestationApplicationId(): AttestationApplicationId
 
 // TODO: b/356172932 - `validateTagOrder` should default to true after making it user configurable.
 private fun ASN1Encodable.toAuthorizationList(
-  validateTagOrder: Boolean = false
+  validateTagOrder: Boolean = false,
+  infoMessages: MutableList<String>? = null,
 ): AuthorizationList {
   check(this is ASN1Sequence) { "Object must be an ASN1Sequence, was ${this::class.simpleName}" }
-  return AuthorizationList.from(this, validateTagOrder)
+  return AuthorizationList.from(this, validateTagOrder, infoMessages)
 }
 
 private fun ASN1Encodable.toBoolean(): Boolean {
