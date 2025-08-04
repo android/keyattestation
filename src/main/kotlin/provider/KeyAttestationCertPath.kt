@@ -21,6 +21,7 @@ import com.google.protobuf.ByteString
 import java.security.cert.CertPath
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
+import javax.security.auth.x500.X500Principal
 
 /**
  * [CertPath] representing an Android key attestation certificate chain.
@@ -29,9 +30,9 @@ import java.security.cert.X509Certificate
  * `KeyStore.getCertificateChain()`) in the following order:
  * 1. Leaf certificate (containing the extension)
  * 2. Attestation certificate (contains the ProvisioningInfo extension if remotely provisioned)
- * 3. Intermediate certificate
- * 5. [Intermediate certificate] (if remotely provisioned)
- * 4. Root certificate
+ * 3. Intermediate certificate (only present if remotely or factory provisioned)
+ * 4. [Intermediate certificate] (only present if remotely provisioned)
+ * 5. Root certificate
  *
  * The last certificate in the chain is the trust anchor and is not included in the resulting
  * [CertPath]: "By convention, the certificates in a CertPath object of type X.509 are ordered
@@ -46,11 +47,6 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
   init {
     if (certs.size < 3) throw CertificateException("At least 3 certificates are required")
-    when (certs.indexOfLast { it.hasAttestationExtension() }) {
-      0 -> {} // expected value
-      -1 -> throw CertificateException("Attestation extension not found")
-      else -> throw CertificateException("Attestation extension on unexpected certificate")
-    }
     if (!certs.last().isSelfIssued()) throw CertificateException("Root certificate not found")
     this.certificatesWithAnchor = certs
   }
@@ -65,7 +61,13 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
   override fun getCertificates(): List<X509Certificate> = certificatesWithAnchor.dropLast(1)
 
-  fun provisioningMethod(): ProvisioningMethod = intermediateCert().provisioningMethod()
+  fun provisioningMethod(): ProvisioningMethod {
+    return when {
+      isFactoryProvisioned() -> ProvisioningMethod.FACTORY_PROVISIONED
+      isRemoteProvisioned() -> ProvisioningMethod.REMOTELY_PROVISIONED
+      else -> ProvisioningMethod.UNKNOWN
+    }
+  }
 
   /**
    * Returns the leaf certificate from the certificate chain.
@@ -81,6 +83,17 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
   fun intermediateCert(): X509Certificate = certificates.last()
 
+  private fun isFactoryProvisioned(): Boolean {
+    val rdn = parseDN(this.intermediateCert().subjectX500Principal.getName(X500Principal.RFC1779))
+    return rdn.containsKey("OID.2.5.4.5") && rdn["OID.2.5.4.12"] in setOf("TEE", "StrongBox")
+  }
+
+  private fun isRemoteProvisioned() =
+    this.certificatesWithAnchor.size > 4 &&
+      this.certificatesWithAnchor
+        .get(this.certificatesWithAnchor.size - 4)
+        .hasProvisioningInfoExtension()
+
   companion object {
     @JvmStatic
     @Throws(CertificateException::class)
@@ -89,4 +102,23 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
     private fun X509Certificate.isSelfIssued() = issuerX500Principal == subjectX500Principal
   }
+}
+
+enum class ProvisioningMethod {
+  UNKNOWN,
+  FACTORY_PROVISIONED,
+  REMOTELY_PROVISIONED,
+}
+
+private fun parseDN(dn: String): Map<String, String> {
+  val attributes = mutableMapOf<String, String>()
+  val parts = dn.split(",")
+
+  for (part in parts) {
+    val keyValue = part.trim().split("=", limit = 2)
+    if (keyValue.size == 2) {
+      attributes[keyValue[0].trim()] = keyValue[1].trim()
+    }
+  }
+  return attributes
 }

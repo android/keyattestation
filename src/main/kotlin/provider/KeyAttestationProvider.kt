@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.provider
 
+import androidx.annotation.RequiresApi
 import java.security.Provider
 import java.security.ProviderException
 
@@ -26,6 +27,7 @@ import java.security.ProviderException
  */
 // The replacement constructor was added in Java 11 and is not available on Android.
 @Suppress("DEPRECATION")
+@RequiresApi(24)
 class KeyAttestationProvider : Provider("KeyAttestation", 0.1, "Android Key Attestation Provider") {
   init {
     putService(
@@ -39,6 +41,7 @@ class KeyAttestationProvider : Provider("KeyAttestation", 0.1, "Android Key Atte
   }
 }
 
+@RequiresApi(24)
 private class ProviderService(
   provider: Provider,
   type: String,
