@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier
 
+import com.android.keyattestation.verifier.challengecheckers.ChallengeMatcher
 import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
@@ -35,8 +36,7 @@ class VerifierTest {
   @Test
   fun verify_validChain_returnsSuccess() {
     val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
-    val result =
-      assertIs<VerificationResult.Success>(verifier.verify(chain, "challenge".toByteArray()))
+    val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
     assertThat(result.publicKey).isEqualTo(chain.leafCert().publicKey)
     assertThat(result.challenge).isEqualTo(ByteString.copyFromUtf8("challenge"))
     assertThat(result.securityLevel).isEqualTo(SecurityLevel.TRUSTED_ENVIRONMENT)
@@ -46,8 +46,7 @@ class VerifierTest {
   @Test
   fun verify_validChain_returnsDeviceIdentity() {
     val chain = readCertPath("blueline/sdk28/TEE_RSA_BASE+IMEI.pem")
-    val result =
-      assertIs<VerificationResult.Success>(verifier.verify(chain, "challenge".toByteArray()))
+    val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
     assertThat(result.attestedDeviceIds)
       .isEqualTo(
         DeviceIdentity(
@@ -64,15 +63,34 @@ class VerifierTest {
   }
 
   @Test
-  fun verify_unexpectedChallenge_returnsChallengeMismatch() {
+  fun verify_challengeCheckerReturnsTrue_returnsSuccess() {
+    val challengeChecker: ChallengeChecker =
+      object : ChallengeChecker {
+        override fun checkChallenge(challenge: ByteString) = true
+      }
+
     val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.ChallengeMismatch>(verifier.verify(chain, "foo".toByteArray()))
+    assertIs<VerificationResult.Success>(verifier.verify(chain, challengeChecker))
+  }
+
+  @Test
+  fun verify_challengeCheckerReturnsFalse_returnsChallengeMismatch() {
+    val challengeChecker: ChallengeChecker =
+      object : ChallengeChecker {
+        override fun checkChallenge(challenge: ByteString) = false
+      }
+
+    val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
+    assertIs<VerificationResult.ChallengeMismatch>(verifier.verify(chain, challengeChecker))
   }
 
   @Test
   fun verify_unexpectedRootKey_returnsPathValidationFailure() {
     assertIs<VerificationResult.PathValidationFailure>(
-      verifier.verify(CertLists.wrongTrustAnchor, "challenge".toByteArray())
+      verifier.verify(
+        CertLists.wrongTrustAnchor,
+        ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
+      )
     )
   }
 }
