@@ -85,7 +85,7 @@ class ExtensionTest {
   @Ignore("TODO: b/356172932 - Reenable test once enabling tag order validator is configurable.")
   fun parseFrom_tagsNotInAscendingOrder_Throws() {
     assertFailsWith<IllegalArgumentException> {
-      readCertPath("invalid/tags_not_in_accending_order.pem").leafCert().keyDescription()
+      readCertPath("invalid/tags_not_in_ascending_order.pem").leafCert().keyDescription()
     }
   }
 
@@ -147,8 +147,8 @@ class ExtensionTest {
       KeyDescription(
         attestationVersion = 1.toBigInteger(),
         attestationSecurityLevel = SecurityLevel.SOFTWARE,
-        keymasterVersion = 1.toBigInteger(),
-        keymasterSecurityLevel = SecurityLevel.SOFTWARE,
+        keyMintVersion = 1.toBigInteger(),
+        keyMintSecurityLevel = SecurityLevel.SOFTWARE,
         attestationChallenge = ByteString.empty(),
         uniqueId = ByteString.empty(),
         softwareEnforced = authorizationList,
