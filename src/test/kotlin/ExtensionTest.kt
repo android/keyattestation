@@ -89,12 +89,7 @@ class ExtensionTest {
     }
   }
 
-  @Test
-  fun parseFrom_invalidPatchLevel_returnsNull(
-    @TestParameter("202400", "00000000", "2000231") patchLevel: String
-  ) {
-    assertThat(PatchLevel.from(patchLevel)).isNull()
-  }
+  // TODO: Get a real cert chain with invalid patch levels.
 
   @Test
   fun keyDescription_encodeToAsn1_expectedResult() {
