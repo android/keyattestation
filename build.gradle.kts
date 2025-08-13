@@ -27,7 +27,6 @@ dependencies {
   implementation("com.google.code.gson:gson:2.11.0")
   implementation("com.google.guava:guava:33.3.1-android")
   implementation("com.google.protobuf:protobuf-javalite:4.28.3")
-  implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
   implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
   implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
 
@@ -37,9 +36,6 @@ dependencies {
 
   // Required to run JUnit 4 tests.
   testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
-
-  // Required for JSON generated classes.
-  ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.1")
 }
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }

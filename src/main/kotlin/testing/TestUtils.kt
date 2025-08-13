@@ -22,11 +22,16 @@ import com.android.keyattestation.verifier.asX509Certificate
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializationContext
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonElement
+import com.google.gson.JsonPrimitive
+import com.google.gson.JsonSerializationContext
+import com.google.gson.JsonSerializer
 import com.google.protobuf.ByteString
-import com.squareup.moshi.FromJson
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.ToJson
 import java.io.Reader
+import java.lang.reflect.Type
 import java.math.BigInteger
 import java.nio.file.Path
 import java.security.cert.TrustAnchor
@@ -70,35 +75,38 @@ object TestUtils {
   private fun readFile(path: String) = readFile(Path(path))
 }
 
-object Base64ByteStringAdapter {
-  @ToJson
-  fun toJson(value: ByteString): String {
-    return Base64.getEncoder().encodeToString(value.toByteArray())
-  }
+object Base64ByteStringAdapter : JsonDeserializer<ByteString>, JsonSerializer<ByteString> {
+  override fun serialize(value: ByteString, typeOfSrc: Type, context: JsonSerializationContext) =
+    JsonPrimitive(Base64.getEncoder().encodeToString(value.toByteArray()))
 
-  @FromJson
-  fun fromJson(value: String): ByteString {
-    return ByteString.copyFrom(Base64.getDecoder().decode(value))
-  }
+  override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext) =
+    ByteString.copyFrom(Base64.getDecoder().decode(json.asJsonPrimitive.asString))
 }
 
-object BigIntegerAdapter {
-  @FromJson fun fromJson(value: String) = BigInteger(value)
+object BigIntegerAdapter : JsonDeserializer<BigInteger>, JsonSerializer<BigInteger> {
+  override fun serialize(value: BigInteger, typeOfSrc: Type, context: JsonSerializationContext) =
+    JsonPrimitive(value.toString())
 
-  @ToJson fun toJson(value: BigInteger) = value.toString()
+  override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext) =
+    BigInteger(json.asJsonPrimitive.asString)
 }
 
 // Assumes everything is well formatted.
-object PatchLevelAdapter {
-  @ToJson fun toJson(patchLevel: PatchLevel) = patchLevel.toString()
+object PatchLevelAdapter : JsonDeserializer<PatchLevel>, JsonSerializer<PatchLevel> {
+  override fun serialize(value: PatchLevel, typeOfSrc: Type, context: JsonSerializationContext) =
+    JsonPrimitive(value.toString())
 
-  @FromJson fun fromJson(patchLevel: String) = PatchLevel.from(patchLevel)
+  override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext) =
+    PatchLevel.from(json.asJsonPrimitive.asString)
 }
 
-private val moshi =
-  Moshi.Builder().add(Base64ByteStringAdapter).add(BigIntegerAdapter).add(PatchLevelAdapter).build()
-private val keyDescriptionAdapter = moshi.adapter(KeyDescription::class.java)
+private val gson =
+  GsonBuilder()
+    .registerTypeAdapter(ByteString::class.java, Base64ByteStringAdapter)
+    .registerTypeAdapter(BigInteger::class.java, BigIntegerAdapter)
+    .registerTypeAdapter(PatchLevel::class.java, PatchLevelAdapter)
+    .create()
 
-internal fun KeyDescription.toJson() = keyDescriptionAdapter.toJson(this)
+internal fun KeyDescription.toJson() = gson.toJson(this)
 
-fun String.toKeyDescription() = keyDescriptionAdapter.fromJson(this)
+fun String.toKeyDescription() = gson.fromJson(this, KeyDescription::class.java)

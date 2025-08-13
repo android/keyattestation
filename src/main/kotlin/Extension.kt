@@ -31,7 +31,6 @@ import co.nstant.`in`.cbor.model.UnicodeString
 import co.nstant.`in`.cbor.model.UnsignedInteger
 import com.google.errorprone.annotations.Immutable
 import com.google.protobuf.ByteString
-import com.squareup.moshi.JsonClass
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
@@ -59,7 +58,6 @@ import org.bouncycastle.asn1.DERTaggedObject
 import org.bouncycastle.asn1.x509.Extension
 
 @Immutable
-@JsonClass(generateAdapter = true)
 data class ProvisioningInfoMap(
   val certificatesIssued: Int,
 ) {
@@ -98,7 +96,6 @@ data class ProvisioningInfoMap(
   }
 }
 
-@JsonClass(generateAdapter = true)
 data class DeviceIdentity(
   val brand: String?,
   val device: String?,
@@ -129,7 +126,6 @@ data class DeviceIdentity(
 }
 
 @Immutable
-@JsonClass(generateAdapter = true)
 data class KeyDescription(
   val attestationVersion: BigInteger,
   val attestationSecurityLevel: SecurityLevel,
@@ -282,7 +278,6 @@ enum class KeyMintTag(val value: Int) {
  *   https://source.android.com/docs/security/features/keystore/attestation#authorizationlist-fields
  */
 @Immutable
-@JsonClass(generateAdapter = true)
 data class AuthorizationList(
   @SuppressWarnings("Immutable") val purposes: Set<BigInteger>? = null,
   val keySize: BigInteger? = null,
@@ -504,7 +499,6 @@ data class PatchLevel(val yearMonth: YearMonth, val version: Int? = null) {
  *   https://source.android.com/docs/security/features/keystore/attestation#attestationapplicationid-schema
  */
 @Immutable
-@JsonClass(generateAdapter = true)
 data class AttestationApplicationId(
   @SuppressWarnings("Immutable") val packages: Set<AttestationPackageInfo>,
   @SuppressWarnings("Immutable") val signatures: Set<ByteString>,
@@ -536,7 +530,6 @@ data class AttestationApplicationId(
  * @see
  *   https://source.android.com/docs/security/features/keystore/attestation#attestationapplicationid-schema
  */
-@JsonClass(generateAdapter = true)
 data class AttestationPackageInfo(val name: String, val version: BigInteger) {
   fun toAsn1() =
     buildList {
@@ -564,7 +557,6 @@ data class AttestationPackageInfo(val name: String, val version: BigInteger) {
  * @see https://source.android.com/docs/security/features/keystore/attestation#rootoftrust-fields
  */
 @Immutable
-@JsonClass(generateAdapter = true)
 data class RootOfTrust(
   val verifiedBootKey: ByteString,
   val deviceLocked: Boolean,
