@@ -31,14 +31,6 @@ fun InputStream.asX509Certificate() =
   certificateFactory.generateCertificate(this) as X509Certificate
 
 /**
- * Returns the Android Key Attestation extension.
- *
- * @return the DER-encoded OCTET string containing the KeyDescription sequence or null if the
- *   extension is not present in the certificate.
- */
-fun X509Certificate.keyDescription() = KeyDescription.parseFrom(this)
-
-/**
  * Returns the Android Key Attestation extension for provisioning info.
  *
  * @return the DER-encoded OCTET string containing the ProvisioningInfo sequence or null if the
