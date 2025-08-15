@@ -46,3 +46,57 @@ tasks {
     testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
   }
 }
+
+val generatedSourcesDir = layout.buildDirectory.dir("generated")
+
+val googleTrustAnchors by tasks.registering {
+  val jsonFile = file("roots.json")
+  val json = jsonFile.readText()
+  val generatedFile = generatedSourcesDir.get().file("main/kotlin/GoogleTrustAnchors.kt")
+
+  inputs.files(jsonFile)
+  outputs.file(generatedFile)
+
+  doLast {
+    generatedFile.getAsFile().writeText(
+        """
+        package com.android.keyattestation.verifier
+
+        import com.android.keyattestation.verifier.asX509Certificate
+
+        import com.google.gson.Gson
+        import java.security.cert.TrustAnchor
+        import org.bouncycastle.cert.X509CertificateHolder
+
+        object GoogleTrustAnchors : () -> Set<TrustAnchor> {
+          const val JSON = ""${'"'}
+            $json
+            ""${'"'}
+
+          override operator fun invoke(): Set<TrustAnchor> {
+            return Gson()
+              .fromJson(JSON, Array<String>::class.java)
+              .map { TrustAnchor(it.asX509Certificate(), null) }
+              .toSet()
+          }
+        }
+        """
+      )
+  }
+}
+
+val generateSources by tasks.registering {
+  outputs.dir(generatedSourcesDir)
+  dependsOn(tasks.named("googleTrustAnchors"))
+}
+
+sourceSets {
+  main {
+    kotlin.srcDir(generateSources)
+  }
+}
+
+tasks.named("compileKotlin").configure {
+    dependsOn("generateSources")
+}
+
