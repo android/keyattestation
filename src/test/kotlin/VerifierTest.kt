@@ -44,6 +44,13 @@ class VerifierTest {
   }
 
   @Test
+  fun verify_validChainUsingGeneratedTrustAnchors_returnsSuccess() {
+    val verifier = Verifier(GoogleTrustAnchors, { setOf<String>() }, { Instant.now() })
+    val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
+    assertIs<VerificationResult.Success>(verifier.verify(chain))
+  }
+
+  @Test
   fun verify_validChain_returnsDeviceIdentity() {
     val chain = readCertPath("blueline/sdk28/TEE_RSA_BASE+IMEI.pem")
     val result = assertIs<VerificationResult.Success>(verifier.verify(chain))

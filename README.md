@@ -5,11 +5,12 @@ A Kotlin library for verifying Android key attestation certificate chains.
 ## Usage
 
 ```kotlin
-// Create a verifier with trust anchors, revocation info, and time source
+// Create a verifier with default, Google-rooted trust anchors, revocation
+// info, and time source
 val verifier = Verifier(
-  { setOf(TrustAnchor(rootCertificate, null)) },  // Trust anchors source
-  { setOf<String>() },                            // Revoked serials source
-  { Instant.now() }                               // Time source
+  GoogleTrustAnchors,                   // Trust anchors source
+  { setOf<String>() },                  // Revoked serials source
+  { Instant.now() }                     // Time source
 )
 
 // Verify an attestation certificate chain
@@ -61,6 +62,11 @@ the `ChallengeChecker` interface.
 ```
 
 ## Roots
+
+The root certificates may be retrieved from https://android.googleapis.com/attestation/root.
+The `roots.json` source file in this repo is a mirror of the hosted roots file.
+The generated `GoogleTrustAnchors` class is created from `roots.json` during
+build time (as a Gradle task).
 
 Android Key Attestation root certificates are documented
 [here](https://developer.android.com/privacy-and-security/security-key-attestation#root_certificate).
