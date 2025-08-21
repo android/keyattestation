@@ -107,6 +107,6 @@ private val gson =
     .registerTypeAdapter(PatchLevel::class.java, PatchLevelAdapter)
     .create()
 
-internal fun KeyDescription.toJson() = gson.toJson(this)
+fun KeyDescription.toJson() = gson.toJson(this)
 
 fun String.toKeyDescription() = gson.fromJson(this, KeyDescription::class.java)
