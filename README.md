@@ -46,8 +46,30 @@ val challengeChecker = ChallengeMatcher("challenge123")
 val result = verifier.verify(certificateChain, challengeChecker)
 ```
 
-If the implementations in challengecheckers/ don't fit your needs, simply extend
-the `ChallengeChecker` interface.
+If there are multiple checks to perform on the challenge, use a
+`ChainedChallengeChecker` to encompass all the individual `ChallengeCheckers`.
+Checks in the `ChainedChallengeChecker` halt after the first failure, so take
+advantage of this behavior by putting "less expensive" checks first.
+For example, if your use case requires the challenge to be equal to an expected
+challenge _and_ not seen already (stale), then combine the `ChallengeMatcher`
+with an `InMemoryLruCache` like in this sample:
+
+```kotlin
+val cacheSize = 100
+
+// Create a ChainedChallengeChecker with desired ChallengeCheckers
+val challengeChecker =
+  ChainedChallengeChecker.of(ChallengeMatcher("expectedChallenge"), InMemoryLruCache(cacheSize))
+
+// Verify an attestation certificate chain with the checker
+val result = verifier.verify(certificateChain, challengeChecker)
+```
+
+Here, the `ChallengeMatcher` is used first, so we can avoid the cost of checking
+against the `InMemoryLruCache` if the challenge doesn't match.
+
+If the implementations in `challengecheckers/` don't fit your needs, simply
+extend the `ChallengeChecker` interface.
 
 ## Building
 
