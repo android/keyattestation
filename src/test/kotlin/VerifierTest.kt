@@ -22,6 +22,7 @@ import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
+import java.security.cert.PKIXReason
 import java.time.Instant
 import kotlin.test.assertIs
 import org.junit.Test
@@ -93,11 +94,13 @@ class VerifierTest {
 
   @Test
   fun verify_unexpectedRootKey_returnsPathValidationFailure() {
-    assertIs<VerificationResult.PathValidationFailure>(
-      verifier.verify(
-        CertLists.wrongTrustAnchor,
-        ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
+    val result =
+      assertIs<VerificationResult.PathValidationFailure>(
+        verifier.verify(
+          CertLists.wrongTrustAnchor,
+          ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
+        )
       )
-    )
+    assertThat(result.cause.reason).isEqualTo(PKIXReason.NO_TRUST_ANCHOR)
   }
 }

@@ -45,7 +45,7 @@ sealed interface VerificationResult {
 
   data object ChallengeMismatch : VerificationResult
 
-  data object PathValidationFailure : VerificationResult
+  data class PathValidationFailure(val cause: CertPathValidatorException) : VerificationResult
 
   data object ChainParsingFailure : VerificationResult
 
@@ -118,7 +118,7 @@ open class Verifier(
       try {
         certPathValidator.validate(certPath, certPathParameters) as PKIXCertPathValidatorResult
       } catch (e: CertPathValidatorException) {
-        return VerificationResult.PathValidationFailure
+        return VerificationResult.PathValidationFailure(e)
       }
 
     val keyDescription =
