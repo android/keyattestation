@@ -27,6 +27,7 @@ dependencies {
   implementation("com.google.code.gson:gson:2.11.0")
   implementation("com.google.guava:guava:33.3.1-android")
   implementation("com.google.protobuf:protobuf-javalite:4.28.3")
+  implementation("com.google.protobuf:protobuf-kotlin-lite:4.28.3")
   implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
   implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
 
