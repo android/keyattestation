@@ -43,6 +43,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.runBlocking
@@ -236,5 +237,12 @@ class VerifierTest {
     assertIs<VerificationResult.Success>(
       verifier.verifyAsync(this, chain, delayedAlwaysTrueChecker).await()
     )
+  }
+
+  @Test
+  fun init_softwareRootAsTrustAnchor_fails() {
+    assertFailsWith<IllegalArgumentException> {
+      Verifier({ setOf(TrustAnchor(SOFTWARE_ROOT, null)) }, { setOf<String>() }, { Instant.now() })
+    }
   }
 }
