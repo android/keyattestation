@@ -16,10 +16,26 @@
 
 package com.android.keyattestation.verifier.testing
 
+import com.android.keyattestation.verifier.AuthorizationList
+import com.android.keyattestation.verifier.KeyDescription
+import com.android.keyattestation.verifier.KeyMintTag
+import com.android.keyattestation.verifier.Origin
 import com.android.keyattestation.verifier.ProvisioningInfoMap
+import com.android.keyattestation.verifier.RootOfTrust
+import com.android.keyattestation.verifier.SecurityLevel
+import com.android.keyattestation.verifier.VerifiedBootState
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
+import com.google.protobuf.kotlin.toByteStringUtf8
+import java.math.BigInteger
 import java.security.cert.TrustAnchor
+import org.bouncycastle.asn1.ASN1Encodable
+import org.bouncycastle.asn1.ASN1EncodableVector
+import org.bouncycastle.asn1.ASN1Enumerated
+import org.bouncycastle.asn1.ASN1Integer
 import org.bouncycastle.asn1.ASN1ObjectIdentifier
+import org.bouncycastle.asn1.DEROctetString
+import org.bouncycastle.asn1.DERSequence
+import org.bouncycastle.asn1.DERTaggedObject
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x509.Extension
 
@@ -116,6 +132,21 @@ object CertLists {
         issuer = anchorSubject,
       ),
       certFactory.generateRootCertificate(keyPair = anchorKeyPair, subject = anchorSubject),
+    )
+  }
+
+  val certAfterTarget by lazy {
+    listOf(
+      certFactory.generateLeafCert(
+        publicKey = certFactory.generateEcKeyPair().public,
+        signingKey = certFactory.leafKey.private,
+        extension = null,
+        subject = X500Name("CN=Random leaf after the leaf"),
+      ),
+      certFactory.generateLeafCert(),
+      Certs.attestation,
+      Certs.factoryIntermediate,
+      certFactory.root,
     )
   }
 }
@@ -261,4 +292,170 @@ object Chains {
       Certs.root,
     )
   }
+
+  val missingRootOfTrust by lazy {
+    KeyAttestationCertPath(
+      certFactory.generateLeafCert(
+        extension =
+          KeyDescription(
+              attestationVersion = BigInteger.valueOf(300),
+              attestationSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+              keyMintVersion = BigInteger.valueOf(300),
+              keyMintSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+              attestationChallenge = "challenge".toByteStringUtf8(),
+              uniqueId = "uniqueId".toByteStringUtf8(),
+              softwareEnforced = AuthorizationList(),
+              hardwareEnforced = AuthorizationList(origin = Origin.GENERATED),
+            )
+            .asExtension()
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  val importedOrigin by lazy {
+    KeyAttestationCertPath(
+      certFactory.generateLeafCert(
+        extension =
+          KeyDescription(
+              attestationVersion = BigInteger.valueOf(300),
+              attestationSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+              keyMintVersion = BigInteger.valueOf(300),
+              keyMintSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+              attestationChallenge = "challenge".toByteStringUtf8(),
+              uniqueId = "uniqueId".toByteStringUtf8(),
+              softwareEnforced = AuthorizationList(),
+              hardwareEnforced =
+                AuthorizationList(
+                  rootOfTrust =
+                    RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED),
+                  origin = Origin.IMPORTED,
+                ),
+            )
+            .asExtension()
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  val mismatchedSecurityLevels by lazy {
+    KeyAttestationCertPath(
+      certFactory.generateLeafCert(
+        extension =
+          KeyDescription(
+              attestationVersion = BigInteger.valueOf(300),
+              attestationSecurityLevel = SecurityLevel.SOFTWARE,
+              keyMintVersion = BigInteger.valueOf(300),
+              keyMintSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+              attestationChallenge = "challenge".toByteStringUtf8(),
+              uniqueId = "uniqueId".toByteStringUtf8(),
+              softwareEnforced = AuthorizationList(),
+              hardwareEnforced =
+                AuthorizationList(
+                  rootOfTrust =
+                    RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED),
+                  origin = Origin.GENERATED,
+                ),
+            )
+            .asExtension()
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  val invalidBootPatchLevel by lazy {
+    KeyAttestationCertPath(
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.BOOT_PATCH_LEVEL.value,
+        ASN1Integer(BigInteger.valueOf(20000000)),
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+  val invalidVendorPatchLevel by lazy {
+    KeyAttestationCertPath(
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.VENDOR_PATCH_LEVEL.value,
+        ASN1Integer(BigInteger.valueOf(1234567)),
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+  val invalidOsPatchLevel by lazy {
+    KeyAttestationCertPath(
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.OS_PATCH_LEVEL.value,
+        ASN1Integer(BigInteger.valueOf(0)),
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+  val unorderedTags by lazy {
+    KeyAttestationCertPath(
+      // Append the key size tag, which has a lower tag number than either of the required tags
+      // (origin and root of trust).
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.KEY_SIZE.value,
+        ASN1Integer(BigInteger.valueOf(32)),
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  val unknownTag by lazy {
+    KeyAttestationCertPath(
+      generateValidLeafCertWithAppendedTag(1000, ASN1Integer(BigInteger.valueOf(2048))),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  private fun generateValidLeafCertWithAppendedTag(appendedTag: Int, appendedValue: ASN1Encodable) =
+    certFactory.generateLeafCert(
+      extension =
+        Extension(
+          KeyDescription.OID,
+          /* critical= */ false,
+          buildList {
+              add(ASN1Integer(BigInteger.valueOf(300))) // attestationVersion
+              add(ASN1Enumerated(1)) // attestationSecurityLevel
+              add(ASN1Integer(BigInteger.valueOf(300))) // keyMintVersion
+              add(ASN1Enumerated(1)) // keyMintSecurityLevel
+              add(DEROctetString(byteArrayOf(98, 99, 100))) // attestationChallenge
+              add(DEROctetString(byteArrayOf(100, 101, 102))) // uniqueId
+              add(DERSequence(ASN1EncodableVector())) // softwareEnforced
+              // hardwareEnforced, with the appended tag
+              add(
+                buildList {
+                    add(DERTaggedObject(KeyMintTag.ORIGIN.value, Origin.GENERATED.toAsn1()))
+                    add(
+                      DERTaggedObject(
+                        KeyMintTag.ROOT_OF_TRUST.value,
+                        RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED)
+                          .toAsn1(),
+                      )
+                    )
+                    add(DERTaggedObject(appendedTag, appendedValue))
+                  }
+                  .let { DERSequence(it.toTypedArray()) }
+              )
+            }
+            .let { DERSequence(it.toTypedArray()).encoded },
+        )
+    )
 }
