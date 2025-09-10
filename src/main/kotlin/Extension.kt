@@ -231,10 +231,12 @@ enum class KeyMintTag(val value: Int) {
   PURPOSE(1),
   ALGORITHM(2),
   KEY_SIZE(3),
+  BLOCK_MODE(4),
   DIGEST(5),
   PADDING(6),
   EC_CURVE(10),
   RSA_PUBLIC_EXPONENT(200),
+  RSA_OAEP_MGF_DIGEST(203),
   ACTIVE_DATE_TIME(400),
   ORIGINATION_EXPIRE_DATE_TIME(401),
   USAGE_EXPIRE_DATE_TIME(402),
@@ -280,12 +282,14 @@ enum class KeyMintTag(val value: Int) {
 @Immutable
 data class AuthorizationList(
   @SuppressWarnings("Immutable") val purposes: Set<BigInteger>? = null,
-  val keySize: BigInteger? = null,
   val algorithms: BigInteger? = null,
+  val keySize: BigInteger? = null,
+  @SuppressWarnings("Immutable") val blockModes: Set<BigInteger>? = null,
   @SuppressWarnings("Immutable") val digests: Set<BigInteger>? = null,
   @SuppressWarnings("Immutable") val paddings: Set<BigInteger>? = null,
   val ecCurve: BigInteger? = null,
   val rsaPublicExponent: BigInteger? = null,
+  @SuppressWarnings("Immutable") val rsaOaepMgfDigests: Set<BigInteger>? = null,
   val activeDateTime: BigInteger? = null,
   val originationExpireDateTime: BigInteger? = null,
   val usageExpireDateTime: BigInteger? = null,
@@ -324,10 +328,12 @@ data class AuthorizationList(
         purposes?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.PURPOSE)) }
         algorithms?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ALGORITHM)) }
         keySize?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.KEY_SIZE)) }
+        blockModes?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.BLOCK_MODE)) }
         digests?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.DIGEST)) }
         paddings?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.PADDING)) }
         ecCurve?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.EC_CURVE)) }
         rsaPublicExponent?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.RSA_PUBLIC_EXPONENT)) }
+        rsaOaepMgfDigests?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.RSA_OAEP_MGF_DIGEST)) }
         activeDateTime?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ACTIVE_DATE_TIME)) }
         originationExpireDateTime?.toAsn1()?.let {
           add(it.toTaggedObject(KeyMintTag.ORIGINATION_EXPIRE_DATE_TIME))
@@ -420,10 +426,14 @@ data class AuthorizationList(
         purposes = objects[KeyMintTag.PURPOSE]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
         algorithms = objects[KeyMintTag.ALGORITHM]?.toInt(),
         keySize = objects[KeyMintTag.KEY_SIZE]?.toInt(),
+        blockModes =
+          objects[KeyMintTag.BLOCK_MODE]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
         digests = objects[KeyMintTag.DIGEST]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
         paddings = objects[KeyMintTag.PADDING]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
         ecCurve = objects[KeyMintTag.EC_CURVE]?.toInt(),
         rsaPublicExponent = objects[KeyMintTag.RSA_PUBLIC_EXPONENT]?.toInt(),
+        rsaOaepMgfDigests =
+          objects[KeyMintTag.RSA_OAEP_MGF_DIGEST]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
         activeDateTime = objects[KeyMintTag.ACTIVE_DATE_TIME]?.toInt(),
         originationExpireDateTime = objects[KeyMintTag.ORIGINATION_EXPIRE_DATE_TIME]?.toInt(),
         usageExpireDateTime = objects[KeyMintTag.USAGE_EXPIRE_DATE_TIME]?.toInt(),
