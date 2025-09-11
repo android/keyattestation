@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Google LLC
+ * Copyright 2025 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,19 @@
  * limitations under the License.
  */
 
-package com.android.keyattestation.verifier.provider
+package com.android.keyattestation.verifier
 
-import java.security.cert.X509Certificate
+import androidx.annotation.RequiresApi
+import java.security.cert.CertPathValidatorException
 
-private const val KEY_DESCRIPTION_OID = "1.3.6.1.4.1.11129.2.1.17"
-private const val PROVISIONING_INFO_OID = "1.3.6.1.4.1.11129.2.1.30"
-
-internal fun X509Certificate.hasAttestationExtension() =
-  nonCriticalExtensionOIDs?.contains(KEY_DESCRIPTION_OID) ?: false
-
-internal fun X509Certificate.hasProvisioningInfoExtension() =
-  nonCriticalExtensionOIDs?.contains(PROVISIONING_INFO_OID) ?: false
+/** Reasons why a certificate chain could not be verified which are specific to key attestation. */
+@RequiresApi(24)
+enum class KeyAttestationReason : CertPathValidatorException.Reason {
+  CERTIFICATE_AFTER_TARGET,
+  TARGET_MISSING_ATTESTATION_EXTENSION,
+  ADDITIONAL_ATTESTATION_EXTENSION,
+  KEY_ORIGIN_NOT_GENERATED,
+  MISMATCHED_SECURITY_LEVELS,
+  ROOT_OF_TRUST_MISSING,
+  UNKNOWN_TAG_NUMBER,
+}
