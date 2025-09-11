@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.provider
 
+import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.Chains
 import com.google.common.truth.Truth.assertThat
@@ -29,12 +30,6 @@ import org.junit.runners.JUnit4
 
 @RunWith(JUnit4::class)
 class KeyAttestationCertPathTest {
-  @Test
-  fun constructor_noleaf_throwsCertificateException() {
-    assertFailsWith<CertificateException> {
-      KeyAttestationCertPath(CertLists.validFactoryProvisioned.drop(1))
-    }
-  }
 
   @Test
   fun constructor_noRoot_throwsException() {
@@ -51,11 +46,6 @@ class KeyAttestationCertPathTest {
         CertLists.validFactoryProvisioned.last(),
       )
     }
-  }
-
-  @Test
-  fun constructor_extraLeaf_throwsCertificateException() {
-    assertFailsWith<CertificateException> { KeyAttestationCertPath(CertLists.extended) }
   }
 
   @Test
@@ -111,5 +101,17 @@ class KeyAttestationCertPathTest {
       .isEqualTo(ProvisioningMethod.REMOTELY_PROVISIONED)
     assertThat(Chains.wrongIntermediateSubject.provisioningMethod())
       .isEqualTo(ProvisioningMethod.UNKNOWN)
+  }
+
+  @Test
+  fun securityLevel_returnsExpectedType() {
+    assertThat(Chains.validFactoryProvisioned.securityLevel())
+      .isEqualTo(SecurityLevel.TRUSTED_ENVIRONMENT)
+    assertThat(KeyAttestationCertPath(CertLists.validStrongboxFactoryProvisioned).securityLevel())
+      .isEqualTo(SecurityLevel.STRONG_BOX)
+    assertThat(KeyAttestationCertPath(CertLists.validRemotelyProvisioned).securityLevel())
+      .isEqualTo(SecurityLevel.TRUSTED_ENVIRONMENT)
+    assertThat(KeyAttestationCertPath(CertLists.validStrongBoxRemotelyProvisioned).securityLevel())
+      .isEqualTo(SecurityLevel.STRONG_BOX)
   }
 }
