@@ -16,6 +16,8 @@
 
 package com.android.keyattestation.verifier.provider
 
+import androidx.annotation.RequiresApi
+import com.android.keyattestation.verifier.KeyAttestationReason
 import java.security.GeneralSecurityException
 import java.security.InvalidAlgorithmParameterException
 import java.security.PublicKey
@@ -51,6 +53,7 @@ import javax.security.auth.x500.X500Principal
  * certificate chains.
  */
 class KeyAttestationCertPathValidator : CertPathValidatorSpi() {
+  @RequiresApi(24)
   override fun engineValidate(
     certPath: CertPath?,
     params: CertPathParameters?,
@@ -80,6 +83,7 @@ class KeyAttestationCertPathValidator : CertPathValidatorSpi() {
     )
   }
 
+  @RequiresApi(24)
   private fun validate(
     certPath: KeyAttestationCertPath,
     trustAnchors: Set<TrustAnchor>,
@@ -114,6 +118,7 @@ class KeyAttestationCertPathValidator : CertPathValidatorSpi() {
     }
   }
 
+  @RequiresApi(24)
   private fun validate(
     certPath: KeyAttestationCertPath,
     anchor: TrustAnchor,
@@ -161,6 +166,7 @@ enum class Step {
   TARGET,
 }
 
+@RequiresApi(24)
 private class BasicChecker(
   anchor: TrustAnchor,
   val certPath: KeyAttestationCertPath,
@@ -171,7 +177,7 @@ private class BasicChecker(
   private val caName = anchor.trustedCert?.subjectX500Principal ?: anchor.ca
   private var prevPubKey: PublicKey? = null
   private var prevSubject: X500Principal? = null
-  private var prevStep: Step? = null
+  private var step: Step? = null
   private var remainingCerts = 0
 
   /** The public key of the last certificate that was checked. */
@@ -182,7 +188,6 @@ private class BasicChecker(
     if (forward) throw CertPathValidatorException("forward checking not supported")
     prevPubKey = trustedPublicKey
     prevSubject = caName
-    prevStep = null
     remainingCerts = certPath.certificates.size
   }
 
@@ -191,55 +196,67 @@ private class BasicChecker(
   override fun getSupportedExtensions() = null
 
   override fun check(cert: Certificate, unresolvedCritExts: MutableCollection<String>) {
+    step = getStep(cert as X509Certificate) // cert will always be an X509Certificate
     remainingCerts--
-    verifyNameChaining(cert as X509Certificate) // cert will always be an X509Certificate
+    verifyNameChaining(cert)
     verifySignature(cert)
     verifyValidity(cert)
     verifyExpectations(cert)
     prevPubKey = cert.publicKey
     prevSubject = cert.subjectX500Principal
-    prevStep =
-      when (prevStep) {
-        null -> {
-          if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
-            Step.RKP_INTERMEDIATE
-          } else if (
-            certPath.provisioningMethod() == ProvisioningMethod.FACTORY_PROVISIONED ||
-              certPath.certificatesWithAnchor.size == 4
-          ) {
-            // TODO(google-internal bug): Remove size check once test data is better formed.
-            Step.FACTORY_INTERMEDIATE
-          } else {
-            // Software cert chains are just ROOT -> ATTESTATION -> TARGET.
-            Step.ATTESTATION
-          }
-        }
-        Step.RKP_INTERMEDIATE -> Step.RKP_SERVER
-        Step.RKP_SERVER -> Step.ATTESTATION
-        Step.FACTORY_INTERMEDIATE -> Step.ATTESTATION
-        Step.ATTESTATION -> Step.TARGET
-        Step.TARGET ->
-          throw CertPathValidatorException(
-            "Unexpected certificate after the target certificate",
-            null,
-            null,
-            -1,
-            PKIXReason.PATH_TOO_LONG,
-          )
-      }
   }
 
   private fun verifyNameChaining(cert: X509Certificate) {
     if (cert.issuerX500Principal != prevSubject) {
       throw CertPathValidatorException(
-        "Subject/Issuer name chaining check failed",
-        null,
-        null,
-        -1,
+        "Subject/Issuer name chaining check failed ${cert.issuerX500Principal} != ${prevSubject}",
+        /* cause = */ null,
+        certPath,
+        /* index = */ remainingCerts,
         PKIXReason.NAME_CHAINING,
       )
     }
   }
+
+  private fun getStep(cert: X509Certificate) =
+    when (step) {
+      null -> {
+        if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
+          Step.RKP_INTERMEDIATE
+        } else if (
+          certPath.provisioningMethod() == ProvisioningMethod.FACTORY_PROVISIONED ||
+            certPath.certificatesWithAnchor.size == 4
+        ) {
+          // TODO(google-internal bug): Remove size check once test data is better formed.
+          Step.FACTORY_INTERMEDIATE
+        } else {
+          // Software cert chains are just ROOT -> ATTESTATION -> TARGET.
+          Step.ATTESTATION
+        }
+      }
+      Step.RKP_INTERMEDIATE -> Step.RKP_SERVER
+      Step.RKP_SERVER -> Step.ATTESTATION
+      Step.FACTORY_INTERMEDIATE -> Step.ATTESTATION
+      Step.ATTESTATION -> Step.TARGET
+      Step.TARGET -> {
+        if (cert.hasAttestationExtension()) {
+          throw CertPathValidatorException(
+            "Unexpected attestation extension after the target certificate",
+            /* cause = */ null,
+            certPath,
+            /* index = */ remainingCerts,
+            KeyAttestationReason.CHAIN_EXTENDED_WITH_FAKE_ATTESTATION_EXTENSION,
+          )
+        }
+        throw CertPathValidatorException(
+          "Unexpected certificate after the target certificate",
+          /* cause = */ null,
+          certPath,
+          /* index = */ remainingCerts,
+          KeyAttestationReason.CHAIN_EXTENDED_FOR_KEY,
+        )
+      }
+    }
 
   private fun verifySignature(cert: X509Certificate) {
     try {
@@ -248,8 +265,8 @@ private class BasicChecker(
       throw CertPathValidatorException(
         "Signature check failed",
         e,
-        null,
-        -1,
+        certPath,
+        /* index = */ remainingCerts,
         BasicReason.INVALID_SIGNATURE,
       )
     } catch (e: GeneralSecurityException) {
@@ -258,7 +275,13 @@ private class BasicChecker(
        * be thrown instead of SignatureException. InvalidKeyException along with the other
        * exceptions that verify() throws are all subclasses of GeneralSecurityException.
        */
-      throw CertPathValidatorException("Signature check failed", e)
+      throw CertPathValidatorException(
+        "Verify signature failed",
+        e,
+        certPath,
+        /* index = */ remainingCerts,
+        BasicReason.UNSPECIFIED,
+      )
     }
   }
 
@@ -275,47 +298,31 @@ private class BasicChecker(
       throw CertPathValidatorException(
         "Validity check failed",
         e,
-        null,
-        -1,
+        certPath,
+        /* index = */ remainingCerts,
         BasicReason.NOT_YET_VALID,
       )
     } catch (e: CertificateExpiredException) {
-      throw CertPathValidatorException("Validity check failed", e, null, -1, BasicReason.EXPIRED)
+      throw CertPathValidatorException(
+        "Validity check failed",
+        e,
+        certPath,
+        /* index = */ remainingCerts,
+        BasicReason.EXPIRED,
+      )
     }
   }
 
   private fun verifyExpectations(cert: X509Certificate) {
-    when (prevStep) {
-      Step.FACTORY_INTERMEDIATE -> {
-        if (remainingCerts > 1) {
-          throw CertPathValidatorException(
-            "Factory provisioned path has more than 2 certificates after the intermediate",
-            null,
-            null,
-            -1,
-            PKIXReason.PATH_TOO_LONG,
-          )
-        }
-      }
-      Step.RKP_INTERMEDIATE -> {
-        if (remainingCerts > 2) {
-          throw CertPathValidatorException(
-            "Remotely provisioned path has more than 3 certificates after the intermediate",
-            null,
-            null,
-            -1,
-            PKIXReason.PATH_TOO_LONG,
-          )
-        }
-      }
-      Step.ATTESTATION -> {
+    when (step) {
+      Step.TARGET -> {
         if (!cert.hasAttestationExtension()) {
           throw CertPathValidatorException(
             "Target certificate does not contain an attestation extension",
-            null,
-            null,
-            -1,
-            BasicReason.UNSPECIFIED,
+            /* cause = */ null,
+            certPath,
+            /* index = */ remainingCerts,
+            KeyAttestationReason.TARGET_MISSING_ATTESTATION_EXTENSION,
           )
         }
       }
@@ -323,11 +330,11 @@ private class BasicChecker(
         // TODO(google-internal bug): Add support for ATTEST_KEY chains.
         if (cert.hasAttestationExtension()) {
           throw CertPathValidatorException(
-            "Only the target certificate should contain an attestation extension",
-            null,
-            null,
-            -1,
-            BasicReason.UNSPECIFIED,
+            "Only the target certificate should contain an attestation extension, attestation extenion found in ${step}",
+            /* cause = */ null,
+            certPath,
+            /* index = */ remainingCerts,
+            KeyAttestationReason.CHAIN_EXTENDED_WITH_FAKE_ATTESTATION_EXTENSION,
           )
         }
       }

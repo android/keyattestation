@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier
 
+import androidx.annotation.RequiresApi
 import co.nstant.`in`.cbor.CborDecoder
 import co.nstant.`in`.cbor.CborEncoder
 import co.nstant.`in`.cbor.CborException
@@ -58,6 +59,11 @@ import org.bouncycastle.asn1.DERTaggedObject
 import org.bouncycastle.asn1.x509.Extension
 
 @Immutable
+@RequiresApi(24)
+data class ExtensionParsingException(val msg: String, val reason: KeyAttestationReason? = null) :
+  Exception(msg)
+
+@Immutable
 data class ProvisioningInfoMap(
   val certificatesIssued: Int,
 ) {
@@ -96,12 +102,14 @@ data class ProvisioningInfoMap(
   }
 }
 
+@Immutable
 data class DeviceIdentity(
   val brand: String? = null,
   val device: String? = null,
   val product: String? = null,
   val serialNumber: String? = null,
-  val imeis: Set<String> = emptySet(),
+  // TODO(google-internal bug): Look into using ImmutableSet.
+  @SuppressWarnings("Immutable") val imeis: Set<String> = emptySet(),
   val meid: String? = null,
   val manufacturer: String? = null,
   val model: String? = null,
@@ -126,6 +134,7 @@ data class DeviceIdentity(
 }
 
 @Immutable
+@RequiresApi(24)
 data class KeyDescription(
   val attestationVersion: BigInteger,
   val attestationSecurityLevel: SecurityLevel,
@@ -229,6 +238,7 @@ enum class Origin(val value: Long) {
  * @see
  *   https://cs.android.com/android/platform/superproject/main/+/main:hardware/interfaces/security/keymint/aidl/android/hardware/security/keymint/Tag.aidl
  */
+@RequiresApi(24)
 enum class KeyMintTag(val value: Int) {
   PURPOSE(1),
   ALGORITHM(2),
@@ -271,7 +281,10 @@ enum class KeyMintTag(val value: Int) {
   companion object {
     fun from(value: Int) =
       values().firstOrNull { it.value == value }
-        ?: throw IllegalArgumentException("unknown tag number: $value")
+        ?: throw ExtensionParsingException(
+          "unknown tag number: $value",
+          KeyAttestationReason.UNKNOWN_TAG_NUMBER,
+        )
   }
 }
 
@@ -282,6 +295,7 @@ enum class KeyMintTag(val value: Int) {
  *   https://source.android.com/docs/security/features/keystore/attestation#authorizationlist-fields
  */
 @Immutable
+@RequiresApi(24)
 data class AuthorizationList(
   @SuppressWarnings("Immutable") val purposes: Set<BigInteger>? = null,
   val algorithms: BigInteger? = null,
@@ -637,6 +651,7 @@ private fun ASN1Encodable.toAttestationApplicationId(): AttestationApplicationId
   return AttestationApplicationId.from(ASN1Sequence.getInstance(this.octets))
 }
 
+@RequiresApi(24)
 private fun ASN1Encodable.toAuthorizationList(logFn: (String) -> Unit): AuthorizationList {
   check(this is ASN1Sequence) { "Object must be an ASN1Sequence, was ${this::class.simpleName}" }
   return AuthorizationList.from(this, logFn)

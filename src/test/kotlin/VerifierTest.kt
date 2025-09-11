@@ -16,6 +16,9 @@
 
 package com.android.keyattestation.verifier
 
+import com.android.keyattestation.verifier.VerificationResult.ExtensionConstraintViolation
+import com.android.keyattestation.verifier.VerificationResult.ExtensionParsingFailure
+import com.android.keyattestation.verifier.VerificationResult.PathValidationFailure
 import com.android.keyattestation.verifier.challengecheckers.ChallengeMatcher
 import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.Certs
@@ -49,7 +52,12 @@ import org.junit.runner.RunWith
 /** Unit tests for [Verifier]. */
 @RunWith(TestParameterInjector::class)
 class VerifierTest {
-  private val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { Instant.now() })
+  private val verifier =
+    Verifier(
+      { prodAnchors + TrustAnchor(Certs.root, null) },
+      { setOf<String>() },
+      { FakeCalendar.DEFAULT.now() },
+    )
   private val delayedAlwaysTrueChecker =
     object : ChallengeChecker {
       override fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean> {
@@ -145,6 +153,39 @@ class VerifierTest {
           .await()
       )
     assertThat(result.cause.reason).isEqualTo(PKIXReason.NO_TRUST_ANCHOR)
+  }
+
+  @Test
+  fun unknownTag_unknownTagReason() {
+    val result = assertIs<ExtensionParsingFailure>(verifier.verify(CertLists.unknownTag))
+    assertThat(result.cause.reason).isEqualTo(KeyAttestationReason.UNKNOWN_TAG_NUMBER)
+  }
+
+  @Test
+  fun targetMissingAttestationExtension_givesTargetMissingAttestationExtensionReason() {
+    val result = assertIs<PathValidationFailure>(verifier.verify(CertLists.missingExtension))
+    assertThat(result.cause.reason)
+      .isEqualTo(KeyAttestationReason.TARGET_MISSING_ATTESTATION_EXTENSION)
+  }
+
+  @Test
+  fun rootOfTrustMissing_givesRootOfTrustMissingReason() {
+    val result =
+      assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.missingRootOfTrust))
+    assertThat(result.reason).isEqualTo(KeyAttestationReason.ROOT_OF_TRUST_MISSING)
+  }
+
+  @Test
+  fun keyOriginNotGenerated_throwsCertPathValidatorException() {
+    val result = assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.importedOrigin))
+    assertThat(result.reason).isEqualTo(KeyAttestationReason.KEY_ORIGIN_NOT_GENERATED)
+  }
+
+  @Test
+  fun mismatchedSecurityLevels_throwsCertPathValidatorException() {
+    val result =
+      assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.mismatchedSecurityLevels))
+    assertThat(result.reason).isEqualTo(KeyAttestationReason.MISMATCHED_SECURITY_LEVELS)
   }
 
   @Test
