@@ -78,23 +78,19 @@ class KeyAttestationCertPathValidatorTest {
   }
 
   @Test
-  fun nullDate_throwsCertPathValidatorException() {
-    val exception =
+  fun nullDate_assumesNow() {
+    val unused =
+      certPathValidator.validate(Chains.validFactoryProvisioned, PKIXParameters(setOf(testAnchor)))
+    val notValidException =
       assertFailsWith<CertPathValidatorException> {
-        certPathValidator.validate(
-          Chains.validFactoryProvisioned,
-          PKIXParameters(setOf(testAnchor)),
-        )
+        certPathValidator.validate(Chains.notYetValid, PKIXParameters(setOf(testAnchor)))
       }
-    val pkixException =
+    val expiredException =
       assertFailsWith<CertPathValidatorException> {
-        pkixCertPathValidator.validate(
-          Chains.validFactoryProvisioned,
-          PKIXParameters(setOf(testAnchor)),
-        )
+        certPathValidator.validate(Chains.expired, PKIXParameters(setOf(testAnchor)))
       }
-    assertThat(exception.reason).isEqualTo(BasicReason.EXPIRED)
-    assertThat(pkixException.reason).isEqualTo(BasicReason.EXPIRED)
+    assertThat(notValidException.reason).isEqualTo(BasicReason.NOT_YET_VALID)
+    assertThat(expiredException.reason).isEqualTo(BasicReason.EXPIRED)
   }
 
   @Test
