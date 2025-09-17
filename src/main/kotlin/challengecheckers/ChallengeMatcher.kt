@@ -17,15 +17,20 @@
 package com.android.keyattestation.verifier.challengecheckers
 
 import com.android.keyattestation.verifier.ChallengeChecker
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
 
 /**
  * A basic implementation of [ChallengeChecker] that checks if the challenge in the attestation
  * certificate is equal to the expected challenge.
  */
+@ThreadSafe
 class ChallengeMatcher(private val expectedChallenge: ByteString) : ChallengeChecker {
 
   constructor(expectedChallenge: ByteArray) : this(ByteString.copyFrom(expectedChallenge))
 
-  override fun checkChallenge(challenge: ByteString): Boolean = challenge.equals(expectedChallenge)
+  override fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean> =
+    Futures.immediateFuture(challenge.equals(expectedChallenge))
 }

@@ -19,7 +19,7 @@ package com.android.keyattestation.verifier.challengecheckers
 import com.android.keyattestation.verifier.VerificationResult
 import com.android.keyattestation.verifier.Verifier
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
-import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
+import com.android.keyattestation.verifier.testing.TestUtils.readCertList
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import java.time.Instant
@@ -38,28 +38,30 @@ class ChallengeMatcherTest {
   @Test
   fun checkChallenge_matchingChallenge_returnsTrue() {
     val challengeChecker = ChallengeMatcher(testChallenge)
-    assertThat(challengeChecker.checkChallenge(testChallenge)).isTrue()
+    assertThat(challengeChecker.checkChallenge(testChallenge).get()).isTrue()
   }
 
   @Test
   fun checkChallenge_mismatchedChallenge_returnsFalse() {
     val challengeChecker = ChallengeMatcher(testChallenge)
-    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("foo"))).isFalse()
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("foo")).get()).isFalse()
   }
 
   @Test
   fun verify_expectedChallenge_returnsSuccess() {
     val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { Instant.now() })
-    val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.Success>(verifier.verify(chain, ChallengeMatcher(testChallenge)))
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
+    assertIs<VerificationResult.Success>(
+      verifier.verifyBlocking(chain, ChallengeMatcher(testChallenge))
+    )
   }
 
   @Test
   fun verify_unexpectedChallenge_returnsChallengeMismatch() {
     val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { Instant.now() })
-    val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
     assertIs<VerificationResult.ChallengeMismatch>(
-      verifier.verify(chain, ChallengeMatcher(ByteString.copyFromUtf8("foo")))
+      verifier.verifyBlocking(chain, ChallengeMatcher(ByteString.copyFromUtf8("foo")))
     )
   }
 }

@@ -32,6 +32,8 @@ import java.security.cert.PKIXParameters
 import java.security.cert.TrustAnchor
 import java.security.cert.X509Certificate
 import java.util.Date
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.runBlocking
 
 /** The result of verifying an Android Key Attestation certificate chain. */
 sealed interface VerificationResult {
@@ -126,12 +128,15 @@ open class Verifier(
   /**
    * Verifies an Android Key Attestation certificate chain.
    *
+   * This method blocks until [ChallengeChecker.checkChallenge] completes, so only use this function
+   * if you are certain the application can wait for the result.
+   *
    * @param chain The attestation certificate chain to verify.
    * @param challengeChecker The challenge checker to use for additional challenge validation.
    * @return [VerificationResult]
    */
   @JvmOverloads
-  fun verify(
+  fun verifyBlocking(
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
     log: LogHook? = null,
@@ -145,31 +150,12 @@ open class Verifier(
         log?.logResult(result)
         return result
       }
-    val result = internalVerify(certPath, challengeChecker, log)
+    val result = runBlocking { internalVerify(certPath, challengeChecker, log) }
     log?.logResult(result)
     return result
   }
 
-  /**
-   * Verifies an Android Key Attestation certificate chain.
-   *
-   * @param chain The attestation certificate chain to verify.
-   * @param challengeChecker The challenge checker to use for additional validation of the challenge
-   *   in the attestation chain.
-   * @return [VerificationEvent]
-   */
-  @JvmOverloads
-  fun verify(
-    certPath: KeyAttestationCertPath,
-    challengeChecker: ChallengeChecker? = null,
-    log: LogHook? = null,
-  ): VerificationResult {
-    val result = internalVerify(certPath, challengeChecker, log)
-    log?.logResult(result)
-    return result
-  }
-
-  internal fun internalVerify(
+  private suspend fun internalVerify(
     certPath: KeyAttestationCertPath,
     challengeChecker: ChallengeChecker? = null,
     log: LogHook? = null,
@@ -217,11 +203,11 @@ open class Verifier(
         return VerificationResult.ExtensionParsingFailure(e)
       }
     log?.logKeyDescription(keyDescription)
-    if (
-      challengeChecker != null &&
-        !challengeChecker.checkChallenge(keyDescription.attestationChallenge)
-    ) {
-      return VerificationResult.ChallengeMismatch
+    if (challengeChecker != null) {
+      val checkResult = challengeChecker.checkChallenge(keyDescription.attestationChallenge).await()
+      if (!checkResult) {
+        return VerificationResult.ChallengeMismatch
+      }
     }
 
     if (

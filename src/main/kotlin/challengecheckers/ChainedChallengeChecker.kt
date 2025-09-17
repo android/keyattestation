@@ -17,27 +17,36 @@
 package com.android.keyattestation.verifier.challengecheckers
 
 import com.android.keyattestation.verifier.ChallengeChecker
+import com.google.common.collect.ImmutableList
+import com.google.common.collect.toImmutableList
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.guava.future
 
 /**
  * A [ChallengeChecker] that checks a list of [ChallengeChecker]s in order.
  *
  * Checks are ordered and halt after the first failure.
  */
-class ChainedChallengeChecker(private val challengeCheckers: List<ChallengeChecker>) :
-  ChallengeChecker {
+@ThreadSafe
+class ChainedChallengeChecker(
+  private val challengeCheckers: ImmutableList<ChallengeChecker>,
+  private val coroutineScope: CoroutineScope,
+) : ChallengeChecker {
 
-  /**
-   * Checks the given challenge for validity.
-   *
-   * @param challenge the challenge being checked
-   * @return true if the challenge is valid, else false
-   */
-  override fun checkChallenge(challenge: ByteString): Boolean {
+  override fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean> {
+    return coroutineScope.future { checkChallengeSuspend(challenge) }
+  }
+
+  private suspend fun checkChallengeSuspend(challenge: ByteString): Boolean {
     // Manually loop instead of using .all() since we want to ensure order of checks and early
     // return on failure.
     for (challengeChecker in challengeCheckers) {
-      if (!challengeChecker.checkChallenge(challenge)) {
+      val checkResult = challengeChecker.checkChallenge(challenge).await()
+      if (!checkResult) {
         return false
       }
     }
@@ -51,8 +60,11 @@ class ChainedChallengeChecker(private val challengeCheckers: List<ChallengeCheck
      * @param challengeCheckers the [ChallengeChecker]s to chain
      * @return a [ChainedChallengeChecker] with the given [ChallengeChecker]s
      */
-    fun of(vararg challengeCheckers: ChallengeChecker): ChainedChallengeChecker {
-      return ChainedChallengeChecker(challengeCheckers.toList())
+    fun of(
+      vararg challengeCheckers: ChallengeChecker,
+      coroutineScope: CoroutineScope,
+    ): ChainedChallengeChecker {
+      return ChainedChallengeChecker(challengeCheckers.toImmutableList(), coroutineScope)
     }
   }
 }
