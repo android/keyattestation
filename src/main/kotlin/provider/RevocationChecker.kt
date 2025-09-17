@@ -45,7 +45,7 @@ class RevocationChecker(private val revokedSerials: Set<String>) : PKIXRevocatio
     if (revokedSerials.contains(cert.serialNumber.toString(16))) {
       // TODO: b/356234568 - Surface the revocation reason.
       throw CertPathValidatorException(
-        "Certificate has been revoked",
+        "Certificate has been revoked: ${cert.serialNumber}",
         null,
         null,
         -1,
