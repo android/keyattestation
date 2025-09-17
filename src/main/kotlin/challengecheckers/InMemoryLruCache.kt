@@ -17,7 +17,13 @@
 package com.android.keyattestation.verifier.challengecheckers
 
 import com.android.keyattestation.verifier.ChallengeChecker
+import com.google.common.cache.Cache
+import com.google.common.cache.CacheBuilder
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * A [ChallengeChecker] which checks for replay of challenges via an in-memory LRU cache which holds
@@ -27,19 +33,25 @@ import com.google.protobuf.ByteString
  *
  * @property maxCacheSize the maximum number of challenges to cache
  */
+@ThreadSafe
 class InMemoryLruCache(private val maxCacheSize: Int) : ChallengeChecker {
-  // Use a LinkedHashMap instead of LinkedHashSet even though we don't care about the values since
-  // it can order entries by access-order. Use default initial capacity and load factor.
-  private val cache: LinkedHashMap<ByteString, Int> =
-    object : LinkedHashMap<ByteString, Int>(16, 0.75f, true) {
+  // Cache to store challenges. The value (Boolean) doesn't matter, only the presence of the key.
+  private val cache: Cache<ByteString, Boolean> =
+    CacheBuilder.newBuilder().maximumSize(maxCacheSize.toLong()).build()
 
-      // Used to query whether the oldest entry should be removed from the cache.
-      override fun removeEldestEntry(eldest: MutableMap.MutableEntry<ByteString, Int>) =
-        size > maxCacheSize
+  private val lock = ReentrantLock()
+
+  override fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean> {
+    lock.lock()
+    try {
+      val isPresent = cache.getIfPresent(challenge)
+      if (isPresent == null) {
+        cache.put(challenge, true)
+        return Futures.immediateFuture(true)
+      }
+      return Futures.immediateFuture(false)
+    } finally {
+      lock.unlock()
     }
-
-  override fun checkChallenge(challenge: ByteString): Boolean {
-    val previousValue = cache.putIfAbsent(challenge, 1)
-    return previousValue == null
   }
 }

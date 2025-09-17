@@ -29,6 +29,9 @@ dependencies {
   implementation("com.google.protobuf:protobuf-kotlin-lite:4.28.3")
   implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
   implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
+  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2")
+  implementation("com.google.guava:guava:33.5.0-jre")
 
   testImplementation(kotlin("test"))
   testImplementation("com.google.testparameterinjector:test-parameter-injector:1.18")
@@ -95,6 +98,4 @@ val generateSources by
 
 sourceSets { main { kotlin.srcDir(generateSources) } }
 
-tasks.named("compileKotlin").configure {
-  dependsOn("generateSources")
-}
+tasks.named("compileKotlin").configure { dependsOn("generateSources") }
