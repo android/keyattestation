@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.provider
 
+import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.asX509Certificate
 import com.google.protobuf.ByteString
 import java.security.cert.CertPath
@@ -77,6 +78,18 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
       else -> ProvisioningMethod.UNKNOWN
     }
 
+  fun securityLevel() =
+    when (provisioningMethod()) {
+      ProvisioningMethod.FACTORY_PROVISIONED ->
+        parseDN(intermediateCert().subjectX500Principal.getName(X500Principal.RFC1779))[
+            "OID.2.5.4.12"]
+          .toSecurityLevel()
+      ProvisioningMethod.REMOTELY_PROVISIONED ->
+        parseDN(attestationCert().subjectX500Principal.getName(X500Principal.RFC1779))["O"]
+          .toSecurityLevel()
+      else -> SecurityLevel.SOFTWARE
+    }
+
   /**
    * Returns the leaf certificate from the certificate chain.
    *
@@ -130,3 +143,10 @@ private fun parseDN(dn: String): Map<String, String> {
   }
   return attributes
 }
+
+private fun String?.toSecurityLevel() =
+  when (this) {
+    "TEE" -> SecurityLevel.TRUSTED_ENVIRONMENT
+    "StrongBox" -> SecurityLevel.STRONG_BOX
+    else -> SecurityLevel.SOFTWARE
+  }
