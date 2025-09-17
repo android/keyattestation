@@ -1,43 +1,24 @@
+/*
+ * Copyright 2024 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.android.keyattestation.verifier.provider
 
 import java.security.cert.X509Certificate
-import javax.security.auth.x500.X500Principal
 
 private const val KEY_DESCRIPTION_OID = "1.3.6.1.4.1.11129.2.1.17"
 
 internal fun X509Certificate.hasAttestationExtension() =
   nonCriticalExtensionOIDs?.contains(KEY_DESCRIPTION_OID) ?: false
-
-enum class ProvisioningMethod {
-  UNKNOWN,
-  FACTORY_PROVISIONED,
-  REMOTELY_PROVISIONED,
-}
-
-fun X509Certificate.provisioningMethod(): ProvisioningMethod {
-  val rdn = parseDN(this.subjectX500Principal.getName(X500Principal.RFC1779))
-  return when {
-    isFactoryProvisioned(rdn) -> ProvisioningMethod.FACTORY_PROVISIONED
-    isRemoteProvisioned(rdn) -> ProvisioningMethod.REMOTELY_PROVISIONED
-    else -> ProvisioningMethod.UNKNOWN
-  }
-}
-
-private fun parseDN(dn: String): Map<String, String> {
-  val attributes = mutableMapOf<String, String>()
-  val parts = dn.split(",")
-
-  for (part in parts) {
-    val keyValue = part.trim().split("=", limit = 2)
-    if (keyValue.size == 2) {
-      attributes[keyValue[0].trim()] = keyValue[1].trim()
-    }
-  }
-  return attributes
-}
-
-private fun isFactoryProvisioned(rdn: Map<String, String>) =
-  rdn.containsKey("OID.2.5.4.5") && rdn["OID.2.5.4.12"] in setOf("TEE", "StrongBox")
-
-private fun isRemoteProvisioned(rdn: Map<String, String>) =
-  rdn.containsKey("CN") && rdn.containsKey("O")
