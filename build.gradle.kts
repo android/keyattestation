@@ -20,9 +20,13 @@ plugins {
   id("org.jetbrains.kotlin.jvm") version "2.2.0"
 }
 
-repositories { mavenCentral() }
+repositories {
+  mavenCentral()
+  google()
+}
 
 dependencies {
+  implementation("androidx.annotation:annotation:1.9.1")
   implementation("co.nstant.in:cbor:0.9")
   implementation("com.google.code.gson:gson:2.11.0")
   implementation("com.google.guava:guava:33.3.1-android")
@@ -97,6 +101,4 @@ val generateSources by
 
 sourceSets { main { kotlin.srcDir(generateSources) } }
 
-tasks.named("compileKotlin").configure {
-  dependsOn("generateSources")
-}
+tasks.named("compileKotlin").configure { dependsOn("generateSources") }

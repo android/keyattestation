@@ -18,11 +18,17 @@ package com.android.keyattestation.verifier
 
 import com.android.keyattestation.verifier.challengecheckers.ChallengeMatcher
 import com.android.keyattestation.verifier.testing.CertLists
+import com.android.keyattestation.verifier.testing.Certs
+import com.android.keyattestation.verifier.testing.Chains
+import com.android.keyattestation.verifier.testing.FakeCalendar
+import com.android.keyattestation.verifier.testing.FakeLogHook
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
+import com.google.protobuf.kotlin.toByteString
 import java.security.cert.PKIXReason
+import java.security.cert.TrustAnchor
 import java.time.Instant
 import kotlin.test.assertIs
 import org.junit.Test
@@ -102,5 +108,42 @@ class VerifierTest {
         )
       )
     assertThat(result.cause.reason).isEqualTo(PKIXReason.NO_TRUST_ANCHOR)
+  }
+
+  @Test
+  fun verify_failure_inputChainLogged() {
+    val logHook = FakeLogHook()
+    assertIs<VerificationResult.PathValidationFailure>(
+      verifier.verify(
+        CertLists.wrongTrustAnchor,
+        ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
+        logHook,
+      )
+    )
+    assertThat(logHook.inputChain)
+      .isEqualTo(CertLists.wrongTrustAnchor.map { it.encoded.toByteString() })
+  }
+
+  @Test
+  fun verify_success_keyDescriptionLogged() {
+    val logHook = FakeLogHook()
+    val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
+    assertIs<VerificationResult.Success>(verifier.verify(chain, log = logHook))
+    assertThat(logHook.keyDescription).isEqualTo(chain.leafCert().keyDescription())
+  }
+
+  @Test
+  fun verify_malformedPatchLevel_logsInfo() {
+    val verifierWithTestRoot =
+      Verifier(
+        { setOf(TrustAnchor(Certs.root, null)) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+      )
+    val logHook = FakeLogHook()
+    assertIs<VerificationResult.Success>(
+      verifierWithTestRoot.verify(Chains.invalidBootPatchLevel, log = logHook)
+    )
+    assertThat(logHook.infoMessages).isNotEmpty()
   }
 }
