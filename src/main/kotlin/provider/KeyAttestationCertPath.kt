@@ -49,7 +49,10 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
     when (certs.indexOfLast { it.hasAttestationExtension() }) {
       0 -> {} // expected value
       -1 -> throw CertificateException("Attestation extension not found")
-      else -> throw CertificateException("Attestation extension on unexpected certificate")
+      else ->
+        if (certs[0].hasAttestationExtension())
+          throw CertificateException("Additional attestation extension found")
+        else throw CertificateException("Certificate after target certificate")
     }
     if (!certs.last().isSelfIssued()) throw CertificateException("Root certificate not found")
     this.certificatesWithAnchor = certs

@@ -18,7 +18,9 @@ package com.android.keyattestation.verifier.testing
 
 import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.ProvisioningInfoMap
+import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
+import java.security.PublicKey
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x509.Extension
 
@@ -26,10 +28,14 @@ class KeyAttestationCertPathFactory(val fakeCalendar: FakeCalendar = FakeCalenda
   private val certFactory: KeyAttestationCertFactory =
     KeyAttestationCertFactory(fakeCalendar = fakeCalendar)
 
+  val root = certFactory.root
+  val rootKey = certFactory.rootKey
+
   @JvmOverloads
   fun generateCertPath(
     keyDescription: KeyDescription,
     remotelyProvisioned: Boolean = false,
+    leafKey: PublicKey = certFactory.leafKey.public,
   ): KeyAttestationCertPath {
     if (remotelyProvisioned) {
       val rkpKey = certFactory.generateEcKeyPair()
@@ -55,15 +61,22 @@ class KeyAttestationCertPathFactory(val fakeCalendar: FakeCalendar = FakeCalenda
             ),
         )
       return KeyAttestationCertPath(
-        certFactory.generateLeafCert(extension = keyDescription.asExtension()),
+        certFactory.generateLeafCert(extension = keyDescription.asExtension(), publicKey = leafKey),
         attestationCertWithProvisioningInfoExt,
         rkpIntermediate,
         certFactory.remoteIntermediate,
         certFactory.root,
       )
+    } else if (keyDescription.attestationSecurityLevel == SecurityLevel.STRONG_BOX) {
+      return KeyAttestationCertPath(
+        certFactory.generateLeafCert(extension = keyDescription.asExtension(), publicKey = leafKey),
+        certFactory.generateAttestationCert(issuer = certFactory.strongBoxIntermediate.subject),
+        certFactory.strongBoxIntermediate,
+        certFactory.root,
+      )
     } else {
       return KeyAttestationCertPath(
-        certFactory.generateLeafCert(extension = keyDescription.asExtension()),
+        certFactory.generateLeafCert(extension = keyDescription.asExtension(), publicKey = leafKey),
         certFactory.generateAttestationCert(),
         certFactory.factoryIntermediate,
         certFactory.root,
