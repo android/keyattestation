@@ -189,7 +189,12 @@ open class Verifier(
 
     val deviceInformation =
       if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
-        certPath.attestationCert().provisioningInfo()
+        try {
+          certPath.attestationCert().provisioningInfo()
+        } catch (e: Exception) {
+          log?.logInfoMessage("Failed to parse provisioning info map: ${e.message}")
+          null
+        }
       } else {
         null
       }
