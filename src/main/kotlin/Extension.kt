@@ -97,14 +97,14 @@ data class ProvisioningInfoMap(
 }
 
 data class DeviceIdentity(
-  val brand: String? = null,
-  val device: String? = null,
-  val product: String? = null,
-  val serialNumber: String? = null,
-  val imeis: Set<String> = emptySet(),
-  val meid: String? = null,
-  val manufacturer: String? = null,
-  val model: String? = null,
+  val brand: String?,
+  val device: String?,
+  val product: String?,
+  val serialNumber: String?,
+  val imeis: Set<String>,
+  val meid: String?,
+  val manufacturer: String?,
+  val model: String?,
 ) {
   companion object {
     @JvmStatic
@@ -160,25 +160,23 @@ data class KeyDescription(
     @JvmField val OID = ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.17")
 
     @JvmStatic
-    @JvmOverloads
-    fun parseFrom(cert: X509Certificate, logFn: (String) -> Unit = {}) =
+    fun parseFrom(cert: X509Certificate) =
       cert
         .getExtensionValue(OID.id)
         .let { ASN1OctetString.getInstance(it).octets }
-        .let { parseFrom(it, logFn) }
+        .let { parseFrom(it) }
 
     @JvmStatic
-    @JvmOverloads
-    fun parseFrom(bytes: ByteArray, logFn: (String) -> Unit = {}) =
+    fun parseFrom(bytes: ByteArray) =
       try {
-        from(ASN1Sequence.getInstance(bytes), logFn)
+        from(ASN1Sequence.getInstance(bytes))
       } catch (e: NullPointerException) {
         // Workaround for a NPE in BouncyCastle.
         // https://github.com/bcgit/bc-java/blob/228211ecb973fe87fdd0fc4ab16ba0446ec1a29c/core/src/main/java/org/bouncycastle/asn1/ASN1UniversalType.java#L24
         throw IllegalArgumentException(e)
       }
 
-    private fun from(seq: ASN1Sequence, logFn: (String) -> Unit = {}): KeyDescription {
+    private fun from(seq: ASN1Sequence): KeyDescription {
       require(seq.size() == 8)
       return KeyDescription(
         attestationVersion = seq.getObjectAt(0).toInt(),
@@ -187,8 +185,8 @@ data class KeyDescription(
         keyMintSecurityLevel = seq.getObjectAt(3).toSecurityLevel(),
         attestationChallenge = seq.getObjectAt(4).toByteString(),
         uniqueId = seq.getObjectAt(5).toByteString(),
-        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(logFn),
-        hardwareEnforced = seq.getObjectAt(7).toAuthorizationList(logFn),
+        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(),
+        hardwareEnforced = seq.getObjectAt(7).toAuthorizationList(),
       )
     }
   }
@@ -220,7 +218,7 @@ enum class Origin(val value: Long) {
   RESERVED(3),
   SECURELY_IMPORTED(4);
 
-  fun toAsn1() = ASN1Integer(value)
+  internal fun toAsn1() = ASN1Integer(value)
 }
 
 /**
@@ -399,7 +397,7 @@ data class AuthorizationList(
       .let { DERSequence(it.toTypedArray()) }
 
   internal companion object {
-    fun from(seq: ASN1Sequence, logFn: (String) -> Unit = { _ -> }): AuthorizationList {
+    fun from(seq: ASN1Sequence, validateTagOrder: Boolean = false): AuthorizationList {
       val objects =
         seq.associate {
           require(it is ASN1TaggedObject) {
@@ -419,8 +417,9 @@ data class AuthorizationList(
        * 2. within each class of tags, the elements or alternatives shall appear in ascending order
        *    of their tag numbers.
        */
-      if (!objects.keys.zipWithNext().all { (lhs, rhs) -> rhs > lhs }) {
-        logFn("AuthorizationList tags should appear in ascending order")
+      // TODO: b/356172932 - Add test data once an example certificate is found in the wild.
+      if (validateTagOrder && !objects.keys.zipWithNext().all { (lhs, rhs) -> rhs > lhs }) {
+        throw IllegalArgumentException("AuthorizationList tags must appear in ascending order")
       }
 
       return AuthorizationList(
@@ -450,7 +449,7 @@ data class AuthorizationList(
         rollbackResistant = if (objects.containsKey(KeyMintTag.ROLLBACK_RESISTANT)) true else null,
         rootOfTrust = objects[KeyMintTag.ROOT_OF_TRUST]?.toRootOfTrust(),
         osVersion = objects[KeyMintTag.OS_VERSION]?.toInt(),
-        osPatchLevel = objects[KeyMintTag.OS_PATCH_LEVEL]?.toPatchLevel("OS", logFn),
+        osPatchLevel = objects[KeyMintTag.OS_PATCH_LEVEL]?.toPatchLevel(),
         attestationApplicationId =
           objects[KeyMintTag.ATTESTATION_APPLICATION_ID]?.toAttestationApplicationId(),
         attestationIdBrand = objects[KeyMintTag.ATTESTATION_ID_BRAND]?.toStr(),
@@ -461,8 +460,8 @@ data class AuthorizationList(
         attestationIdMeid = objects[KeyMintTag.ATTESTATION_ID_MEID]?.toStr(),
         attestationIdManufacturer = objects[KeyMintTag.ATTESTATION_ID_MANUFACTURER]?.toStr(),
         attestationIdModel = objects[KeyMintTag.ATTESTATION_ID_MODEL]?.toStr(),
-        vendorPatchLevel = objects[KeyMintTag.VENDOR_PATCH_LEVEL]?.toPatchLevel("vendor", logFn),
-        bootPatchLevel = objects[KeyMintTag.BOOT_PATCH_LEVEL]?.toPatchLevel("boot", logFn),
+        vendorPatchLevel = objects[KeyMintTag.VENDOR_PATCH_LEVEL]?.toPatchLevel(),
+        bootPatchLevel = objects[KeyMintTag.BOOT_PATCH_LEVEL]?.toPatchLevel(),
         attestationIdSecondImei = objects[KeyMintTag.ATTESTATION_ID_SECOND_IMEI]?.toStr(),
         moduleHash = objects[KeyMintTag.MODULE_HASH]?.toByteString(),
       )
@@ -481,24 +480,14 @@ data class PatchLevel(val yearMonth: YearMonth, val version: Int? = null) {
   }
 
   companion object {
-    fun from(
-      patchLevel: ASN1Encodable,
-      partitionName: String = "",
-      logFn: (String) -> Unit = { _ -> },
-    ): PatchLevel? {
+    fun from(patchLevel: ASN1Encodable): PatchLevel? {
       check(patchLevel is ASN1Integer) { "Must be an ASN1Integer, was ${this::class.simpleName}" }
-      return from(patchLevel.value.toString(), partitionName, logFn)
+      return from(patchLevel.value.toString())
     }
 
     @JvmStatic
-    @JvmOverloads
-    fun from(
-      patchLevel: String,
-      partitionName: String = "",
-      logFn: (String) -> Unit = { _ -> },
-    ): PatchLevel? {
+    fun from(patchLevel: String): PatchLevel? {
       if (patchLevel.length != 6 && patchLevel.length != 8) {
-        logFn("Invalid $partitionName patch level: $patchLevel")
         return null
       }
       try {
@@ -507,7 +496,6 @@ data class PatchLevel(val yearMonth: YearMonth, val version: Int? = null) {
         val version = if (patchLevel.length == 8) patchLevel.substring(6).toInt() else null
         return PatchLevel(yearMonth, version)
       } catch (e: DateTimeParseException) {
-        logFn("Invalid $partitionName patch level: $patchLevel")
         return null
       }
     }
@@ -637,9 +625,12 @@ private fun ASN1Encodable.toAttestationApplicationId(): AttestationApplicationId
   return AttestationApplicationId.from(ASN1Sequence.getInstance(this.octets))
 }
 
-private fun ASN1Encodable.toAuthorizationList(logFn: (String) -> Unit): AuthorizationList {
+// TODO: b/356172932 - `validateTagOrder` should default to true after making it user configurable.
+private fun ASN1Encodable.toAuthorizationList(
+  validateTagOrder: Boolean = false
+): AuthorizationList {
   check(this is ASN1Sequence) { "Object must be an ASN1Sequence, was ${this::class.simpleName}" }
-  return AuthorizationList.from(this, logFn)
+  return AuthorizationList.from(this, validateTagOrder)
 }
 
 private fun ASN1Encodable.toBoolean(): Boolean {
@@ -666,10 +657,7 @@ private fun ASN1Encodable.toInt(): BigInteger {
   return this.value
 }
 
-private fun ASN1Encodable.toPatchLevel(
-  partitionName: String = "",
-  logFn: (String) -> Unit = { _ -> },
-): PatchLevel? = PatchLevel.from(this, partitionName, logFn)
+private fun ASN1Encodable.toPatchLevel(): PatchLevel? = PatchLevel.from(this)
 
 private fun ASN1Encodable.toRootOfTrust(): RootOfTrust {
   check(this is ASN1Sequence) { "Object must be an ASN1Sequence, was ${this::class.simpleName}" }
