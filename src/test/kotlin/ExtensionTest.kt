@@ -62,7 +62,7 @@ class ExtensionTest {
       }
 
     for ((pemPath, jsonPath) in chainMap) {
-      assertThat(readCertPath(pemPath.reader()).leafCert().keyDescription())
+      assertThat(KeyDescription.parseFrom(readCertPath(pemPath.reader()).leafCert()))
         .isEqualTo(jsonPath.readText().toKeyDescription())
     }
   }
@@ -74,18 +74,18 @@ class ExtensionTest {
   }
 
   @Test
-  @Ignore("b/399272143 - unignore in cl/735538301")
   fun parseFrom_containsAllowWhileOnBody_success() {
     val unused =
-      testData.resolve("allow_while_on_body.pem").inputStream().asX509Certificate().keyDescription()
-    // assertThat(keyDescription.hardwareEnforced.allowWhileOnBody).isTrue()
+      KeyDescription.parseFrom(
+        testData.resolve("allow_while_on_body.pem").inputStream().asX509Certificate()
+      )
   }
 
   @Test
   @Ignore("TODO: b/356172932 - Reenable test once enabling tag order validator is configurable.")
   fun parseFrom_tagsNotInAscendingOrder_Throws() {
     assertFailsWith<IllegalArgumentException> {
-      readCertPath("invalid/tags_not_in_ascending_order.pem").leafCert().keyDescription()
+      KeyDescription.parseFrom(readCertPath("invalid/tags_not_in_ascending_order.pem").leafCert())
     }
   }
 
