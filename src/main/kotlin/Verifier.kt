@@ -20,6 +20,8 @@ import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.android.keyattestation.verifier.provider.KeyAttestationProvider
 import com.android.keyattestation.verifier.provider.ProvisioningMethod
 import com.android.keyattestation.verifier.provider.RevocationChecker
+import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
@@ -32,6 +34,10 @@ import java.security.cert.PKIXParameters
 import java.security.cert.TrustAnchor
 import java.security.cert.X509Certificate
 import java.util.Date
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.guava.future
+import kotlinx.coroutines.runBlocking
 
 /** The result of verifying an Android Key Attestation certificate chain. */
 sealed interface VerificationResult {
@@ -56,6 +62,7 @@ sealed interface VerificationResult {
 }
 
 /** Interface for logging info level key attestation events and information. */
+@ThreadSafe
 interface LogHook {
 
   /**
@@ -126,12 +133,16 @@ open class Verifier(
   /**
    * Verifies an Android Key Attestation certificate chain.
    *
+   * This method blocks until [ChallengeChecker.checkChallenge] completes, so only use this function
+   * if you are certain the application can wait for the result.
+   *
    * @param chain The attestation certificate chain to verify.
    * @param challengeChecker The challenge checker to use for additional challenge validation.
+   * @param log The log hook to use for logging.
    * @return [VerificationResult]
    */
   @JvmOverloads
-  fun verify(
+  fun verifyBlocking(
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
     log: LogHook? = null,
@@ -145,12 +156,45 @@ open class Verifier(
         log?.logResult(result)
         return result
       }
-    val result = internalVerify(certPath, challengeChecker, log)
+    val result = runBlocking { internalVerify(certPath, challengeChecker, log) }
     log?.logResult(result)
     return result
   }
 
-  private fun internalVerify(
+  /**
+   * Verifies an Android Key Attestation certificate chain asynchronously.
+   *
+   * @param chain The attestation certificate chain to verify.
+   * @param coroutineScope The coroutine scope to from which to run the verification.
+   * @param challengeChecker The challenge checker to use for additional challenge validation.
+   * @param log The log hook to use for logging.
+   * @return A [ListenableFuture] containing the [VerificationResult].
+   */
+  @JvmOverloads
+  fun verify(
+    chain: List<X509Certificate>,
+    coroutineScope: CoroutineScope,
+    challengeChecker: ChallengeChecker? = null,
+    log: LogHook? = null,
+  ): ListenableFuture<VerificationResult> {
+    val immutableChain = ImmutableList.copyOf(chain)
+    return coroutineScope.future {
+      val certPath =
+        try {
+          KeyAttestationCertPath(immutableChain)
+        } catch (e: Exception) {
+          val result = VerificationResult.ChainParsingFailure(e)
+          log?.logInputChain(immutableChain.map { it.getEncoded().toByteString() })
+          log?.logResult(result)
+          return@future result
+        }
+      val result = internalVerify(certPath, challengeChecker, log)
+      log?.logResult(result)
+      result
+    }
+  }
+
+  private suspend fun internalVerify(
     certPath: KeyAttestationCertPath,
     challengeChecker: ChallengeChecker? = null,
     log: LogHook? = null,
@@ -198,11 +242,11 @@ open class Verifier(
         return VerificationResult.ExtensionParsingFailure(e)
       }
     log?.logKeyDescription(keyDescription)
-    if (
-      challengeChecker != null &&
-        !challengeChecker.checkChallenge(keyDescription.attestationChallenge)
-    ) {
-      return VerificationResult.ChallengeMismatch
+    if (challengeChecker != null) {
+      val checkResult = challengeChecker.checkChallenge(keyDescription.attestationChallenge).await()
+      if (!checkResult) {
+        return VerificationResult.ChallengeMismatch
+      }
     }
 
     if (
