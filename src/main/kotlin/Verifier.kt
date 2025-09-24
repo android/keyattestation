@@ -20,6 +20,8 @@ import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.android.keyattestation.verifier.provider.KeyAttestationProvider
 import com.android.keyattestation.verifier.provider.ProvisioningMethod
 import com.android.keyattestation.verifier.provider.RevocationChecker
+import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
@@ -27,12 +29,15 @@ import java.security.PublicKey
 import java.security.Security
 import java.security.cert.CertPathValidator
 import java.security.cert.CertPathValidatorException
+import java.security.cert.CertificateException
 import java.security.cert.PKIXCertPathValidatorResult
 import java.security.cert.PKIXParameters
 import java.security.cert.TrustAnchor
 import java.security.cert.X509Certificate
 import java.util.Date
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.runBlocking
 
 /** The result of verifying an Android Key Attestation certificate chain. */
@@ -58,6 +63,7 @@ sealed interface VerificationResult {
 }
 
 /** Interface for logging info level key attestation events and information. */
+@ThreadSafe
 interface LogHook {
 
   /**
@@ -133,6 +139,7 @@ open class Verifier(
    *
    * @param chain The attestation certificate chain to verify.
    * @param challengeChecker The challenge checker to use for additional challenge validation.
+   * @param log The log hook to use for logging.
    * @return [VerificationResult]
    */
   @JvmOverloads
@@ -141,18 +148,47 @@ open class Verifier(
     challengeChecker: ChallengeChecker? = null,
     log: LogHook? = null,
   ): VerificationResult {
-    val certPath =
+    val result =
       try {
-        KeyAttestationCertPath(chain)
-      } catch (e: Exception) {
-        val result = VerificationResult.ChainParsingFailure(e)
+        val certPath = KeyAttestationCertPath(chain)
+        runBlocking { internalVerify(certPath, challengeChecker, log) }
+      } catch (e: CertificateException) {
         log?.logInputChain(chain.map { it.getEncoded().toByteString() })
-        log?.logResult(result)
-        return result
+        VerificationResult.ChainParsingFailure(e)
       }
-    val result = runBlocking { internalVerify(certPath, challengeChecker, log) }
     log?.logResult(result)
     return result
+  }
+
+  /**
+   * Verifies an Android Key Attestation certificate chain asynchronously.
+   *
+   * @param chain The attestation certificate chain to verify.
+   * @param coroutineScope The coroutine scope to from which to run the verification.
+   * @param challengeChecker The challenge checker to use for additional challenge validation.
+   * @param log The log hook to use for logging.
+   * @return A [ListenableFuture] containing the [VerificationResult].
+   */
+  @JvmOverloads
+  fun verifyAsync(
+    coroutineScope: CoroutineScope,
+    chain: List<X509Certificate>,
+    challengeChecker: ChallengeChecker? = null,
+    log: LogHook? = null,
+  ): ListenableFuture<VerificationResult> {
+    val immutableChain = ImmutableList.copyOf(chain)
+    return coroutineScope.future {
+      val result =
+        try {
+          val certPath = KeyAttestationCertPath(immutableChain)
+          internalVerify(certPath, challengeChecker, log)
+        } catch (e: CertificateException) {
+          log?.logInputChain(immutableChain.map { it.getEncoded().toByteString() })
+          VerificationResult.ChainParsingFailure(e)
+        }
+      log?.logResult(result)
+      result
+    }
   }
 
   private suspend fun internalVerify(
