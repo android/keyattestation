@@ -150,26 +150,7 @@ open class Verifier(
     return result
   }
 
-  /**
-   * Verifies an Android Key Attestation certificate chain.
-   *
-   * @param chain The attestation certificate chain to verify.
-   * @param challengeChecker The challenge checker to use for additional validation of the challenge
-   *   in the attestation chain.
-   * @return [VerificationEvent]
-   */
-  @JvmOverloads
-  fun verify(
-    certPath: KeyAttestationCertPath,
-    challengeChecker: ChallengeChecker? = null,
-    log: LogHook? = null,
-  ): VerificationResult {
-    val result = internalVerify(certPath, challengeChecker, log)
-    log?.logResult(result)
-    return result
-  }
-
-  internal fun internalVerify(
+  private fun internalVerify(
     certPath: KeyAttestationCertPath,
     challengeChecker: ChallengeChecker? = null,
     log: LogHook? = null,

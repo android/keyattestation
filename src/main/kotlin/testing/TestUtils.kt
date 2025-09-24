@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.testing
 
+import com.android.keyattestation.verifier.ChallengeChecker
 import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.PatchLevel
 import com.android.keyattestation.verifier.asX509Certificate
@@ -35,6 +36,7 @@ import java.lang.reflect.Type
 import java.math.BigInteger
 import java.nio.file.Path
 import java.security.cert.TrustAnchor
+import java.security.cert.X509Certificate
 import java.util.Base64
 import kotlin.io.path.Path
 import kotlin.io.path.reader
@@ -50,6 +52,13 @@ object TestUtils {
     readCertPath(readFile(Path(base = TESTDATA_PATH, /* subpaths...= */ subpath)))
 
   fun readCertPath(reader: Reader): KeyAttestationCertPath {
+    return readCertPathAsList(reader).let { KeyAttestationCertPath(it) }
+  }
+
+  fun readCertPathAsList(subpath: String): List<X509Certificate> =
+    readCertPathAsList(readFile(Path(base = TESTDATA_PATH, /* subpaths...= */ subpath)))
+
+  fun readCertPathAsList(reader: Reader): List<X509Certificate> {
     return PEMParser(reader)
       .use {
         buildList {
@@ -61,7 +70,6 @@ object TestUtils {
         }
       }
       .map { JcaX509CertificateConverter().getCertificate(it) }
-      .let { KeyAttestationCertPath(it) }
   }
 
   val prodAnchors by lazy {
@@ -70,6 +78,16 @@ object TestUtils {
       .map { TrustAnchor(it.asX509Certificate(), null) }
       .toSet()
   }
+
+  val falseChecker =
+    object : ChallengeChecker {
+      override fun checkChallenge(challenge: ByteString): Boolean = false
+    }
+
+  val trueChecker =
+    object : ChallengeChecker {
+      override fun checkChallenge(challenge: ByteString): Boolean = true
+    }
 
   private fun readFile(path: Path) = path.reader()
   private fun readFile(path: String) = readFile(Path(path))
