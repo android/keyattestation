@@ -135,6 +135,18 @@ object CertLists {
     )
   }
 
+  val invalidBootPatchLevel by lazy {
+    listOf(
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.BOOT_PATCH_LEVEL.value,
+        ASN1Integer(BigInteger.valueOf(20000000)),
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
   val certAfterTarget by lazy {
     listOf(
       certFactory.generateLeafCert(
@@ -424,38 +436,38 @@ object Chains {
       certFactory.root,
     )
   }
-
-  private fun generateValidLeafCertWithAppendedTag(appendedTag: Int, appendedValue: ASN1Encodable) =
-    certFactory.generateLeafCert(
-      extension =
-        Extension(
-          KeyDescription.OID,
-          /* critical= */ false,
-          buildList {
-              add(ASN1Integer(BigInteger.valueOf(300))) // attestationVersion
-              add(ASN1Enumerated(1)) // attestationSecurityLevel
-              add(ASN1Integer(BigInteger.valueOf(300))) // keyMintVersion
-              add(ASN1Enumerated(1)) // keyMintSecurityLevel
-              add(DEROctetString(byteArrayOf(98, 99, 100))) // attestationChallenge
-              add(DEROctetString(byteArrayOf(100, 101, 102))) // uniqueId
-              add(DERSequence(ASN1EncodableVector())) // softwareEnforced
-              // hardwareEnforced, with the appended tag
-              add(
-                buildList {
-                    add(DERTaggedObject(KeyMintTag.ORIGIN.value, Origin.GENERATED.toAsn1()))
-                    add(
-                      DERTaggedObject(
-                        KeyMintTag.ROOT_OF_TRUST.value,
-                        RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED)
-                          .toAsn1(),
-                      )
-                    )
-                    add(DERTaggedObject(appendedTag, appendedValue))
-                  }
-                  .let { DERSequence(it.toTypedArray()) }
-              )
-            }
-            .let { DERSequence(it.toTypedArray()).encoded },
-        )
-    )
 }
+
+private fun generateValidLeafCertWithAppendedTag(appendedTag: Int, appendedValue: ASN1Encodable) =
+  certFactory.generateLeafCert(
+    extension =
+      Extension(
+        KeyDescription.OID,
+        /* critical= */ false,
+        buildList {
+            add(ASN1Integer(BigInteger.valueOf(300))) // attestationVersion
+            add(ASN1Enumerated(1)) // attestationSecurityLevel
+            add(ASN1Integer(BigInteger.valueOf(300))) // keyMintVersion
+            add(ASN1Enumerated(1)) // keyMintSecurityLevel
+            add(DEROctetString(byteArrayOf(98, 99, 100))) // attestationChallenge
+            add(DEROctetString(byteArrayOf(100, 101, 102))) // uniqueId
+            add(DERSequence(ASN1EncodableVector())) // softwareEnforced
+            // hardwareEnforced, with the appended tag
+            add(
+              buildList {
+                  add(DERTaggedObject(KeyMintTag.ORIGIN.value, Origin.GENERATED.toAsn1()))
+                  add(
+                    DERTaggedObject(
+                      KeyMintTag.ROOT_OF_TRUST.value,
+                      RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED)
+                        .toAsn1(),
+                    )
+                  )
+                  add(DERTaggedObject(appendedTag, appendedValue))
+                }
+                .let { DERSequence(it.toTypedArray()) }
+            )
+          }
+          .let { DERSequence(it.toTypedArray()).encoded },
+      )
+  )

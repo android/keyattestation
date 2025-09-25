@@ -19,17 +19,22 @@ package com.android.keyattestation.verifier
 import com.android.keyattestation.verifier.challengecheckers.ChallengeMatcher
 import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.Certs
-import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeCalendar
 import com.android.keyattestation.verifier.testing.FakeLogHook
+import com.android.keyattestation.verifier.testing.TestUtils.falseChecker
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
-import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
+import com.android.keyattestation.verifier.testing.TestUtils.readCertList
+import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
 import com.google.common.truth.Truth.assertThat
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
 import java.security.cert.PKIXReason
 import java.security.cert.TrustAnchor
 import java.time.Instant
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertIs
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,9 +47,9 @@ class VerifierTest {
 
   @Test
   fun verify_validChain_returnsSuccess() {
-    val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
-    val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
-    assertThat(result.publicKey).isEqualTo(chain.leafCert().publicKey)
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
+    val result = assertIs<VerificationResult.Success>(verifier.verifyBlocking(chain))
+    assertThat(result.publicKey).isEqualTo(chain.first().publicKey)
     assertThat(result.challenge).isEqualTo(ByteString.copyFromUtf8("challenge"))
     assertThat(result.securityLevel).isEqualTo(SecurityLevel.TRUSTED_ENVIRONMENT)
     assertThat(result.verifiedBootState).isEqualTo(VerifiedBootState.UNVERIFIED)
@@ -59,8 +64,8 @@ class VerifierTest {
 
   @Test
   fun verify_validChain_returnsDeviceIdentity() {
-    val chain = readCertPath("blueline/sdk28/TEE_RSA_BASE+IMEI.pem")
-    val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
+    val chain = readCertList("blueline/sdk28/TEE_RSA_BASE+IMEI.pem")
+    val result = assertIs<VerificationResult.Success>(verifier.verifyBlocking(chain))
     assertThat(result.attestedDeviceIds)
       .isEqualTo(
         DeviceIdentity(
@@ -78,31 +83,23 @@ class VerifierTest {
 
   @Test
   fun verify_challengeCheckerReturnsTrue_returnsSuccess() {
-    val challengeChecker: ChallengeChecker =
-      object : ChallengeChecker {
-        override fun checkChallenge(challenge: ByteString) = true
-      }
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
 
-    val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.Success>(verifier.verify(chain, challengeChecker))
+    assertIs<VerificationResult.Success>(verifier.verifyBlocking(chain, trueChecker))
   }
 
   @Test
   fun verify_challengeCheckerReturnsFalse_returnsChallengeMismatch() {
-    val challengeChecker: ChallengeChecker =
-      object : ChallengeChecker {
-        override fun checkChallenge(challenge: ByteString) = false
-      }
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
 
-    val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.ChallengeMismatch>(verifier.verify(chain, challengeChecker))
+    assertIs<VerificationResult.ChallengeMismatch>(verifier.verifyBlocking(chain, falseChecker))
   }
 
   @Test
   fun verify_unexpectedRootKey_returnsPathValidationFailure() {
     val result =
       assertIs<VerificationResult.PathValidationFailure>(
-        verifier.verify(
+        verifier.verifyBlocking(
           CertLists.wrongTrustAnchor,
           ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
         )
@@ -114,7 +111,7 @@ class VerifierTest {
   fun verify_failure_inputChainLogged() {
     val logHook = FakeLogHook()
     assertIs<VerificationResult.PathValidationFailure>(
-      verifier.verify(
+      verifier.verifyBlocking(
         CertLists.wrongTrustAnchor,
         ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
         logHook,
@@ -127,9 +124,9 @@ class VerifierTest {
   @Test
   fun verify_success_keyDescriptionLogged() {
     val logHook = FakeLogHook()
-    val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.Success>(verifier.verify(chain, log = logHook))
-    assertThat(logHook.keyDescription).isEqualTo(chain.leafCert().keyDescription())
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
+    assertIs<VerificationResult.Success>(verifier.verifyBlocking(chain, log = logHook))
+    assertThat(logHook.keyDescription).isEqualTo(chain.first().keyDescription())
   }
 
   @Test
@@ -142,8 +139,26 @@ class VerifierTest {
       )
     val logHook = FakeLogHook()
     assertIs<VerificationResult.Success>(
-      verifierWithTestRoot.verify(Chains.invalidBootPatchLevel, log = logHook)
+      verifierWithTestRoot.verifyBlocking(CertLists.invalidBootPatchLevel, log = logHook)
     )
     assertThat(logHook.infoMessages).isNotEmpty()
+  }
+
+  @Test
+  fun verifyBlocking_longDelay_successfullyAwaitsChallengeCheck() {
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
+    val challengeChecker =
+      object : ChallengeChecker {
+        override fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean> {
+          return Futures.scheduleAsync(
+            { Futures.immediateFuture(true) },
+            5,
+            TimeUnit.SECONDS,
+            Executors.newSingleThreadScheduledExecutor(),
+          )
+        }
+      }
+
+    assertIs<VerificationResult.Success>(verifier.verifyBlocking(chain, challengeChecker))
   }
 }
