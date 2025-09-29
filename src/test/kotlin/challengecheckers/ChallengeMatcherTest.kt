@@ -48,6 +48,12 @@ class ChallengeMatcherTest {
   }
 
   @Test
+  fun checkChallenge_anotherMismatchedChallenge_returnsFalse() {
+    val challengeChecker = ChallengeMatcher(testChallenge)
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("bar"))).isFalse()
+  }
+
+  @Test
   fun verify_expectedChallenge_returnsSuccess() {
     val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { Instant.now() })
     val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
