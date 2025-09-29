@@ -22,8 +22,10 @@ import com.android.keyattestation.verifier.testing.Certs
 import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeCalendar
 import com.android.keyattestation.verifier.testing.FakeLogHook
+import com.android.keyattestation.verifier.testing.TestUtils.falseChecker
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
+import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
@@ -78,24 +80,16 @@ class VerifierTest {
 
   @Test
   fun verify_challengeCheckerReturnsTrue_returnsSuccess() {
-    val challengeChecker: ChallengeChecker =
-      object : ChallengeChecker {
-        override fun checkChallenge(challenge: ByteString) = true
-      }
-
     val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.Success>(verifier.verify(chain, challengeChecker))
+
+    assertIs<VerificationResult.Success>(verifier.verify(chain, trueChecker))
   }
 
   @Test
   fun verify_challengeCheckerReturnsFalse_returnsChallengeMismatch() {
-    val challengeChecker: ChallengeChecker =
-      object : ChallengeChecker {
-        override fun checkChallenge(challenge: ByteString) = false
-      }
-
     val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.ChallengeMismatch>(verifier.verify(chain, challengeChecker))
+
+    assertIs<VerificationResult.ChallengeMismatch>(verifier.verify(chain, falseChecker))
   }
 
   @Test
