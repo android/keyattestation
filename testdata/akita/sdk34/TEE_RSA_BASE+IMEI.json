@@ -14,16 +14,16 @@
   },
   "hardwareEnforced": {
     "purposes": ["2"],
-    "keySize": "2048",
     "algorithms": "1",
+    "keySize": "2048",
     "rsaPublicExponent": "65537",
     "noAuthRequired": true,
     "origin": "GENERATED",
     "rootOfTrust": {
-      "verifiedBootKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "verifiedBootKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\u003d",
       "deviceLocked": false,
       "verifiedBootState": "UNVERIFIED",
-      "verifiedBootHash": "iCWIV2R1rsyzkpgv4vvF9ixpyfyEunPmxTzAUqEWFYY="
+      "verifiedBootHash": "iCWIV2R1rsyzkpgv4vvF9ixpyfyEunPmxTzAUqEWFYY\u003d"
     },
     "osVersion": "140000",
     "osPatchLevel": "202408",

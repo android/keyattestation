@@ -66,6 +66,11 @@ class KeyAttestationCertPathValidator : CertPathValidatorSpi() {
     if (params !is PKIXParameters) {
       throw InvalidAlgorithmParameterException("params must be an instance of PKIXParameters")
     }
+    if (certPath !is KeyAttestationCertPath) {
+      throw InvalidAlgorithmParameterException(
+        "certPath must be an instance of KeyAttestationCertPath"
+      )
+    }
     return validate(
       certPath,
       params.trustAnchors,
@@ -76,7 +81,7 @@ class KeyAttestationCertPathValidator : CertPathValidatorSpi() {
   }
 
   private fun validate(
-    certPath: CertPath,
+    certPath: KeyAttestationCertPath,
     trustAnchors: Set<TrustAnchor>,
     extraCertPathCheckers: List<PKIXCertPathChecker>,
     date: Date,
@@ -110,15 +115,14 @@ class KeyAttestationCertPathValidator : CertPathValidatorSpi() {
   }
 
   private fun validate(
-    certPath: CertPath,
+    certPath: KeyAttestationCertPath,
     anchor: TrustAnchor,
     extraCertPathCheckers: List<PKIXCertPathChecker>,
     date: Date,
     sigProvider: String?,
   ): CertPathValidatorResult {
     val certList = certPath.toCertList()
-    val pathLen = certPath.certificates.size
-    val basicChecker = BasicChecker(anchor, pathLen, date, sigProvider)
+    val basicChecker = BasicChecker(anchor, certPath, date, sigProvider)
     val certPathCheckers = listOf(basicChecker, *extraCertPathCheckers.toTypedArray())
 
     certList.forEachIndexed { idx, cert ->
@@ -159,7 +163,7 @@ enum class Step {
 
 private class BasicChecker(
   anchor: TrustAnchor,
-  val certPathLen: Int,
+  val certPath: KeyAttestationCertPath,
   val date: Date,
   val sigProvider: String?,
 ) : PKIXCertPathChecker() {
@@ -179,7 +183,7 @@ private class BasicChecker(
     prevPubKey = trustedPublicKey
     prevSubject = caName
     prevStep = null
-    remainingCerts = certPathLen
+    remainingCerts = certPath.certificates.size
   }
 
   override fun isForwardCheckingSupported() = false
@@ -197,10 +201,17 @@ private class BasicChecker(
     prevStep =
       when (prevStep) {
         null -> {
-          if (cert.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
+          if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
             Step.RKP_INTERMEDIATE
-          } else {
+          } else if (
+            certPath.provisioningMethod() == ProvisioningMethod.FACTORY_PROVISIONED ||
+              certPath.certificatesWithAnchor.size == 4
+          ) {
+            // TODO(google-internal bug): Remove size check once test data is better formed.
             Step.FACTORY_INTERMEDIATE
+          } else {
+            // Software cert chains are just ROOT -> ATTESTATION -> TARGET.
+            Step.ATTESTATION
           }
         }
         Step.RKP_INTERMEDIATE -> Step.RKP_SERVER
@@ -309,6 +320,7 @@ private class BasicChecker(
         }
       }
       else -> {
+        // TODO(google-internal bug): Add support for ATTEST_KEY chains.
         if (cert.hasAttestationExtension()) {
           throw CertPathValidatorException(
             "Only the target certificate should contain an attestation extension",

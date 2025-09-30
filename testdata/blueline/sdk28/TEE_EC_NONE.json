@@ -14,13 +14,13 @@
           "version": "0"
         }
       ],
-      "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
+      "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE\u003d"]
     }
   },
   "hardwareEnforced": {
     "purposes": ["2"],
-    "keySize": "256",
     "algorithms": "3",
+    "keySize": "256",
     "ecCurve": "1",
     "noAuthRequired": true,
     "origin": "GENERATED",
@@ -28,7 +28,7 @@
       "verifiedBootKey": "",
       "deviceLocked": false,
       "verifiedBootState": "UNVERIFIED",
-      "verifiedBootHash": "bp0MW+os2pnz5cdvsnQM34eT0dNjQizQZdIr8KK7W60="
+      "verifiedBootHash": "bp0MW+os2pnz5cdvsnQM34eT0dNjQizQZdIr8KK7W60\u003d"
     },
     "osVersion": "90000",
     "osPatchLevel": "201908",
