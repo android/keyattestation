@@ -66,9 +66,9 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
 
   val root: X509Certificate = generateRootCertificate()
   val factoryIntermediate = generateIntermediateCertificate()
-  val remoteIntermediate =
-    generateIntermediateCertificate(subject = X500Name("O=Google LLC, CN=Droid CA9000"))
   val attestation = generateAttestationCert()
+  private val remoteIntermediateSubject = X500Name("CN=Droid CA2, O=Google LLC")
+  val remoteIntermediate = generateIntermediateCertificate(subject = remoteIntermediateSubject)
 
   internal fun generateRootCertificate(
     keyPair: KeyPair = rootKey,
