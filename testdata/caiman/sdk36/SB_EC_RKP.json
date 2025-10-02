@@ -1,0 +1,41 @@
+{
+  "attestationVersion": "300",
+  "attestationSecurityLevel": "STRONG_BOX",
+  "keyMintVersion": "300",
+  "keyMintSecurityLevel": "STRONG_BOX",
+  "attestationChallenge": "N2NjYWMxZWEtNDg0NS00ODJlLTg1OGQtZjZmYTlhYThjMjk1",
+  "uniqueId": "",
+  "softwareEnforced": {
+    "creationDateTime": "1758900646327",
+    "attestationApplicationId": {
+      "packages": [
+        { "name": "com.google.android.attestation", "version": "0" }
+      ],
+      "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
+    }
+  },
+  "hardwareEnforced": {
+    "purposes": ["2", "3"],
+    "algorithms": "3",
+    "keySize": "256",
+    "digests": ["4"],
+    "ecCurve": "1",
+    "noAuthRequired": true,
+    "origin": "GENERATED",
+    "rootOfTrust": {
+      "verifiedBootKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "deviceLocked": true,
+      "verifiedBootState": "VERIFIED",
+      "verifiedBootHash": "BqI5JbZUfsEkCGyl7d01w19Yzm62ihOv39QZXEHGHtQ="
+    },
+    "osVersion": "160000",
+    "osPatchLevel": "202511",
+    "attestationIdBrand": "google",
+    "attestationIdDevice": "caiman",
+    "attestationIdProduct": "caiman",
+    "attestationIdManufacturer": "Google",
+    "attestationIdModel": "Pixel 9 Pro",
+    "vendorPatchLevel": "20251105",
+    "bootPatchLevel": "20251105"
+  }
+}

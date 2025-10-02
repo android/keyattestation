@@ -64,6 +64,9 @@ object TestUtils {
       .let { KeyAttestationCertPath(it) }
   }
 
+  fun readJson(subpath: String) =
+    readFile(Path(base = TESTDATA_PATH, /* subpaths...= */ subpath)).readText().toKeyDescription()
+
   val prodAnchors by lazy {
     Gson()
       .fromJson(readFile(PROD_ROOT_PATH), Array<String>::class.java)
@@ -105,6 +108,7 @@ private val gson =
     .registerTypeAdapter(ByteString::class.java, Base64ByteStringAdapter)
     .registerTypeAdapter(BigInteger::class.java, BigIntegerAdapter)
     .registerTypeAdapter(PatchLevel::class.java, PatchLevelAdapter)
+    .disableHtmlEscaping()
     .create()
 
 fun KeyDescription.toJson() = gson.toJson(this)

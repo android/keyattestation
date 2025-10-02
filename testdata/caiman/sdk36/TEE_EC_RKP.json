@@ -1,0 +1,42 @@
+{
+  "attestationVersion": "400",
+  "attestationSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "keyMintVersion": "400",
+  "keyMintSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "attestationChallenge": "ZDY4OGQ3NjMtNjExOC00Y2E2LTk0YjItZTZjZDllZDdlNGU0",
+  "uniqueId": "",
+  "softwareEnforced": {
+    "creationDateTime": "1758900680964",
+    "attestationApplicationId": {
+      "packages": [
+        { "name": "com.google.android.attestation", "version": "0" }
+      ],
+      "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
+    },
+    "moduleHash": "G8oX7m7hSHtfqCFdcAO/ako2MnA9KjoCUjcjW6b93mE="
+  },
+  "hardwareEnforced": {
+    "purposes": ["2", "3"],
+    "algorithms": "3",
+    "keySize": "256",
+    "digests": ["4"],
+    "ecCurve": "1",
+    "noAuthRequired": true,
+    "origin": "GENERATED",
+    "rootOfTrust": {
+      "verifiedBootKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "deviceLocked": true,
+      "verifiedBootState": "VERIFIED",
+      "verifiedBootHash": "BqI5JbZUfsEkCGyl7d01w19Yzm62ihOv39QZXEHGHtQ="
+    },
+    "osVersion": "160000",
+    "osPatchLevel": "202511",
+    "attestationIdBrand": "google",
+    "attestationIdDevice": "caiman",
+    "attestationIdProduct": "caiman",
+    "attestationIdManufacturer": "Google",
+    "attestationIdModel": "Pixel 9 Pro",
+    "vendorPatchLevel": "20251105",
+    "bootPatchLevel": "20251105"
+  }
+}

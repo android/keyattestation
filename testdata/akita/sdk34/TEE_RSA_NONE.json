@@ -19,8 +19,8 @@
   },
   "hardwareEnforced": {
     "purposes": ["2"],
-    "keySize": "2048",
     "algorithms": "1",
+    "keySize": "2048",
     "paddings": ["3"],
     "rsaPublicExponent": "65537",
     "noAuthRequired": true,

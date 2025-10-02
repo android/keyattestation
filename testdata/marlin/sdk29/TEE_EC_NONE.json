@@ -19,8 +19,8 @@
   },
   "hardwareEnforced": {
     "purposes": ["2"],
-    "keySize": "256",
     "algorithms": "3",
+    "keySize": "256",
     "ecCurve": "1",
     "noAuthRequired": true,
     "origin": "GENERATED",
