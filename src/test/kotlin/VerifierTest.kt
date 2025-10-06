@@ -54,7 +54,7 @@ class VerifierTest {
   @Test
   fun verify_validChainUsingGeneratedTrustAnchors_returnsSuccess() {
     val verifier = Verifier(GoogleTrustAnchors, { setOf<String>() }, { Instant.now() })
-    val chain = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
     assertIs<VerificationResult.Success>(verifier.verify(chain))
   }
 
