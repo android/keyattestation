@@ -36,6 +36,7 @@ import java.lang.reflect.Type
 import java.math.BigInteger
 import java.nio.file.Path
 import java.security.cert.TrustAnchor
+import java.security.cert.X509Certificate
 import java.util.Base64
 import kotlin.io.path.Path
 import kotlin.io.path.reader
@@ -48,9 +49,16 @@ object TestUtils {
   const val TESTDATA_PATH = "testdata"
 
   fun readCertPath(subpath: String): KeyAttestationCertPath =
-    readCertPath(readFile(Path(base = TESTDATA_PATH, /* subpaths...= */ subpath)))
+    readCertPath(readFile(Path(base = TESTDATA_PATH, subpaths = arrayOf(subpath))))
 
   fun readCertPath(reader: Reader): KeyAttestationCertPath {
+    return KeyAttestationCertPath(readCertList(reader))
+  }
+
+  fun readCertList(subpath: String): List<X509Certificate> =
+    readCertList(readFile(Path(base = TESTDATA_PATH, subpaths = arrayOf(subpath))))
+
+  fun readCertList(reader: Reader): List<X509Certificate> {
     return PEMParser(reader)
       .use {
         buildList {
@@ -62,7 +70,6 @@ object TestUtils {
         }
       }
       .map { JcaX509CertificateConverter().getCertificate(it) }
-      .let { KeyAttestationCertPath(it) }
   }
 
   val prodAnchors by lazy {

@@ -135,6 +135,63 @@ object CertLists {
     )
   }
 
+  val invalidBootPatchLevel by lazy {
+    listOf(
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.BOOT_PATCH_LEVEL.value,
+        ASN1Integer(BigInteger.valueOf(20000000)),
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  val invalidVendorPatchLevel by lazy {
+    listOf(
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.VENDOR_PATCH_LEVEL.value,
+        ASN1Integer(BigInteger.valueOf(1234567)),
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+  val invalidOsPatchLevel by lazy {
+    listOf(
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.OS_PATCH_LEVEL.value,
+        ASN1Integer(BigInteger.valueOf(0)),
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+  val unorderedTags by lazy {
+    listOf(
+      // Append the key size tag, which has a lower tag number than either of the required tags
+      // (origin and root of trust).
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.KEY_SIZE.value,
+        ASN1Integer(BigInteger.valueOf(32)),
+      ),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  val unknownTag by lazy {
+    listOf(
+      generateValidLeafCertWithAppendedTag(1000, ASN1Integer(BigInteger.valueOf(2048))),
+      certFactory.attestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
   val certAfterTarget by lazy {
     listOf(
       certFactory.generateLeafCert(
@@ -149,6 +206,40 @@ object CertLists {
       certFactory.root,
     )
   }
+
+  private fun generateValidLeafCertWithAppendedTag(appendedTag: Int, appendedValue: ASN1Encodable) =
+    certFactory.generateLeafCert(
+      extension =
+        Extension(
+          KeyDescription.OID,
+          /* critical= */ false,
+          buildList {
+              add(ASN1Integer(BigInteger.valueOf(300))) // attestationVersion
+              add(ASN1Enumerated(1)) // attestationSecurityLevel
+              add(ASN1Integer(BigInteger.valueOf(300))) // keyMintVersion
+              add(ASN1Enumerated(1)) // keyMintSecurityLevel
+              add(DEROctetString(byteArrayOf(98, 99, 100))) // attestationChallenge
+              add(DEROctetString(byteArrayOf(100, 101, 102))) // uniqueId
+              add(DERSequence(ASN1EncodableVector())) // softwareEnforced
+              // hardwareEnforced, with the appended tag
+              add(
+                buildList {
+                    add(DERTaggedObject(KeyMintTag.ORIGIN.value, Origin.GENERATED.toAsn1()))
+                    add(
+                      DERTaggedObject(
+                        KeyMintTag.ROOT_OF_TRUST.value,
+                        RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED)
+                          .toAsn1(),
+                      )
+                    )
+                    add(DERTaggedObject(appendedTag, appendedValue))
+                  }
+                  .let { DERSequence(it.toTypedArray()) }
+              )
+            }
+            .let { DERSequence(it.toTypedArray()).encoded },
+        )
+    )
 }
 
 object Chains {
@@ -368,94 +459,4 @@ object Chains {
       certFactory.root,
     )
   }
-
-  val invalidBootPatchLevel by lazy {
-    KeyAttestationCertPath(
-      generateValidLeafCertWithAppendedTag(
-        KeyMintTag.BOOT_PATCH_LEVEL.value,
-        ASN1Integer(BigInteger.valueOf(20000000)),
-      ),
-      certFactory.attestation,
-      certFactory.factoryIntermediate,
-      certFactory.root,
-    )
-  }
-  val invalidVendorPatchLevel by lazy {
-    KeyAttestationCertPath(
-      generateValidLeafCertWithAppendedTag(
-        KeyMintTag.VENDOR_PATCH_LEVEL.value,
-        ASN1Integer(BigInteger.valueOf(1234567)),
-      ),
-      certFactory.attestation,
-      certFactory.factoryIntermediate,
-      certFactory.root,
-    )
-  }
-  val invalidOsPatchLevel by lazy {
-    KeyAttestationCertPath(
-      generateValidLeafCertWithAppendedTag(
-        KeyMintTag.OS_PATCH_LEVEL.value,
-        ASN1Integer(BigInteger.valueOf(0)),
-      ),
-      certFactory.attestation,
-      certFactory.factoryIntermediate,
-      certFactory.root,
-    )
-  }
-  val unorderedTags by lazy {
-    KeyAttestationCertPath(
-      // Append the key size tag, which has a lower tag number than either of the required tags
-      // (origin and root of trust).
-      generateValidLeafCertWithAppendedTag(
-        KeyMintTag.KEY_SIZE.value,
-        ASN1Integer(BigInteger.valueOf(32)),
-      ),
-      certFactory.attestation,
-      certFactory.factoryIntermediate,
-      certFactory.root,
-    )
-  }
-
-  val unknownTag by lazy {
-    KeyAttestationCertPath(
-      generateValidLeafCertWithAppendedTag(1000, ASN1Integer(BigInteger.valueOf(2048))),
-      certFactory.attestation,
-      certFactory.factoryIntermediate,
-      certFactory.root,
-    )
-  }
-
-  private fun generateValidLeafCertWithAppendedTag(appendedTag: Int, appendedValue: ASN1Encodable) =
-    certFactory.generateLeafCert(
-      extension =
-        Extension(
-          KeyDescription.OID,
-          /* critical= */ false,
-          buildList {
-              add(ASN1Integer(BigInteger.valueOf(300))) // attestationVersion
-              add(ASN1Enumerated(1)) // attestationSecurityLevel
-              add(ASN1Integer(BigInteger.valueOf(300))) // keyMintVersion
-              add(ASN1Enumerated(1)) // keyMintSecurityLevel
-              add(DEROctetString(byteArrayOf(98, 99, 100))) // attestationChallenge
-              add(DEROctetString(byteArrayOf(100, 101, 102))) // uniqueId
-              add(DERSequence(ASN1EncodableVector())) // softwareEnforced
-              // hardwareEnforced, with the appended tag
-              add(
-                buildList {
-                    add(DERTaggedObject(KeyMintTag.ORIGIN.value, Origin.GENERATED.toAsn1()))
-                    add(
-                      DERTaggedObject(
-                        KeyMintTag.ROOT_OF_TRUST.value,
-                        RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED)
-                          .toAsn1(),
-                      )
-                    )
-                    add(DERTaggedObject(appendedTag, appendedValue))
-                  }
-                  .let { DERSequence(it.toTypedArray()) }
-              )
-            }
-            .let { DERSequence(it.toTypedArray()).encoded },
-        )
-    )
 }
