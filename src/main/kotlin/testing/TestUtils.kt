@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.testing
 
+import com.android.keyattestation.verifier.ChallengeChecker
 import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.PatchLevel
 import com.android.keyattestation.verifier.asX509Certificate
@@ -70,6 +71,16 @@ object TestUtils {
       .map { TrustAnchor(it.asX509Certificate(), null) }
       .toSet()
   }
+
+  val falseChecker =
+    object : ChallengeChecker {
+      override fun checkChallenge(challenge: ByteString): Boolean = false
+    }
+
+  val trueChecker =
+    object : ChallengeChecker {
+      override fun checkChallenge(challenge: ByteString): Boolean = true
+    }
 
   private fun readFile(path: Path) = path.reader()
   private fun readFile(path: String) = readFile(Path(path))

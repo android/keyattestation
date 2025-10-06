@@ -17,6 +17,8 @@
 package com.android.keyattestation.verifier.challengecheckers
 
 import com.android.keyattestation.verifier.ChallengeChecker
+import com.android.keyattestation.verifier.testing.TestUtils.falseChecker
+import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import org.junit.Test
@@ -36,14 +38,6 @@ private class TestChallengeChecker(private val result: Boolean) : ChallengeCheck
 class ChainedChallengeCheckerTest {
   companion object {
     private val testChallenge = ByteString.copyFromUtf8("challenge")
-    private val falseChecker =
-      object : ChallengeChecker {
-        override fun checkChallenge(challenge: ByteString): Boolean = false
-      }
-    private val trueChecker =
-      object : ChallengeChecker {
-        override fun checkChallenge(challenge: ByteString): Boolean = true
-      }
   }
 
   @Test
