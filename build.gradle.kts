@@ -16,7 +16,6 @@
 
 plugins {
   id("com.adarshr.test-logger") version "4.0.0"
-  id("com.google.devtools.ksp") version ("2.2.0-2.0.2")
   id("org.jetbrains.kotlin.jvm") version "2.2.0"
 }
 
@@ -25,7 +24,7 @@ repositories { mavenCentral() }
 dependencies {
   implementation("co.nstant.in:cbor:0.9")
   implementation("com.google.code.gson:gson:2.11.0")
-  implementation("com.google.guava:guava:33.3.1-android")
+  implementation("com.google.errorprone:error_prone_annotations:2.41.0")
   implementation("com.google.protobuf:protobuf-javalite:4.28.3")
   implementation("com.google.protobuf:protobuf-kotlin-lite:4.28.3")
   implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
@@ -70,7 +69,6 @@ val googleTrustAnchors by
 
         import com.google.gson.Gson
         import java.security.cert.TrustAnchor
-        import org.bouncycastle.cert.X509CertificateHolder
 
         object GoogleTrustAnchors : () -> Set<TrustAnchor> {
           const val JSON = ""${'"'}
