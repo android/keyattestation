@@ -19,6 +19,7 @@ package com.android.keyattestation.verifier.testing
 import com.android.keyattestation.verifier.AuthorizationList
 import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.Origin
+import com.android.keyattestation.verifier.ProvisioningInfoMap
 import com.android.keyattestation.verifier.RootOfTrust
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.VerifiedBootState
@@ -61,14 +62,26 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
 
   val rootKey = ecKeyPairGenerator.generateKeyPair()
   val intermediateKey = ecKeyPairGenerator.generateKeyPair()
+  val rkpKey = ecKeyPairGenerator.generateKeyPair()
   val attestationKey = ecKeyPairGenerator.generateKeyPair()
   val leafKey: KeyPair = ecKeyPairGenerator.generateKeyPair()
 
   val root: X509Certificate = generateRootCertificate()
   val factoryIntermediate = generateIntermediateCertificate()
-  val attestation = generateAttestationCert()
   private val remoteIntermediateSubject = X500Name("CN=Droid CA2, O=Google LLC")
   val remoteIntermediate = generateIntermediateCertificate(subject = remoteIntermediateSubject)
+  val rkpIntermediate =
+    generateIntermediateCertificate(
+      publicKey = rkpKey.public,
+      signingKey = intermediateKey.private,
+      subject = X500Name("O=Google LLC, CN=Droid CA3"),
+      issuer = remoteIntermediateSubject,
+    )
+  val strongBoxIntermediate =
+    generateIntermediateCertificate(
+      subject = X500Name("SERIALNUMBER=e18c4f2ca699739a, T=StrongBox")
+    )
+  val factoryAttestation = generateAttestationCert()
 
   internal fun generateRootCertificate(
     keyPair: KeyPair = rootKey,
@@ -77,11 +90,11 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
     generateCertificate(
       keyPair.public,
       keyPair.private,
-      subject,
-      subject,
-      serialNumber = BigInteger.ZERO,
-      notBefore = fakeCalendar.yesterday(),
-      notAfter = fakeCalendar.tomorrow(),
+      subject = subject,
+      issuer = subject,
+      serialNumber = BigInteger.valueOf(0xca11cafe),
+      notBefore = fakeCalendar.lastWeek(),
+      notAfter = fakeCalendar.nextWeek(),
       extensions = listOf(BASIC_CONSTRAINTS_EXT),
     )
 
@@ -96,30 +109,60 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       signingKey,
       subject,
       issuer,
-      serialNumber = BigInteger.ZERO,
-      notBefore = fakeCalendar.yesterday(),
-      notAfter = fakeCalendar.tomorrow(),
+      serialNumber = BigInteger.valueOf(0x1234567890),
+      notBefore = fakeCalendar.lastWeek(),
+      notAfter = fakeCalendar.nextWeek(),
       extensions = listOf(BASIC_CONSTRAINTS_EXT),
+    )
+
+  internal fun generateRkpAttestationCert(
+    securityLevel: SecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+    serialNumber: BigInteger,
+  ) =
+    generateAttestationCert(
+      signingKey = rkpKey.private,
+      subject = rkpAttestationName(securityLevel, serialNumber),
+      issuer = rkpIntermediate.subject,
+      serialNumber,
+      extraExtension =
+        Extension(
+          ProvisioningInfoMap.OID,
+          /* critical= */ false,
+          ProvisioningInfoMap(
+              certificatesIssued = 1,
+            )
+            .cborEncode(),
+        ),
     )
 
   internal fun generateAttestationCert(
     signingKey: PrivateKey = intermediateKey.private,
+    subject: X500Name = X500Name("serialNumber=decafbad"),
     issuer: X500Name = factoryIntermediate.subject,
-    serialNumber: BigInteger = BigInteger.ZERO,
-    notBefore: Date = fakeCalendar.yesterday(),
-    notAfter: Date = fakeCalendar.tomorrow(),
+    serialNumber: BigInteger = BigInteger.valueOf(0xcafbad),
+    notBefore: Date = fakeCalendar.lastWeek(),
+    notAfter: Date = fakeCalendar.nextWeek(),
     extraExtension: Extension? = null,
   ) =
     generateCertificate(
       attestationKey.public,
       signingKey,
-      X500Name("serialNumber=decafbad"),
+      subject,
       issuer,
       serialNumber,
       notBefore,
       notAfter,
       extensions = listOfNotNull(BASIC_CONSTRAINTS_EXT, extraExtension),
     )
+
+  internal fun rkpAttestationName(securityLevel: SecurityLevel, serialNumber: BigInteger) =
+    when (securityLevel) {
+      SecurityLevel.TRUSTED_ENVIRONMENT ->
+        X500Name("O=TEE,CN=${serialNumber.toString(/*radix= */ 16)}")
+      SecurityLevel.STRONG_BOX ->
+        X500Name("O=StrongBox,CN=${serialNumber.toString(/*radix= */ 16)}")
+      else -> X500Name("O=Unknown,CN=fff0000ddd")
+    }
 
   private val KEY_DESCRIPTION_EXT =
     KeyDescription(
@@ -144,13 +187,36 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       )
       .asExtension()
 
+  internal val STRONG_BOX_KEY_DESCRIPTION_EXT =
+    KeyDescription(
+        attestationVersion = 400.toBigInteger(),
+        attestationSecurityLevel = SecurityLevel.STRONG_BOX,
+        keyMintVersion = 400.toBigInteger(),
+        keyMintSecurityLevel = SecurityLevel.STRONG_BOX,
+        attestationChallenge = ByteString.copyFromUtf8("yak city"),
+        uniqueId = ByteString.empty(),
+        softwareEnforced = AuthorizationList(),
+        hardwareEnforced =
+          AuthorizationList(
+            rootOfTrust =
+              RootOfTrust(
+                ByteString.copyFromUtf8("bootKey"),
+                false,
+                VerifiedBootState.VERIFIED,
+                ByteString.copyFromUtf8("bootHash"),
+              ),
+            origin = Origin.GENERATED,
+          ),
+      )
+      .asExtension()
+
   internal fun generateLeafCert(
     publicKey: PublicKey = leafKey.public,
     signingKey: PrivateKey = attestationKey.private,
     subject: X500Name = X500Name("CN=Android Keystore Key"),
-    issuer: X500Name = Certs.attestation.subject,
-    notBefore: Date = this.fakeCalendar.yesterday(),
-    notAfter: Date = this.fakeCalendar.tomorrow(),
+    issuer: X500Name = Certs.factoryAttestation.subject,
+    notBefore: Date = this.fakeCalendar.lastWeek(),
+    notAfter: Date = this.fakeCalendar.nextWeek(),
     extension: Extension? = KEY_DESCRIPTION_EXT,
   ): X509Certificate =
     generateCertificate(
@@ -158,7 +224,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       signingKey,
       subject,
       issuer,
-      serialNumber = BigInteger.ZERO,
+      serialNumber = BigInteger.ONE,
       notBefore = notBefore,
       notAfter = notAfter,
       extensions = extension?.let { listOf(it) } ?: emptyList(),
