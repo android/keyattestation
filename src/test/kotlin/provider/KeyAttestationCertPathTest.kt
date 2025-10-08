@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.provider
 
+import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
@@ -114,5 +115,19 @@ class KeyAttestationCertPathTest {
     FACTORY_PROVISIONED("blueline/sdk28/TEE_EC_NONE", ProvisioningMethod.FACTORY_PROVISIONED),
     REMOTELY_PROVISIONED("caiman/sdk36/TEE_EC_RKP", ProvisioningMethod.REMOTELY_PROVISIONED),
     UNKNOWN("marlin/sdk29/TEE_EC_NONE", ProvisioningMethod.UNKNOWN),
+  }
+
+  @Test
+  fun securityLevel_returnsExpectedType(@TestParameter testCase: SecurityLevelTestCase) {
+    val certPath = readCertPath("${testCase.path}.pem")
+    assertThat(certPath.securityLevel()).isEqualTo(testCase.expected)
+  }
+
+  enum class SecurityLevelTestCase(val path: String, val expected: SecurityLevel) {
+    FACTORY_PROVISIONED("blueline/sdk28/TEE_EC_NONE", SecurityLevel.TRUSTED_ENVIRONMENT),
+    STRONG_BOX_FACTORY_PROVISIONED("blueline/sdk28/SB_RSA_NONE", SecurityLevel.STRONG_BOX),
+    REMOTELY_PROVISIONED("caiman/sdk36/TEE_EC_RKP", SecurityLevel.TRUSTED_ENVIRONMENT),
+    STRONG_BOX_REMOTELY_PROVISIONED("caiman/sdk36/SB_EC_RKP", SecurityLevel.STRONG_BOX),
+    SOFTWARE("marlin/sdk29/TEE_EC_NONE", SecurityLevel.SOFTWARE),
   }
 }
