@@ -24,31 +24,55 @@ import com.android.keyattestation.verifier.testing.FakeLogHook
 import com.android.keyattestation.verifier.testing.TestUtils.falseChecker
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
 import com.android.keyattestation.verifier.testing.TestUtils.readCertList
+import com.android.keyattestation.verifier.testing.TestUtils.readJson
 import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
+import com.google.testing.junit.testparameterinjector.TestParameter
+import com.google.testing.junit.testparameterinjector.TestParameterInjector
 import java.security.cert.PKIXReason
 import java.security.cert.TrustAnchor
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlin.test.assertIs
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
 
 /** Unit tests for [Verifier]. */
-@RunWith(JUnit4::class)
+@RunWith(TestParameterInjector::class)
 class VerifierTest {
   private val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { Instant.now() })
 
   @Test
-  fun verify_validChain_returnsSuccess() {
-    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
-    val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
-    assertThat(result.publicKey).isEqualTo(chain.first().publicKey)
-    assertThat(result.challenge).isEqualTo(ByteString.copyFromUtf8("challenge"))
-    assertThat(result.securityLevel).isEqualTo(SecurityLevel.TRUSTED_ENVIRONMENT)
-    assertThat(result.verifiedBootState).isEqualTo(VerifiedBootState.UNVERIFIED)
+  fun verify_validChain_returnsSuccess(@TestParameter testCase: TestCase) {
+    val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { testCase.timestamp })
+    val chain = readCertList("${testCase.path}.pem")
+    val json = readJson("${testCase.path}.json")
+    val result = verifier.verify(chain)
+    println("result: $result")
+    assertIs<VerificationResult.Success>(result)
+    assertThat(result.publicKey).isEqualTo(chain[0].publicKey)
+    assertThat(result.challenge).isEqualTo(json.attestationChallenge)
+    assertThat(result.securityLevel).isEqualTo(json.attestationSecurityLevel)
+    assertThat(result.verifiedBootState)
+      .isEqualTo(json.hardwareEnforced.rootOfTrust?.verifiedBootState)
+  }
+
+  enum class TestCase(val path: String, val timestamp: Instant) {
+    PIXEL_3_SDK28(
+      "blueline/sdk28/TEE_EC_NONE",
+      LocalDate.of(2024, 10, 1).atStartOfDay(ZoneOffset.UTC).toInstant(),
+    ),
+    PIXEL_8A_SDK34(
+      "akita/sdk34/TEE_EC_NONE",
+      LocalDate.of(2024, 10, 1).atStartOfDay(ZoneOffset.UTC).toInstant(),
+    ),
+    PIXEL_9PRO_SDK36(
+      "caiman/sdk36/TEE_EC_RKP",
+      LocalDate.of(2025, 9, 30).atStartOfDay(ZoneOffset.UTC).toInstant(),
+    ),
   }
 
   @Test
@@ -122,7 +146,7 @@ class VerifierTest {
     val logHook = FakeLogHook()
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
     assertIs<VerificationResult.Success>(verifier.verify(chain, log = logHook))
-    assertThat(logHook.keyDescription).isEqualTo(chain.first().keyDescription())
+    assertThat(logHook.keyDescription).isEqualTo(chain[0].keyDescription())
   }
 
   @Test
