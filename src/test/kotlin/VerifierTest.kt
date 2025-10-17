@@ -27,6 +27,8 @@ import com.android.keyattestation.verifier.testing.TestUtils.readCertList
 import com.android.keyattestation.verifier.testing.TestUtils.readJson
 import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
 import com.google.common.truth.Truth.assertThat
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
 import com.google.testing.junit.testparameterinjector.TestParameter
@@ -36,6 +38,8 @@ import java.security.cert.TrustAnchor
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertIs
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,9 +54,7 @@ class VerifierTest {
     val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { testCase.timestamp })
     val chain = readCertList("${testCase.path}.pem")
     val json = readJson("${testCase.path}.json")
-    val result = verifier.verify(chain)
-    println("result: $result")
-    assertIs<VerificationResult.Success>(result)
+    val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
     assertThat(result.publicKey).isEqualTo(chain[0].publicKey)
     assertThat(result.challenge).isEqualTo(json.attestationChallenge)
     assertThat(result.securityLevel).isEqualTo(json.attestationSecurityLevel)
@@ -162,5 +164,23 @@ class VerifierTest {
       verifierWithTestRoot.verify(CertLists.invalidBootPatchLevel, log = logHook)
     )
     assertThat(logHook.infoMessages).isNotEmpty()
+  }
+
+  @Test
+  fun verifyBlocking_longDelay_successfullyAwaitsChallengeCheck() {
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
+    val challengeChecker =
+      object : ChallengeChecker {
+        override fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean> {
+          return Futures.scheduleAsync(
+            { Futures.immediateFuture(true) },
+            5,
+            TimeUnit.SECONDS,
+            Executors.newSingleThreadScheduledExecutor(),
+          )
+        }
+      }
+
+    assertIs<VerificationResult.Success>(verifier.verify(chain, challengeChecker))
   }
 }
