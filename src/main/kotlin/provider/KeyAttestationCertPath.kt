@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.provider
 
+import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.asX509Certificate
 import com.google.protobuf.ByteString
 import java.security.cert.CertPath
@@ -52,9 +53,11 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
       0 -> {} // expected value
       -1 -> throw CertificateException("Attestation extension not found")
       else ->
-        if (certs[0].hasAttestationExtension())
+        if (certs[0].hasAttestationExtension()) {
           throw CertificateException("Additional attestation extension found")
-        else throw CertificateException("Certificate after target certificate")
+        } else {
+          throw CertificateException("Certificate after target certificate")
+        }
     }
     if (!certs.last().isSelfIssued()) throw CertificateException("Root certificate not found")
     this.certificatesWithAnchor = certs
@@ -77,6 +80,22 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
       else -> ProvisioningMethod.UNKNOWN
     }
 
+  /*
+   * The security level of the certitificate chain.
+   *
+   * This should match the attestation security level in the key description.
+   */
+  fun securityLevel() =
+    when (provisioningMethod()) {
+      ProvisioningMethod.FACTORY_PROVISIONED ->
+        parseDN(intermediateCert().subjectX500Principal.getName(X500Principal.RFC1779))[TITLE_OID]
+          .toSecurityLevel()
+      ProvisioningMethod.REMOTELY_PROVISIONED ->
+        parseDN(attestationCert().subjectX500Principal.getName(X500Principal.RFC1779))["O"]
+          .toSecurityLevel()
+      else -> SecurityLevel.SOFTWARE
+    }
+
   /**
    * Returns the leaf certificate from the certificate chain.
    *
@@ -93,7 +112,7 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
   private fun isFactoryProvisioned(): Boolean {
     val rdn = parseDN(this.intermediateCert().subjectX500Principal.getName(X500Principal.RFC1779))
-    return rdn.containsKey("OID.2.5.4.5") && rdn["OID.2.5.4.12"] in setOf("TEE", "StrongBox")
+    return rdn.containsKey(SERIAL_NUMBER_OID) && rdn[TITLE_OID] in setOf("TEE", "StrongBox")
   }
 
   // TODO(google-internal bug): Update this to use fields in the RKP root.
@@ -109,6 +128,9 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
       KeyAttestationCertPath(certs.map { it.newInput().asX509Certificate() })
 
     private fun X509Certificate.isSelfIssued() = issuerX500Principal == subjectX500Principal
+
+    private const val SERIAL_NUMBER_OID = "OID.2.5.4.5"
+    private const val TITLE_OID = "OID.2.5.4.12"
   }
 }
 
@@ -130,3 +152,10 @@ private fun parseDN(dn: String): Map<String, String> {
   }
   return attributes
 }
+
+private fun String?.toSecurityLevel() =
+  when (this) {
+    "TEE" -> SecurityLevel.TRUSTED_ENVIRONMENT
+    "StrongBox" -> SecurityLevel.STRONG_BOX
+    else -> SecurityLevel.SOFTWARE
+  }
