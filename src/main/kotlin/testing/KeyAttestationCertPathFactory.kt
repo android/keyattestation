@@ -19,6 +19,7 @@ package com.android.keyattestation.verifier.testing
 import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
+import java.math.BigInteger
 import java.security.PublicKey
 
 /**
@@ -43,14 +44,20 @@ class KeyAttestationCertPathFactory(val fakeCalendar: FakeCalendar = FakeCalenda
     leafKey: PublicKey = certFactory.leafKey.public,
   ): KeyAttestationCertPath {
     if (remotelyProvisioned) {
+      val attestationSerialNumber = BigInteger.valueOf(0xf00d)
       return KeyAttestationCertPath(
         certFactory.generateLeafCert(
           extension = keyDescription.asExtension(),
           publicKey = leafKey,
-          issuer = certFactory.rkpAttestationName(keyDescription.attestationSecurityLevel),
+          issuer =
+            certFactory.rkpAttestationName(
+              keyDescription.attestationSecurityLevel,
+              attestationSerialNumber,
+            ),
         ),
         certFactory.generateRkpAttestationCert(
           keyDescription.attestationSecurityLevel,
+          attestationSerialNumber,
         ),
         certFactory.rkpIntermediate,
         certFactory.remoteIntermediate,

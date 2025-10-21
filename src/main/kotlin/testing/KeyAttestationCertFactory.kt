@@ -91,7 +91,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       keyPair.private,
       subject = subject,
       issuer = subject,
-      serialNumber = BigInteger.ZERO,
+      serialNumber = BigInteger.valueOf(0xca11cafe),
       notBefore = fakeCalendar.lastWeek(),
       notAfter = fakeCalendar.nextWeek(),
       extensions = listOf(BASIC_CONSTRAINTS_EXT),
@@ -108,7 +108,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       signingKey,
       subject,
       issuer,
-      serialNumber = BigInteger.ZERO,
+      serialNumber = BigInteger.valueOf(0x1234567890),
       notBefore = fakeCalendar.lastWeek(),
       notAfter = fakeCalendar.nextWeek(),
       extensions = listOf(BASIC_CONSTRAINTS_EXT),
@@ -116,11 +116,13 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
 
   internal fun generateRkpAttestationCert(
     securityLevel: SecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+    serialNumber: BigInteger,
   ) =
     generateAttestationCert(
       signingKey = rkpKey.private,
-      subject = rkpAttestationName(securityLevel),
+      subject = rkpAttestationName(securityLevel, serialNumber),
       issuer = rkpIntermediate.subject,
+      serialNumber,
       extraExtension =
         Extension(
           ProvisioningInfoMap.OID,
@@ -136,7 +138,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
     signingKey: PrivateKey = intermediateKey.private,
     subject: X500Name = X500Name("serialNumber=decafbad"),
     issuer: X500Name = factoryIntermediate.subject,
-    serialNumber: BigInteger = BigInteger.ZERO,
+    serialNumber: BigInteger = BigInteger.valueOf(0xcafbad),
     notBefore: Date = fakeCalendar.lastWeek(),
     notAfter: Date = fakeCalendar.nextWeek(),
     extraExtension: Extension? = null,
@@ -152,10 +154,12 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       extensions = listOfNotNull(BASIC_CONSTRAINTS_EXT, extraExtension),
     )
 
-  internal fun rkpAttestationName(securityLevel: SecurityLevel) =
+  internal fun rkpAttestationName(securityLevel: SecurityLevel, serialNumber: BigInteger) =
     when (securityLevel) {
-      SecurityLevel.TRUSTED_ENVIRONMENT -> X500Name("O=TEE,CN=fff0000ddd")
-      SecurityLevel.STRONG_BOX -> X500Name("O=StrongBox,CN=fff0000ddd")
+      SecurityLevel.TRUSTED_ENVIRONMENT ->
+        X500Name("O=TEE,CN=${serialNumber.toString(/*radix= */ 16)}")
+      SecurityLevel.STRONG_BOX ->
+        X500Name("O=StrongBox,CN=${serialNumber.toString(/*radix= */ 16)}")
       else -> X500Name("O=Unknown,CN=fff0000ddd")
     }
 
@@ -219,7 +223,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       signingKey,
       subject,
       issuer,
-      serialNumber = BigInteger.ZERO,
+      serialNumber = BigInteger.ONE,
       notBefore = notBefore,
       notAfter = notAfter,
       extensions = extension?.let { listOf(it) } ?: emptyList(),
