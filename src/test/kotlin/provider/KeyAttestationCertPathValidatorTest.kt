@@ -16,6 +16,8 @@
 
 package com.android.keyattestation.verifier.provider
 
+import com.android.keyattestation.verifier.KeyAttestationReason
+import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.Certs.rootAnchor as testAnchor
 import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeCalendar
@@ -120,6 +122,8 @@ class KeyAttestationCertPathValidatorTest {
     val certPath = Chains.validFactoryProvisioned
     val moreAnchors = prodAnchors.union(setOf(testAnchor))
     val params = PKIXParameters(moreAnchors).apply { date = FakeCalendar.DEFAULT.today() }
+    println("Security level: ${certPath.securityLevel()}")
+    println("Provisioning method: ${certPath.provisioningMethod()}")
     val result = certPathValidator.validate(certPath, params) as PKIXCertPathValidatorResult
     assertThat(result.trustAnchor).isEqualTo(testAnchor)
     assertThat(result.policyTree).isNull()
@@ -215,11 +219,25 @@ class KeyAttestationCertPathValidatorTest {
   @Test
   fun forgedKeybox_throwsCertPathValidatorException() {
     val certPath = Chains.forgedKeybox
+    assertFailsWith<CertPathValidatorException> { certPathValidator.validate(certPath, testParams) }
+  }
+
+  @Test
+  fun extraLeaf_throwsCertPathValidatorException() {
     val exception =
       assertFailsWith<CertPathValidatorException> {
-        certPathValidator.validate(certPath, testParams)
+        certPathValidator.validate(KeyAttestationCertPath(CertLists.extended), testParams)
       }
-    assertThat(exception.reason).isEqualTo(PKIXReason.PATH_TOO_LONG)
+    assertThat(exception.reason).isEqualTo(KeyAttestationReason.ADDITIONAL_ATTESTATION_EXTENSION)
+  }
+
+  @Test
+  fun certAfterLeaf_throwsCertPathValidatorException() {
+    val exception =
+      assertFailsWith<CertPathValidatorException> {
+        certPathValidator.validate(KeyAttestationCertPath(CertLists.certAfterTarget), testParams)
+      }
+    assertThat(exception.reason).isEqualTo(KeyAttestationReason.CERTIFICATE_AFTER_TARGET)
   }
 
   @Test
