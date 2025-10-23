@@ -24,6 +24,7 @@ import com.android.keyattestation.verifier.RootOfTrust
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.VerifiedBootState
 import com.google.protobuf.ByteString
+import org.bouncycastle.asn1.ASN1ObjectIdentifier
 import java.math.BigInteger
 import java.security.KeyPair
 import java.security.KeyPairGenerator
@@ -68,7 +69,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
 
   val root: X509Certificate = generateRootCertificate()
   val factoryIntermediate = generateIntermediateCertificate()
-  val remoteIntermediate = generateIntermediateCertificate(subject = REMOTE_INTERMEDIATE_SUBJECT)
+  val remoteIntermediate = generateIntermediateCertificate(subject = REMOTE_INTERMEDIATE_SUBJECT, rkp = true)
   val rkpIntermediate =
     generateIntermediateCertificate(
       publicKey = rkpKey.public,
@@ -102,6 +103,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
     signingKey: PrivateKey = rootKey.private,
     subject: X500Name = X500Name("SERIALNUMBER=e18c4f2ca699739a, T=TEE"),
     issuer: X500Name = this.root.subject,
+    rkp: Boolean = false
   ) =
     generateCertificate(
       publicKey,
@@ -111,7 +113,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       serialNumber = BigInteger.valueOf(0x1234567890),
       notBefore = fakeCalendar.lastWeek(),
       notAfter = fakeCalendar.nextWeek(),
-      extensions = listOf(BASIC_CONSTRAINTS_EXT),
+      extensions = if(rkp) listOf(BASIC_CONSTRAINTS_EXT, RKP_EXT) else listOf(BASIC_CONSTRAINTS_EXT),
     )
 
   internal fun generateRkpAttestationCert(
@@ -252,6 +254,12 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
         /* critical= */ true,
         BasicConstraints(/* cA= */ true).encoded,
       )
+      val RKP_EXT =
+          Extension(
+              ProvisioningInfoMap.OID,
+              /* critical= */ false,
+              "040da2011880036773616d73756e67".hexToByteArray() /*taken from a real samsung device*/,
+          )
     val RKP_INTERMEDIATE_SUBJECT = X500Name("O=Google LLC, CN=Droid CA3")
     val REMOTE_INTERMEDIATE_SUBJECT = X500Name("CN=Droid CA2, O=Google LLC")
   }

@@ -18,6 +18,7 @@ package com.android.keyattestation.verifier.provider
 
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.asX509Certificate
+import com.android.keyattestation.verifier.provisioningInfo
 import com.google.protobuf.ByteString
 import java.security.cert.CertPath
 import java.security.cert.CertificateException
@@ -80,8 +81,8 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
       else -> ProvisioningMethod.UNKNOWN
     }
 
-  /*
-   * The security level of the certitificate chain.
+  /**
+   * The security level of the certificate chain.
    *
    * This should match the attestation security level in the key description.
    */
@@ -110,16 +111,18 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
   fun intermediateCert(): X509Certificate = certificates.last()
 
-  private fun isFactoryProvisioned(): Boolean {
+  /**
+   * Indicates that the attestation certificate was factory-provisioned
+   */
+  fun isFactoryProvisioned(): Boolean {
     val rdn = parseDN(this.intermediateCert().subjectX500Principal.getName(X500Principal.RFC1779))
     return rdn.containsKey(SERIAL_NUMBER_OID) && rdn[TITLE_OID] in setOf("TEE", "StrongBox")
   }
 
-  // TODO(google-internal bug): Update this to use fields in the RKP root.
-  private fun isRemoteProvisioned(): Boolean {
-    val rdn = parseDN(this.intermediateCert().subjectX500Principal.getName(X500Principal.RFC1779))
-    return rdn["CN"] == "Droid CA2" && rdn["O"] == "Google LLC"
-  }
+  /**
+   * Indicates that the attestation certificate was remote-provisioned
+   */
+  fun isRemoteProvisioned(): Boolean = attestationCert().provisioningInfo() != null
 
   companion object {
     @JvmStatic
