@@ -19,18 +19,26 @@ package com.android.keyattestation.verifier.challengecheckers
 import com.android.keyattestation.verifier.ChallengeChecker
 import com.android.keyattestation.verifier.testing.TestUtils.falseChecker
 import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
+import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 
+@ThreadSafe
 private class TestChallengeChecker(private val result: Boolean) : ChallengeChecker {
-  var wasCalled = false
+  val wasCalled = AtomicBoolean(false)
 
-  override fun checkChallenge(challenge: ByteString): Boolean {
-    wasCalled = true
-    return result
+  override fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean> {
+    wasCalled.set(true)
+    return Futures.immediateFuture(result)
   }
 }
 
@@ -41,49 +49,49 @@ class ChainedChallengeCheckerTest {
   }
 
   @Test
-  fun checkChallenge_emptyCheckers_returnsTrue() {
-    val challengeChecker = ChainedChallengeChecker.of()
-    assertThat(challengeChecker.checkChallenge(testChallenge)).isTrue()
+  fun checkChallenge_emptyCheckers_returnsTrue() = runBlocking {
+    val challengeChecker = ChainedChallengeChecker.of(this)
+    assertThat(challengeChecker.checkChallenge(testChallenge).await()).isTrue()
   }
 
   @Test
-  fun checkChallenge_allCheckersTrue_returnsTrue() {
+  fun checkChallenge_allCheckersTrue_returnsTrue() = runBlocking {
     val challengeChecker =
-      ChainedChallengeChecker.of(ChallengeMatcher(testChallenge), InMemoryLruCache(10))
-    assertThat(challengeChecker.checkChallenge(testChallenge)).isTrue()
+      ChainedChallengeChecker.of(this, ChallengeMatcher(testChallenge), InMemoryLruCache(10))
+    assertThat(challengeChecker.checkChallenge(testChallenge).await()).isTrue()
   }
 
   @Test
-  fun checkChallenge_allCheckersFalse_returnsFalse() {
+  fun checkChallenge_allCheckersFalse_returnsFalse() = runBlocking {
     val challengeCheckers: MutableList<ChallengeChecker> = mutableListOf()
     for (i in 1..10) {
       challengeCheckers.add(falseChecker)
     }
-    val challengeChecker = ChainedChallengeChecker(challengeCheckers)
+    val challengeChecker = ChainedChallengeChecker(ImmutableList.copyOf(challengeCheckers), this)
 
-    assertThat(challengeChecker.checkChallenge(testChallenge)).isFalse()
+    assertThat(challengeChecker.checkChallenge(testChallenge).await()).isFalse()
   }
 
   @Test
-  fun checkChallenge_lastCheckerFalse_returnsFalse() {
+  fun checkChallenge_lastCheckerFalse_returnsFalse() = runBlocking {
     val challengeCheckers: MutableList<ChallengeChecker> = mutableListOf()
     for (i in 1..10) {
       challengeCheckers.add(trueChecker)
     }
     challengeCheckers.add(falseChecker)
-    val challengeChecker = ChainedChallengeChecker(challengeCheckers)
+    val challengeChecker = ChainedChallengeChecker(ImmutableList.copyOf(challengeCheckers), this)
 
-    assertThat(challengeChecker.checkChallenge(testChallenge)).isFalse()
+    assertThat(challengeChecker.checkChallenge(testChallenge).await()).isFalse()
   }
 
   @Test
-  fun checkChallenge_firstCheckerFalse_returnsFalseAndStopsEarly() {
+  fun checkChallenge_firstCheckerFalse_returnsFalseAndStopsEarly() = runBlocking {
     val checker2 = TestChallengeChecker(true)
     val checker3 = TestChallengeChecker(true)
-    val challengeChecker = ChainedChallengeChecker.of(falseChecker, checker2, checker3)
+    val challengeChecker = ChainedChallengeChecker.of(this, falseChecker, checker2, checker3)
 
-    assertThat(challengeChecker.checkChallenge(testChallenge)).isFalse()
-    assertThat(checker2.wasCalled).isFalse()
-    assertThat(checker3.wasCalled).isFalse()
+    assertThat(challengeChecker.checkChallenge(testChallenge).await()).isFalse()
+    assertThat(checker2.wasCalled.get()).isFalse()
+    assertThat(checker3.wasCalled.get()).isFalse()
   }
 }

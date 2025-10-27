@@ -16,15 +16,22 @@
 
 package com.android.keyattestation.verifier
 
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
 
-/** An interface to handle checking validity of challenges. */
+/**
+ * An interface to handle checking validity of challenges.
+ *
+ * Implementations of this interface must be thread-safe. Multiple threads may call [checkChallenge]
+ * on the same instance concurrently.
+ */
+@ThreadSafe
 interface ChallengeChecker {
   /**
-   * Checks the given challenge for validity.
+   * Checks the given [challenge] for validity.
    *
-   * @param challenge The challenge being check.
-   * @return True if the challenge is valid, else false.
+   * @return A ListenableFuture containing True if the challenge is valid, else false.
    */
-  fun checkChallenge(challenge: ByteString): Boolean
+  fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean>
 }

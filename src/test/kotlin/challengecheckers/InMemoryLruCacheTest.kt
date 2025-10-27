@@ -28,27 +28,30 @@ class InMemoryLruCacheTest {
   @Test
   fun checkChallenge_firstChallenge_returnsTrue() {
     val challengeChecker = InMemoryLruCache(1)
-    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge"))).isTrue()
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge")).get()).isTrue()
   }
 
   @Test
   fun checkChallenge_partialCacheCheckNewChallenge_returnsTrue() {
     val challengeChecker = InMemoryLruCache(10)
     for (i in 1..9) {
-      assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge$i"))).isTrue()
+      assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge$i")).get())
+        .isTrue()
     }
 
-    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("foo"))).isTrue()
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("foo")).get()).isTrue()
   }
 
   @Test
   fun checkChallenge_fullCacheCheckExistingChallenge_returnsFalse() {
     val challengeChecker = InMemoryLruCache(10)
     for (i in 1..10) {
-      assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge$i"))).isTrue()
+      assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge$i")).get())
+        .isTrue()
     }
 
-    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge1"))).isFalse()
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge1")).get())
+      .isFalse()
   }
 
   @Test
@@ -57,20 +60,24 @@ class InMemoryLruCacheTest {
 
     // Fill cache with 10 challenges and overflow with the 11th challenge.
     for (i in 1..11) {
-      assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge$i"))).isTrue()
+      assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge$i")).get())
+        .isTrue()
     }
 
-    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge1"))).isTrue()
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge1")).get())
+      .isTrue()
   }
 
   @Test
   fun checkChallenge_overflowCacheCheckNewerChallenge_returnsFalse() {
     val challengeChecker = InMemoryLruCache(10)
     for (i in 1..11) {
-      assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge$i"))).isTrue()
+      assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge$i")).get())
+        .isTrue()
     }
 
-    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge2"))).isFalse()
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge2")).get())
+      .isFalse()
   }
 
   @Test
@@ -78,17 +85,22 @@ class InMemoryLruCacheTest {
     // fill cache
     val challengeChecker = InMemoryLruCache(3)
     for (i in 1..3) {
-      assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge$i"))).isTrue()
+      assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge$i")).get())
+        .isTrue()
     }
 
     // check oldest challenge
-    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge1"))).isFalse()
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge1")).get())
+      .isFalse()
 
     // add new challenge to overflow cache + kick out least-recently-used challenge
-    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge4"))).isTrue()
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge4")).get())
+      .isTrue()
 
     // check that challenge1 is still in the cache + challenge2 is kicked out
-    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge1"))).isFalse()
-    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge2"))).isTrue()
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge1")).get())
+      .isFalse()
+    assertThat(challengeChecker.checkChallenge(ByteString.copyFromUtf8("challenge2")).get())
+      .isTrue()
   }
 }
