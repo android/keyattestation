@@ -27,6 +27,8 @@ import com.android.keyattestation.verifier.testing.TestUtils.readCertList
 import com.android.keyattestation.verifier.testing.TestUtils.readJson
 import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
 import com.google.common.truth.Truth.assertThat
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
 import com.google.testing.junit.testparameterinjector.TestParameter
@@ -36,7 +38,11 @@ import java.security.cert.TrustAnchor
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertIs
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -44,6 +50,17 @@ import org.junit.runner.RunWith
 @RunWith(TestParameterInjector::class)
 class VerifierTest {
   private val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { Instant.now() })
+  private val delayedAlwaysTrueChecker =
+    object : ChallengeChecker {
+      override fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean> {
+        return Futures.scheduleAsync(
+          { Futures.immediateFuture(true) },
+          5,
+          TimeUnit.SECONDS,
+          Executors.newSingleThreadScheduledExecutor(),
+        )
+      }
+    }
 
   @Test
   fun verify_validChain_returnsSuccess(@TestParameter testCase: TestCase) {
@@ -74,16 +91,16 @@ class VerifierTest {
   }
 
   @Test
-  fun verify_validChainUsingGeneratedTrustAnchors_returnsSuccess() {
+  fun verifyAsync_validChainUsingGeneratedTrustAnchors_returnsSuccess(): Unit = runBlocking {
     val verifier = Verifier(GoogleTrustAnchors, { setOf<String>() }, { Instant.now() })
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.Success>(verifier.verify(chain))
+    assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain).await())
   }
 
   @Test
-  fun verify_validChain_returnsDeviceIdentity() {
+  fun verifyAsync_validChain_returnsDeviceIdentity() = runBlocking {
     val chain = readCertList("blueline/sdk28/TEE_RSA_BASE+IMEI.pem")
-    val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
+    val result = assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain).await())
     assertThat(result.attestedDeviceIds)
       .isEqualTo(
         DeviceIdentity(
@@ -100,55 +117,63 @@ class VerifierTest {
   }
 
   @Test
-  fun verify_challengeCheckerReturnsTrue_returnsSuccess() {
+  fun verifyAsync_challengeCheckerReturnsTrue_returnsSuccess(): Unit = runBlocking {
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
 
-    assertIs<VerificationResult.Success>(verifier.verify(chain, trueChecker))
+    assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain, trueChecker).await())
   }
 
   @Test
-  fun verify_challengeCheckerReturnsFalse_returnsChallengeMismatch() {
+  fun verifyAsync_challengeCheckerReturnsFalse_returnsChallengeMismatch(): Unit = runBlocking {
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
 
-    assertIs<VerificationResult.ChallengeMismatch>(verifier.verify(chain, falseChecker))
+    assertIs<VerificationResult.ChallengeMismatch>(
+      verifier.verifyAsync(this, chain, falseChecker).await()
+    )
   }
 
   @Test
-  fun verify_unexpectedRootKey_returnsPathValidationFailure() {
+  fun verifyAsync_unexpectedRootKey_returnsPathValidationFailure() = runBlocking {
     val result =
       assertIs<VerificationResult.PathValidationFailure>(
-        verifier.verify(
-          CertLists.wrongTrustAnchor,
-          ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
-        )
+        verifier
+          .verifyAsync(
+            this,
+            CertLists.wrongTrustAnchor,
+            ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
+          )
+          .await()
       )
     assertThat(result.cause.reason).isEqualTo(PKIXReason.NO_TRUST_ANCHOR)
   }
 
   @Test
-  fun verify_failure_inputChainLogged() {
+  fun verifyAsync_failure_inputChainLogged() = runBlocking {
     val logHook = FakeLogHook()
     assertIs<VerificationResult.PathValidationFailure>(
-      verifier.verify(
-        CertLists.wrongTrustAnchor,
-        ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
-        logHook,
-      )
+      verifier
+        .verifyAsync(
+          this,
+          CertLists.wrongTrustAnchor,
+          ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
+          logHook,
+        )
+        .await()
     )
     assertThat(logHook.inputChain)
       .isEqualTo(CertLists.wrongTrustAnchor.map { it.encoded.toByteString() })
   }
 
   @Test
-  fun verify_success_keyDescriptionLogged() {
+  fun verifyAsync_success_keyDescriptionLogged() = runBlocking {
     val logHook = FakeLogHook()
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.Success>(verifier.verify(chain, log = logHook))
+    assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain, log = logHook).await())
     assertThat(logHook.keyDescription).isEqualTo(chain[0].keyDescription())
   }
 
   @Test
-  fun verify_malformedPatchLevel_logsInfo() {
+  fun verifyAsync_malformedPatchLevel_logsInfo() = runBlocking {
     val verifierWithTestRoot =
       Verifier(
         { setOf(TrustAnchor(Certs.root, null)) },
@@ -157,8 +182,17 @@ class VerifierTest {
       )
     val logHook = FakeLogHook()
     assertIs<VerificationResult.Success>(
-      verifierWithTestRoot.verify(CertLists.invalidBootPatchLevel, log = logHook)
+      verifierWithTestRoot.verifyAsync(this, CertLists.invalidBootPatchLevel, log = logHook).await()
     )
     assertThat(logHook.infoMessages).isNotEmpty()
+  }
+
+  @Test
+  fun verifyAsync_longDelay_successfullyAwaitsChallengeCheck(): Unit = runBlocking {
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
+
+    assertIs<VerificationResult.Success>(
+      verifier.verifyAsync(this, chain, delayedAlwaysTrueChecker).await()
+    )
   }
 }

@@ -20,6 +20,7 @@ import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.LogHook
 import com.android.keyattestation.verifier.ProvisioningInfoMap
 import com.android.keyattestation.verifier.VerificationResult
+import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
 
 /**
