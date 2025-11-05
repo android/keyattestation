@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier
 
+import androidx.annotation.RequiresApi
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.android.keyattestation.verifier.provider.KeyAttestationProvider
 import com.android.keyattestation.verifier.provider.ProvisioningMethod
@@ -57,9 +58,10 @@ sealed interface VerificationResult {
 
   data class ChainParsingFailure(val cause: Exception) : VerificationResult
 
-  data class ExtensionParsingFailure(val cause: Exception) : VerificationResult
+  data class ExtensionParsingFailure(val cause: ExtensionParsingException) : VerificationResult
 
-  data class ExtensionConstraintViolation(val cause: String) : VerificationResult
+  data class ExtensionConstraintViolation(val cause: String, val reason: KeyAttestationReason) :
+    VerificationResult
 }
 
 /** Interface for logging info level key attestation events and information. */
@@ -143,6 +145,7 @@ open class Verifier(
    * @return [VerificationResult]
    */
   @JvmOverloads
+  @RequiresApi(24)
   fun verify(
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
@@ -160,6 +163,7 @@ open class Verifier(
     return result
   }
 
+  @RequiresApi(24)
   /**
    * Verifies an Android Key Attestation certificate chain asynchronously.
    *
@@ -191,6 +195,7 @@ open class Verifier(
     }
   }
 
+  @RequiresApi(24)
   private suspend fun internalVerify(
     certPath: KeyAttestationCertPath,
     challengeChecker: ChallengeChecker? = null,
@@ -233,10 +238,16 @@ open class Verifier(
         checkNotNull(
           KeyDescription.parseFrom(certPath.leafCert(), { msg -> log?.logInfoMessage(msg) })
         ) {
+          // Should never happen since the extension's presence is checked by by validate().
           "Key attestation extension not found"
         }
-      } catch (e: Exception) {
+      } catch (e: ExtensionParsingException) {
         return VerificationResult.ExtensionParsingFailure(e)
+      } catch (e: Exception) {
+        // TODO(google-internal bug): When experimental contracts aren't experimental,
+        // update the IllegalArgumentException and IllegalStateException cases to return
+        // ExtensionParsingException.
+        return VerificationResult.ExtensionParsingFailure(ExtensionParsingException(e.toString()))
       }
     log?.logKeyDescription(keyDescription)
     if (challengeChecker != null) {
@@ -251,7 +262,8 @@ open class Verifier(
         keyDescription.hardwareEnforced.origin != Origin.GENERATED
     ) {
       return VerificationResult.ExtensionConstraintViolation(
-        "origin != GENERATED: ${keyDescription.hardwareEnforced.origin}"
+        "origin != GENERATED: ${keyDescription.hardwareEnforced.origin}",
+        KeyAttestationReason.KEY_ORIGIN_NOT_GENERATED,
       )
     }
 
@@ -260,13 +272,15 @@ open class Verifier(
         keyDescription.attestationSecurityLevel
       } else {
         return VerificationResult.ExtensionConstraintViolation(
-          "attestationSecurityLevel != keyMintSecurityLevel: ${keyDescription.attestationSecurityLevel} != ${keyDescription.keyMintSecurityLevel}"
+          "attestationSecurityLevel != keyMintSecurityLevel: ${keyDescription.attestationSecurityLevel} != ${keyDescription.keyMintSecurityLevel}",
+          KeyAttestationReason.MISMATCHED_SECURITY_LEVELS,
         )
       }
     val rootOfTrust =
       keyDescription.hardwareEnforced.rootOfTrust
         ?: return VerificationResult.ExtensionConstraintViolation(
-          "hardwareEnforced.rootOfTrust is null"
+          "hardwareEnforced.rootOfTrust is null",
+          KeyAttestationReason.ROOT_OF_TRUST_MISSING,
         )
     return VerificationResult.Success(
       pathValidationResult.publicKey,

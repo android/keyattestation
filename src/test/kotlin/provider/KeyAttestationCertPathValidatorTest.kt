@@ -16,6 +16,8 @@
 
 package com.android.keyattestation.verifier.provider
 
+import com.android.keyattestation.verifier.KeyAttestationReason
+import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.Certs.rootAnchor as testAnchor
 import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeCalendar
@@ -215,11 +217,26 @@ class KeyAttestationCertPathValidatorTest {
   @Test
   fun forgedKeybox_throwsCertPathValidatorException() {
     val certPath = Chains.forgedKeybox
+    assertFailsWith<CertPathValidatorException> { certPathValidator.validate(certPath, testParams) }
+  }
+
+  @Test
+  fun extraLeaf_throwsCertPathValidatorException() {
     val exception =
       assertFailsWith<CertPathValidatorException> {
-        certPathValidator.validate(certPath, testParams)
+        certPathValidator.validate(KeyAttestationCertPath(CertLists.extended), testParams)
       }
-    assertThat(exception.reason).isEqualTo(PKIXReason.PATH_TOO_LONG)
+    assertThat(exception.reason)
+      .isEqualTo(KeyAttestationReason.CHAIN_EXTENDED_WITH_FAKE_ATTESTATION_EXTENSION)
+  }
+
+  @Test
+  fun certAfterLeaf_throwsCertPathValidatorException() {
+    val exception =
+      assertFailsWith<CertPathValidatorException> {
+        certPathValidator.validate(KeyAttestationCertPath(CertLists.certAfterTarget), testParams)
+      }
+    assertThat(exception.reason).isEqualTo(KeyAttestationReason.CHAIN_EXTENDED_FOR_KEY)
   }
 
   @Test

@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier
 
+import androidx.annotation.RequiresApi
 import java.io.InputStream
 import java.security.cert.CertificateException
 import java.security.cert.CertificateFactory
@@ -36,7 +37,7 @@ fun InputStream.asX509Certificate() =
  * @return the DER-encoded OCTET string containing the KeyDescription sequence or null if the
  *   extension is not present in the certificate.
  */
-fun X509Certificate.keyDescription() = KeyDescription.parseFrom(this)
+@RequiresApi(24) fun X509Certificate.keyDescription() = KeyDescription.parseFrom(this)
 
 /**
  * Returns the Android Key Attestation extension for provisioning info.

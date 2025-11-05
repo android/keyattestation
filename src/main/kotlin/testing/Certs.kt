@@ -236,6 +236,110 @@ object CertLists {
     )
   }
 
+  /* A chain where the leaf certificate has an unparseable extension. */
+  @JvmStatic
+  val unparseableExtension by lazy {
+    listOf(
+      certFactory.generateLeafCert(
+        extension =
+          Extension(ObjectIds.KEY_DESCRIPTION, /* critical= */ false, byteArrayOf(0x42, 0x42))
+      ),
+      Certs.factoryAttestation,
+      Certs.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  /* A chain where the leaf certificate has an extension with a missing value. */
+  @JvmStatic
+  val missingExtension by lazy {
+    listOf(
+      certFactory.generateLeafCert(extension = null),
+      Certs.factoryAttestation,
+      Certs.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  /* A chain where the leaf certificate is missing the root of trust. This is malformed. */
+  val missingRootOfTrust by lazy {
+    listOf(
+      certFactory.generateLeafCert(
+        extension =
+          KeyDescription(
+              attestationVersion = BigInteger.valueOf(300),
+              attestationSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+              keyMintVersion = BigInteger.valueOf(300),
+              keyMintSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+              attestationChallenge = "challenge".toByteStringUtf8(),
+              uniqueId = "uniqueId".toByteStringUtf8(),
+              softwareEnforced = AuthorizationList(),
+              hardwareEnforced = AuthorizationList(origin = Origin.GENERATED),
+            )
+            .asExtension()
+      ),
+      certFactory.factoryAttestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  /* A chain where the origin is IMPORTED. This should not be trusted. */
+  val importedOrigin by lazy {
+    listOf(
+      certFactory.generateLeafCert(
+        extension =
+          KeyDescription(
+              attestationVersion = BigInteger.valueOf(300),
+              attestationSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+              keyMintVersion = BigInteger.valueOf(300),
+              keyMintSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+              attestationChallenge = "challenge".toByteStringUtf8(),
+              uniqueId = "uniqueId".toByteStringUtf8(),
+              softwareEnforced = AuthorizationList(),
+              hardwareEnforced =
+                AuthorizationList(
+                  rootOfTrust =
+                    RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED),
+                  origin = Origin.IMPORTED,
+                ),
+            )
+            .asExtension()
+      ),
+      certFactory.factoryAttestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  /* A chain where the KeyMint security level does not match the attestation security level. */
+  val mismatchedSecurityLevels by lazy {
+    listOf(
+      certFactory.generateLeafCert(
+        extension =
+          KeyDescription(
+              attestationVersion = BigInteger.valueOf(300),
+              attestationSecurityLevel = SecurityLevel.SOFTWARE,
+              keyMintVersion = BigInteger.valueOf(300),
+              keyMintSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+              attestationChallenge = "challenge".toByteStringUtf8(),
+              uniqueId = "uniqueId".toByteStringUtf8(),
+              softwareEnforced = AuthorizationList(),
+              hardwareEnforced =
+                AuthorizationList(
+                  rootOfTrust =
+                    RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED),
+                  origin = Origin.GENERATED,
+                ),
+            )
+            .asExtension()
+      ),
+      certFactory.factoryAttestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
   private fun generateValidLeafCertWithAppendedTag(appendedTag: Int, appendedValue: ASN1Encodable) =
     certFactory.generateLeafCert(
       extension =
@@ -367,20 +471,6 @@ object Chains {
     )
   }
 
-  /* A chain where the leaf certificate has an unparseable extension. */
-  @JvmStatic
-  val unparseableExtension by lazy {
-    KeyAttestationCertPath(
-      certFactory.generateLeafCert(
-        extension =
-          Extension(ObjectIds.KEY_DESCRIPTION, /* critical= */ false, byteArrayOf(0x42, 0x42))
-      ),
-      Certs.factoryAttestation,
-      Certs.factoryIntermediate,
-      certFactory.root,
-    )
-  }
-
   /* Different revoked serial numbers for testing. */
   @JvmField val REVOKED_SERIAL_NUMBER = 42.toBigInteger()
   @JvmField val REVOKED_SERIAL_NUMBER_BIG = 8000000000000.toBigInteger()
@@ -421,85 +511,6 @@ object Chains {
       Certs.factoryIntermediate,
       // Google signed root certificate
       Certs.root,
-    )
-  }
-
-  /* A chain where the leaf certificate is missing the root of trust. This is malformed. */
-  val missingRootOfTrust by lazy {
-    KeyAttestationCertPath(
-      certFactory.generateLeafCert(
-        extension =
-          KeyDescription(
-              attestationVersion = BigInteger.valueOf(300),
-              attestationSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
-              keyMintVersion = BigInteger.valueOf(300),
-              keyMintSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
-              attestationChallenge = "challenge".toByteStringUtf8(),
-              uniqueId = "uniqueId".toByteStringUtf8(),
-              softwareEnforced = AuthorizationList(),
-              hardwareEnforced = AuthorizationList(origin = Origin.GENERATED),
-            )
-            .asExtension()
-      ),
-      certFactory.factoryAttestation,
-      certFactory.factoryIntermediate,
-      certFactory.root,
-    )
-  }
-
-  /* A chain where the origin is IMPORTED. This should not be trusted. */
-  val importedOrigin by lazy {
-    KeyAttestationCertPath(
-      certFactory.generateLeafCert(
-        extension =
-          KeyDescription(
-              attestationVersion = BigInteger.valueOf(300),
-              attestationSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
-              keyMintVersion = BigInteger.valueOf(300),
-              keyMintSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
-              attestationChallenge = "challenge".toByteStringUtf8(),
-              uniqueId = "uniqueId".toByteStringUtf8(),
-              softwareEnforced = AuthorizationList(),
-              hardwareEnforced =
-                AuthorizationList(
-                  rootOfTrust =
-                    RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED),
-                  origin = Origin.IMPORTED,
-                ),
-            )
-            .asExtension()
-      ),
-      certFactory.factoryAttestation,
-      certFactory.factoryIntermediate,
-      certFactory.root,
-    )
-  }
-
-  /* A chain where the KeyMint security level does not match the attestation security level. */
-  val mismatchedSecurityLevels by lazy {
-    KeyAttestationCertPath(
-      certFactory.generateLeafCert(
-        extension =
-          KeyDescription(
-              attestationVersion = BigInteger.valueOf(300),
-              attestationSecurityLevel = SecurityLevel.SOFTWARE,
-              keyMintVersion = BigInteger.valueOf(300),
-              keyMintSecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
-              attestationChallenge = "challenge".toByteStringUtf8(),
-              uniqueId = "uniqueId".toByteStringUtf8(),
-              softwareEnforced = AuthorizationList(),
-              hardwareEnforced =
-                AuthorizationList(
-                  rootOfTrust =
-                    RootOfTrust("bootKey".toByteStringUtf8(), true, VerifiedBootState.VERIFIED),
-                  origin = Origin.GENERATED,
-                ),
-            )
-            .asExtension()
-      ),
-      certFactory.factoryAttestation,
-      certFactory.factoryIntermediate,
-      certFactory.root,
     )
   }
 }

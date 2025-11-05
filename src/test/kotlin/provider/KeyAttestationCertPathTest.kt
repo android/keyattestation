@@ -31,12 +31,6 @@ import org.junit.runner.RunWith
 
 @RunWith(TestParameterInjector::class)
 class KeyAttestationCertPathTest {
-  @Test
-  fun constructor_noleaf_throwsCertificateException() {
-    assertFailsWith<CertificateException> {
-      KeyAttestationCertPath(CertLists.validFactoryProvisioned.drop(1))
-    }
-  }
 
   @Test
   fun constructor_noRoot_throwsException() {
@@ -53,11 +47,6 @@ class KeyAttestationCertPathTest {
         CertLists.validFactoryProvisioned.last(),
       )
     }
-  }
-
-  @Test
-  fun constructor_extraLeaf_throwsCertificateException() {
-    assertFailsWith<CertificateException> { KeyAttestationCertPath(CertLists.extended) }
   }
 
   @Test
