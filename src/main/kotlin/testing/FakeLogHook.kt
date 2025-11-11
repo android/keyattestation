@@ -20,6 +20,7 @@ import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.LogHook
 import com.android.keyattestation.verifier.ProvisioningInfoMap
 import com.android.keyattestation.verifier.VerificationResult
+import com.android.keyattestation.verifier.VerifyRequestLog
 import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
 
@@ -30,6 +31,20 @@ import com.google.protobuf.ByteString
  * test.
  */
 class FakeLogHook : LogHook {
+  var fakeVerifyRequestLog = FakeVerifyRequestLog()
+
+  override fun createRequestLog(): VerifyRequestLog {
+    return fakeVerifyRequestLog
+  }
+}
+
+/**
+ * Fake implementation of [VerifyRequestLog] for testing.
+ *
+ * Stores the last values passed to each logging method. A new instance should be created for each
+ * test.
+ */
+class FakeVerifyRequestLog : VerifyRequestLog {
   var inputChain = mutableListOf<ByteString>()
   var result: VerificationResult? = null
   var keyDescription: KeyDescription? = null
@@ -60,4 +75,6 @@ class FakeLogHook : LogHook {
   override fun logInfoMessage(infoMessage: String) {
     this.infoMessages.add(infoMessage)
   }
+
+  override fun flush() {}
 }
