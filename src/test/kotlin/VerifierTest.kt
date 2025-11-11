@@ -201,7 +201,7 @@ class VerifierTest {
         )
         .await()
     )
-    assertThat(logHook.fakeVerifyRequestLog.inputChain)
+    assertThat(logHook.inputChain)
       .isEqualTo(CertLists.wrongTrustAnchor.map { it.encoded.toByteString() })
   }
 
@@ -210,8 +210,7 @@ class VerifierTest {
     val logHook = FakeLogHook()
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
     assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain, log = logHook).await())
-    assertThat(logHook.fakeVerifyRequestLog.keyDescription)
-      .isEqualTo(chain.first().keyDescription())
+    assertThat(logHook.keyDescription).isEqualTo(chain[0].keyDescription())
   }
 
   @Test
@@ -226,7 +225,7 @@ class VerifierTest {
     assertIs<VerificationResult.Success>(
       verifierWithTestRoot.verifyAsync(this, CertLists.invalidBootPatchLevel, log = logHook).await()
     )
-    assertThat(logHook.fakeVerifyRequestLog.infoMessages).isNotEmpty()
+    assertThat(logHook.infoMessages).isNotEmpty()
   }
 
   @Test

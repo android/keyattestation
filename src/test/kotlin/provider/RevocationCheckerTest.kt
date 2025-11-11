@@ -16,8 +16,8 @@
 
 package com.android.keyattestation.verifier.provider
 
-import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.Certs
+import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeCalendar
 import java.security.Security
 import java.security.cert.CertPathValidator
@@ -39,10 +39,10 @@ class RevocationCheckerTest {
   private val revocationChecker =
     RevocationChecker(
       setOf(
-        CertLists.REVOKED_SERIAL_NUMBER.toString(16),
-        CertLists.REVOKED_SERIAL_NUMBER_BIG.toString(16),
-        CertLists.REVOKED_SERIAL_NUMBER_LONG_STRING.toString(16),
-        CertLists.REVOKED_SERIAL_NUMBER_ODD_LENGTH.toString(16),
+        Chains.REVOKED_SERIAL_NUMBER.toString(16),
+        Chains.REVOKED_SERIAL_NUMBER_BIG.toString(16),
+        Chains.REVOKED_SERIAL_NUMBER_LONG_STRING.toString(16),
+        Chains.REVOKED_SERIAL_NUMBER_ODD_LENGTH.toString(16),
       )
     )
   private val validator = CertPathValidator.getInstance("KeyAttestation")
@@ -50,23 +50,17 @@ class RevocationCheckerTest {
 
   @Test
   fun withoutRevocationChecker_validationSucceeds() {
-    validator.validate(KeyAttestationCertPath(CertLists.revoked), params)
-    pkixValidator.validate(KeyAttestationCertPath(CertLists.revoked), params)
+    validator.validate(Chains.revoked, params)
+    pkixValidator.validate(Chains.revoked, params)
   }
 
   @Test
   fun withRevocationChecker_throwsCertPathValidatorException() {
     assertFailsWith<CertPathValidatorException> {
-      validator.validate(
-        KeyAttestationCertPath(CertLists.revoked),
-        params.apply { addCertPathChecker(revocationChecker) },
-      )
+      validator.validate(Chains.revoked, params.apply { addCertPathChecker(revocationChecker) })
     }
     assertFailsWith<CertPathValidatorException> {
-      pkixValidator.validate(
-        KeyAttestationCertPath(CertLists.revoked),
-        params.apply { addCertPathChecker(revocationChecker) },
-      )
+      pkixValidator.validate(Chains.revoked, params.apply { addCertPathChecker(revocationChecker) })
     }
   }
 

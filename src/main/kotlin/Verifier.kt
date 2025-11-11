@@ -64,17 +64,10 @@ sealed interface VerificationResult {
     VerificationResult
 }
 
-/**
- * Interface for logging info level key attestation events and information.
- *
- * Uses of the log hook must be thread safe within a single verify call.
- */
+/** Interface for logging info level key attestation events and information. */
 @ThreadSafe
 interface LogHook {
-  fun createRequestLog(): VerifyRequestLog
-}
 
-interface VerifyRequestLog {
   /**
    * Logs the certificate chain which is being verified. Called for each call to [verify].
    *
@@ -121,9 +114,6 @@ interface VerifyRequestLog {
    * @param infoMessage The info level message to log.
    */
   fun logInfoMessage(infoMessage: String)
-
-  /* Flushes any buffered logs. Called just before [verify] returns. */
-  fun flush()
 }
 
 /**
@@ -161,17 +151,15 @@ open class Verifier(
     challengeChecker: ChallengeChecker? = null,
     log: LogHook? = null,
   ): VerificationResult {
-    val requestLog = log?.createRequestLog()
     val result =
       try {
         val certPath = KeyAttestationCertPath(chain)
-        runBlocking { internalVerify(certPath, challengeChecker, requestLog) }
+        runBlocking { internalVerify(certPath, challengeChecker, log) }
       } catch (e: CertificateException) {
-        requestLog?.logInputChain(chain.map { it.getEncoded().toByteString() })
+        log?.logInputChain(chain.map { it.getEncoded().toByteString() })
         VerificationResult.ChainParsingFailure(e)
       }
-    requestLog?.logResult(result)
-    requestLog?.flush()
+    log?.logResult(result)
     return result
   }
 
@@ -194,17 +182,15 @@ open class Verifier(
   ): ListenableFuture<VerificationResult> {
     val immutableChain = ImmutableList.copyOf(chain)
     return coroutineScope.future {
-      val requestLog = log?.createRequestLog()
       val result =
         try {
           val certPath = KeyAttestationCertPath(immutableChain)
-          internalVerify(certPath, challengeChecker, requestLog)
+          internalVerify(certPath, challengeChecker, log)
         } catch (e: CertificateException) {
-          requestLog?.logInputChain(immutableChain.map { it.getEncoded().toByteString() })
+          log?.logInputChain(immutableChain.map { it.getEncoded().toByteString() })
           VerificationResult.ChainParsingFailure(e)
         }
-      requestLog?.logResult(result)
-      requestLog?.flush()
+      log?.logResult(result)
       result
     }
   }
@@ -213,7 +199,7 @@ open class Verifier(
   private suspend fun internalVerify(
     certPath: KeyAttestationCertPath,
     challengeChecker: ChallengeChecker? = null,
-    log: VerifyRequestLog? = null,
+    log: LogHook? = null,
   ): VerificationResult {
     log?.logInputChain(certPath.certificatesWithAnchor.map { it.getEncoded().toByteString() })
     log?.logCertSerialNumbers(

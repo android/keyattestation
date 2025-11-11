@@ -20,7 +20,6 @@ import com.android.keyattestation.verifier.AuthorizationList
 import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.KeyMintTag
 import com.android.keyattestation.verifier.Origin
-import com.android.keyattestation.verifier.ProvisioningInfoMap
 import com.android.keyattestation.verifier.RootOfTrust
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.VerifiedBootState
@@ -53,6 +52,7 @@ object Certs {
   val rootKey = certFactory.rootKey
   val factoryIntermediate = certFactory.factoryIntermediate
   val remoteIntermediate = certFactory.remoteIntermediate
+  val strongBoxIntermediate = certFactory.strongBoxIntermediate
   val factoryAttestation = certFactory.factoryAttestation
 }
 
@@ -100,8 +100,8 @@ object CertLists {
   val validStrongboxFactoryProvisioned by lazy {
     listOf(
       certFactory.generateLeafCert(extension = certFactory.STRONG_BOX_KEY_DESCRIPTION_EXT),
-      certFactory.generateAttestationCert(issuer = certFactory.strongBoxIntermediate.subject),
-      certFactory.strongBoxIntermediate,
+      certFactory.generateAttestationCert(issuer = Certs.strongBoxIntermediate.subject),
+      Certs.strongBoxIntermediate,
       Certs.root,
     )
   }
@@ -340,43 +340,6 @@ object CertLists {
     )
   }
 
-  val malformedProvisioningInfo by lazy {
-    listOf(
-      certFactory.generateLeafCert(),
-      certFactory.generateAttestationCert(
-        issuer = certFactory.rkpIntermediate.subject,
-        signingKey = certFactory.rkpKey.private,
-        extraExtension =
-          Extension(
-            ProvisioningInfoMap.OID,
-            /* critical= */ false,
-            ASN1Integer(BigInteger.valueOf(1234567)).encoded,
-          ),
-      ),
-      certFactory.rkpIntermediate,
-      Certs.remoteIntermediate,
-      certFactory.root,
-    )
-  }
-
-  /* Different revoked serial numbers for testing. */
-  @JvmField val REVOKED_SERIAL_NUMBER = 42.toBigInteger()
-  @JvmField val REVOKED_SERIAL_NUMBER_BIG = 8000000000000.toBigInteger()
-  @JvmField
-  val REVOKED_SERIAL_NUMBER_LONG_STRING = "c35747a084470c3135aeefe2b8d40cd6".toBigInteger(16)
-  @JvmField val REVOKED_SERIAL_NUMBER_ODD_LENGTH = 1228286566665971148.toBigInteger()
-
-  /* A chain where the attesstation certificate has {@link REVOKED_SERIAL_NUMBER}. */
-  @JvmStatic
-  val revoked by lazy {
-    listOf(
-      certFactory.generateLeafCert(),
-      certFactory.generateAttestationCert(serialNumber = REVOKED_SERIAL_NUMBER),
-      Certs.factoryIntermediate,
-      certFactory.root,
-    )
-  }
-
   private fun generateValidLeafCertWithAppendedTag(appendedTag: Int, appendedValue: ASN1Encodable) =
     certFactory.generateLeafCert(
       extension =
@@ -503,6 +466,24 @@ object Chains {
         notAfter = fakeCalendar.lastWeek(),
       ),
       Certs.factoryAttestation,
+      Certs.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  /* Different revoked serial numbers for testing. */
+  @JvmField val REVOKED_SERIAL_NUMBER = 42.toBigInteger()
+  @JvmField val REVOKED_SERIAL_NUMBER_BIG = 8000000000000.toBigInteger()
+  @JvmField
+  val REVOKED_SERIAL_NUMBER_LONG_STRING = "c35747a084470c3135aeefe2b8d40cd6".toBigInteger(16)
+  @JvmField val REVOKED_SERIAL_NUMBER_ODD_LENGTH = 1228286566665971148.toBigInteger()
+
+  /* A chain where the attesstation certificate has {@link REVOKED_SERIAL_NUMBER}. */
+  @JvmStatic
+  val revoked by lazy {
+    KeyAttestationCertPath(
+      certFactory.generateLeafCert(),
+      certFactory.generateAttestationCert(serialNumber = REVOKED_SERIAL_NUMBER),
       Certs.factoryIntermediate,
       certFactory.root,
     )
