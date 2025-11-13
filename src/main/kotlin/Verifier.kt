@@ -62,6 +62,8 @@ sealed interface VerificationResult {
 
   data class ExtensionConstraintViolation(val cause: String, val reason: KeyAttestationReason) :
     VerificationResult
+
+  data object SoftwareAttestationUnsupported : VerificationResult
 }
 
 /**
@@ -141,6 +143,13 @@ open class Verifier(
 ) {
   init {
     Security.addProvider(KeyAttestationProvider())
+    for (anchor in trustAnchorsSource()) {
+      if (anchor.trustedCert?.isSoftwareRoot() == true) {
+        throw IllegalArgumentException(
+          "Software attestation root cannot be used as a trust anchor."
+        )
+      }
+    }
   }
 
   /**
@@ -244,6 +253,17 @@ open class Verifier(
       try {
         certPathValidator.validate(certPath, certPathParameters) as PKIXCertPathValidatorResult
       } catch (e: CertPathValidatorException) {
+        if (
+          e.message == "No matching trust anchor found" &&
+            certPath.certificatesWithAnchor.last().isSoftwareRoot()
+        ) {
+          return VerificationResult.PathValidationFailure(
+            CertPathValidatorException(
+              "Chain terminates in a software root and no matching trust anchor was found, so the chain was not validated.",
+              e,
+            )
+          )
+        }
         return VerificationResult.PathValidationFailure(e)
       }
 
