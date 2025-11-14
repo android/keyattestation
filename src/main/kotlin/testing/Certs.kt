@@ -533,3 +533,38 @@ object Chains {
     )
   }
 }
+
+object V3Extensions {
+  private fun ASN1Encodable.toTaggedObject(tag: KeyMintTag) = DERTaggedObject(tag.value, this)
+
+  private val partialAuthorizationList: DERSequence =
+    DERSequence(
+      arrayOf(
+        ASN1Integer(1).toTaggedObject(KeyMintTag.ALGORITHM),
+        ASN1Integer(2).toTaggedObject(KeyMintTag.KEY_SIZE),
+      )
+    )
+
+  private val partialMalformedAuthorizationList: DERSequence =
+    DERSequence(
+      arrayOf(
+        ASN1Integer(1).toTaggedObject(KeyMintTag.ALGORITHM),
+        DEROctetString(ByteArray(0)).toTaggedObject(KeyMintTag.KEY_SIZE),
+      )
+    )
+
+  val keyDescriptionWithMalformedSoftwareAuthorizations: ByteArray =
+    DERSequence(
+        arrayOf(
+          ASN1Integer(1), // attestationVersion
+          ASN1Enumerated(SecurityLevel.SOFTWARE.value), // attestationSecurityLevel
+          ASN1Integer(1), // keyMintVersion
+          ASN1Enumerated(SecurityLevel.SOFTWARE.value), // keyMintSecurityLevel
+          DEROctetString(ByteArray(0)), // attestationChallenge
+          DEROctetString(ByteArray(0)), // uniqueId
+          partialMalformedAuthorizationList, // softwareEnforced
+          partialAuthorizationList, // hardwareEnforced
+        )
+      )
+      .encoded
+}
