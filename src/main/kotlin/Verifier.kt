@@ -138,6 +138,7 @@ open class Verifier(
   private val trustAnchorsSource: () -> Set<TrustAnchor>,
   private val revokedSerialsSource: () -> Set<String>,
   private val instantSource: InstantSource,
+  private val extensionConstraintConfig: ExtensionConstraintConfig = ExtensionConstraintConfig(),
 ) {
   init {
     Security.addProvider(KeyAttestationProvider())
@@ -271,38 +272,56 @@ open class Verifier(
       }
     }
 
-    if (
-      keyDescription.hardwareEnforced.origin == null ||
-        keyDescription.hardwareEnforced.origin != Origin.GENERATED
-    ) {
+    val origin = keyDescription.hardwareEnforced.origin
+    if (!extensionConstraintConfig.keyOrigin.isSatisfiedBy(origin)) {
       return VerificationResult.ExtensionConstraintViolation(
-        "origin != GENERATED: ${keyDescription.hardwareEnforced.origin}",
-        KeyAttestationReason.KEY_ORIGIN_NOT_GENERATED,
+        "Origin violates constraint: value=${origin}, config=${extensionConstraintConfig.keyOrigin}",
+        KeyAttestationReason.KEY_ORIGIN_CONSTRAINT_VIOLATION,
       )
     }
 
     val securityLevel =
-      if (keyDescription.attestationSecurityLevel == keyDescription.keyMintSecurityLevel) {
-        keyDescription.attestationSecurityLevel
+      if (extensionConstraintConfig.securityLevel.isSatisfiedBy(keyDescription)) {
+        minOf(keyDescription.attestationSecurityLevel, keyDescription.keyMintSecurityLevel)
       } else {
         return VerificationResult.ExtensionConstraintViolation(
-          "attestationSecurityLevel != keyMintSecurityLevel: ${keyDescription.attestationSecurityLevel} != ${keyDescription.keyMintSecurityLevel}",
-          KeyAttestationReason.MISMATCHED_SECURITY_LEVELS,
+          "Security level violates constraint: value=${keyDescription.attestationSecurityLevel}, config=${extensionConstraintConfig.securityLevel}",
+          KeyAttestationReason.SECURITY_LEVEL_CONSTRAINT_VIOLATION,
         )
       }
-    val rootOfTrust =
-      keyDescription.hardwareEnforced.rootOfTrust
-        ?: return VerificationResult.ExtensionConstraintViolation(
-          "hardwareEnforced.rootOfTrust is null",
-          KeyAttestationReason.ROOT_OF_TRUST_MISSING,
-        )
+
+    val rootOfTrust = keyDescription.hardwareEnforced.rootOfTrust
+    if (!extensionConstraintConfig.rootOfTrust.isSatisfiedBy(rootOfTrust)) {
+      return VerificationResult.ExtensionConstraintViolation(
+        "Root of trust violates constraint: value=${rootOfTrust}, config=${extensionConstraintConfig.rootOfTrust}",
+        KeyAttestationReason.ROOT_OF_TRUST_CONSTRAINT_VIOLATION,
+      )
+    }
+    val verifiedBootState = rootOfTrust?.verifiedBootState ?: VerifiedBootState.UNVERIFIED
+
     return VerificationResult.Success(
       pathValidationResult.publicKey,
       keyDescription.attestationChallenge,
       securityLevel,
-      rootOfTrust.verifiedBootState,
+      verifiedBootState,
       deviceInformation,
       DeviceIdentity.parseFrom(keyDescription),
     )
+  }
+
+  private fun SecurityLevelValidationLevel.isSatisfiedBy(keyDescription: KeyDescription): Boolean {
+    val securityLevelsMatch =
+      keyDescription.attestationSecurityLevel == keyDescription.keyMintSecurityLevel
+
+    return when (this) {
+      is SecurityLevelValidationLevel.STRICT -> {
+        val securityLevelIsExpected =
+          if (this.expectedVal == null) keyDescription.attestationSecurityLevel == this.expectedVal
+          else keyDescription.attestationSecurityLevel != SecurityLevel.SOFTWARE
+        securityLevelsMatch && securityLevelIsExpected
+      }
+      is SecurityLevelValidationLevel.MATCH -> securityLevelsMatch
+      is SecurityLevelValidationLevel.EXISTS -> true
+    }
   }
 }
