@@ -22,7 +22,7 @@ import co.nstant.`in`.cbor.CborEncoder
 import co.nstant.`in`.cbor.CborException
 import co.nstant.`in`.cbor.model.DataItem
 import co.nstant.`in`.cbor.model.MajorType
-import co.nstant.`in`.cbor.model.Map
+import co.nstant.`in`.cbor.model.Map as CborMap
 import co.nstant.`in`.cbor.model.NegativeInteger
 import co.nstant.`in`.cbor.model.SimpleValue
 import co.nstant.`in`.cbor.model.SimpleValueType
@@ -68,7 +68,7 @@ data class ProvisioningInfoMap(
   val certificatesIssued: Int,
 ) {
   fun cborEncode(): ByteArray {
-    val map = Map()
+    val map = CborMap()
     map.put(UnsignedInteger(1L), certificatesIssued.asDataItem())
     return cborEncode(map)
   }
@@ -93,7 +93,7 @@ data class ProvisioningInfoMap(
         throw IllegalArgumentException(e)
       }
 
-    private fun from(seq: Map): ProvisioningInfoMap {
+    private fun from(seq: CborMap): ProvisioningInfoMap {
       require(seq.keys.size >= 1)
       return ProvisioningInfoMap(
         certificatesIssued = seq.get(UnsignedInteger(1L)).asInteger(),
@@ -413,6 +413,43 @@ data class AuthorizationList(
       .let { DERSequence(it.toTypedArray()) }
 
   internal companion object {
+
+    private fun <T> Map<KeyMintTag, ASN1Encodable>.parse(
+      tag: KeyMintTag,
+      logFn: (String) -> Unit,
+      transform: (ASN1Encodable) -> T,
+    ): T? {
+      val result = runCatching { this[tag]?.let(transform) }
+      if (result.isFailure) {
+        logFn(
+          "Exception when parsing ${tag.name.lowercase()} from AuthorizationList: ${result.exceptionOrNull().toString()}"
+        )
+      }
+      return result.getOrNull()
+    }
+
+    private fun Map<KeyMintTag, ASN1Encodable>.parseInt(tag: KeyMintTag, logFn: (String) -> Unit) =
+      parse(tag, logFn) { it.toInt() }
+
+    private fun Map<KeyMintTag, ASN1Encodable>.parseIntSet(
+      tag: KeyMintTag,
+      logFn: (String) -> Unit,
+    ) = parse(tag, logFn) { it.toSet<ASN1Integer>().map { innerIt -> innerIt.value }.toSet() }
+
+    private fun Map<KeyMintTag, ASN1Encodable>.parseStr(tag: KeyMintTag, logFn: (String) -> Unit) =
+      parse(tag, logFn) { it.toStr() }
+
+    private fun Map<KeyMintTag, ASN1Encodable>.parseByteString(
+      tag: KeyMintTag,
+      logFn: (String) -> Unit,
+    ) = parse(tag, logFn) { it.toByteString() }
+
+    private fun Map<KeyMintTag, ASN1Encodable>.parsePatchLevel(
+      tag: KeyMintTag,
+      partition: String,
+      logFn: (String) -> Unit,
+    ) = parse(tag, logFn) { it.toPatchLevel(partition, logFn) }
+
     fun from(seq: ASN1Sequence, logFn: (String) -> Unit = { _ -> }): AuthorizationList {
       val objects =
         seq.associate {
@@ -438,47 +475,48 @@ data class AuthorizationList(
       }
 
       return AuthorizationList(
-        purposes = objects[KeyMintTag.PURPOSE]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
-        algorithms = objects[KeyMintTag.ALGORITHM]?.toInt(),
-        keySize = objects[KeyMintTag.KEY_SIZE]?.toInt(),
-        blockModes =
-          objects[KeyMintTag.BLOCK_MODE]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
-        digests = objects[KeyMintTag.DIGEST]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
-        paddings = objects[KeyMintTag.PADDING]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
-        ecCurve = objects[KeyMintTag.EC_CURVE]?.toInt(),
-        rsaPublicExponent = objects[KeyMintTag.RSA_PUBLIC_EXPONENT]?.toInt(),
-        rsaOaepMgfDigests =
-          objects[KeyMintTag.RSA_OAEP_MGF_DIGEST]?.toSet<ASN1Integer>()?.map { it.value }?.toSet(),
-        activeDateTime = objects[KeyMintTag.ACTIVE_DATE_TIME]?.toInt(),
-        originationExpireDateTime = objects[KeyMintTag.ORIGINATION_EXPIRE_DATE_TIME]?.toInt(),
-        usageExpireDateTime = objects[KeyMintTag.USAGE_EXPIRE_DATE_TIME]?.toInt(),
+        purposes = objects.parseIntSet(KeyMintTag.PURPOSE, logFn),
+        algorithms = objects.parseInt(KeyMintTag.ALGORITHM, logFn),
+        keySize = objects.parseInt(KeyMintTag.KEY_SIZE, logFn),
+        blockModes = objects.parseIntSet(KeyMintTag.BLOCK_MODE, logFn),
+        digests = objects.parseIntSet(KeyMintTag.DIGEST, logFn),
+        paddings = objects.parseIntSet(KeyMintTag.PADDING, logFn),
+        ecCurve = objects.parseInt(KeyMintTag.EC_CURVE, logFn),
+        rsaPublicExponent = objects.parseInt(KeyMintTag.RSA_PUBLIC_EXPONENT, logFn),
+        rsaOaepMgfDigests = objects.parseIntSet(KeyMintTag.RSA_OAEP_MGF_DIGEST, logFn),
+        activeDateTime = objects.parseInt(KeyMintTag.ACTIVE_DATE_TIME, logFn),
+        originationExpireDateTime =
+          objects.parseInt(KeyMintTag.ORIGINATION_EXPIRE_DATE_TIME, logFn),
+        usageExpireDateTime = objects.parseInt(KeyMintTag.USAGE_EXPIRE_DATE_TIME, logFn),
         noAuthRequired = if (objects.containsKey(KeyMintTag.NO_AUTH_REQUIRED)) true else null,
-        userAuthType = objects[KeyMintTag.USER_AUTH_TYPE]?.toInt(),
-        authTimeout = objects[KeyMintTag.AUTH_TIMEOUT]?.toInt(),
+        userAuthType = objects.parseInt(KeyMintTag.USER_AUTH_TYPE, logFn),
+        authTimeout = objects.parseInt(KeyMintTag.AUTH_TIMEOUT, logFn),
         trustedUserPresenceRequired =
           if (objects.containsKey(KeyMintTag.TRUSTED_USER_PRESENCE_REQUIRED)) true else null,
         unlockedDeviceRequired =
           if (objects.containsKey(KeyMintTag.UNLOCKED_DEVICE_REQUIRED)) true else null,
-        creationDateTime = objects[KeyMintTag.CREATION_DATE_TIME]?.toInt(),
-        origin = objects[KeyMintTag.ORIGIN]?.toOrigin(),
+        creationDateTime = objects.parseInt(KeyMintTag.CREATION_DATE_TIME, logFn),
+        origin = objects.parse(KeyMintTag.ORIGIN, logFn) { it.toOrigin() },
         rollbackResistant = if (objects.containsKey(KeyMintTag.ROLLBACK_RESISTANT)) true else null,
-        rootOfTrust = objects[KeyMintTag.ROOT_OF_TRUST]?.toRootOfTrust(),
-        osVersion = objects[KeyMintTag.OS_VERSION]?.toInt(),
-        osPatchLevel = objects[KeyMintTag.OS_PATCH_LEVEL]?.toPatchLevel("OS", logFn),
+        rootOfTrust = objects.parse(KeyMintTag.ROOT_OF_TRUST, logFn) { it.toRootOfTrust() },
+        osVersion = objects.parseInt(KeyMintTag.OS_VERSION, logFn),
+        osPatchLevel = objects.parsePatchLevel(KeyMintTag.OS_PATCH_LEVEL, "OS", logFn),
         attestationApplicationId =
-          objects[KeyMintTag.ATTESTATION_APPLICATION_ID]?.toAttestationApplicationId(),
-        attestationIdBrand = objects[KeyMintTag.ATTESTATION_ID_BRAND]?.toStr(),
-        attestationIdDevice = objects[KeyMintTag.ATTESTATION_ID_DEVICE]?.toStr(),
-        attestationIdProduct = objects[KeyMintTag.ATTESTATION_ID_PRODUCT]?.toStr(),
-        attestationIdSerial = objects[KeyMintTag.ATTESTATION_ID_SERIAL]?.toStr(),
-        attestationIdImei = objects[KeyMintTag.ATTESTATION_ID_IMEI]?.toStr(),
-        attestationIdMeid = objects[KeyMintTag.ATTESTATION_ID_MEID]?.toStr(),
-        attestationIdManufacturer = objects[KeyMintTag.ATTESTATION_ID_MANUFACTURER]?.toStr(),
-        attestationIdModel = objects[KeyMintTag.ATTESTATION_ID_MODEL]?.toStr(),
-        vendorPatchLevel = objects[KeyMintTag.VENDOR_PATCH_LEVEL]?.toPatchLevel("vendor", logFn),
-        bootPatchLevel = objects[KeyMintTag.BOOT_PATCH_LEVEL]?.toPatchLevel("boot", logFn),
-        attestationIdSecondImei = objects[KeyMintTag.ATTESTATION_ID_SECOND_IMEI]?.toStr(),
-        moduleHash = objects[KeyMintTag.MODULE_HASH]?.toByteString(),
+          objects.parse(KeyMintTag.ATTESTATION_APPLICATION_ID, logFn) {
+            it.toAttestationApplicationId()
+          },
+        attestationIdBrand = objects.parseStr(KeyMintTag.ATTESTATION_ID_BRAND, logFn),
+        attestationIdDevice = objects.parseStr(KeyMintTag.ATTESTATION_ID_DEVICE, logFn),
+        attestationIdProduct = objects.parseStr(KeyMintTag.ATTESTATION_ID_PRODUCT, logFn),
+        attestationIdSerial = objects.parseStr(KeyMintTag.ATTESTATION_ID_SERIAL, logFn),
+        attestationIdImei = objects.parseStr(KeyMintTag.ATTESTATION_ID_IMEI, logFn),
+        attestationIdMeid = objects.parseStr(KeyMintTag.ATTESTATION_ID_MEID, logFn),
+        attestationIdManufacturer = objects.parseStr(KeyMintTag.ATTESTATION_ID_MANUFACTURER, logFn),
+        attestationIdModel = objects.parseStr(KeyMintTag.ATTESTATION_ID_MODEL, logFn),
+        vendorPatchLevel = objects.parsePatchLevel(KeyMintTag.VENDOR_PATCH_LEVEL, "vendor", logFn),
+        bootPatchLevel = objects.parsePatchLevel(KeyMintTag.BOOT_PATCH_LEVEL, "boot", logFn),
+        attestationIdSecondImei = objects.parseStr(KeyMintTag.ATTESTATION_ID_SECOND_IMEI, logFn),
+        moduleHash = objects.parseByteString(KeyMintTag.MODULE_HASH, logFn),
       )
     }
   }
@@ -763,12 +801,12 @@ fun Int.asDataItem() =
 
 fun String.asDataItem() = UnicodeString(this)
 
-private fun DataItem.asMap(): Map {
+private fun DataItem.asMap(): CborMap {
   if (this.majorType != MajorType.MAP) {
     throw CborException("Expected a map, got ${this.majorType.name}")
   }
   @Suppress("UNCHECKED_CAST")
-  return this as Map
+  return this as CborMap
 }
 
 fun DataItem.asUnicodeString(): UnicodeString {
