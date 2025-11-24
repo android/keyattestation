@@ -17,8 +17,10 @@
 package com.android.keyattestation.verifier
 
 import com.android.keyattestation.verifier.testing.Chains
+import com.android.keyattestation.verifier.testing.FakeLogHook
 import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
+import com.android.keyattestation.verifier.testing.V3Extensions
 import com.android.keyattestation.verifier.testing.toKeyDescription
 import com.google.common.truth.Truth.assertThat
 
@@ -82,7 +84,7 @@ class ExtensionTest {
   }
 
   @Test
-  @Ignore("TODO: b/356172932 - Reenable test once enabling tag order validator is configurable.")
+  @Ignore("TODO(google-internal bug): Reenable test once enabling tag order validator is configurable.")
   fun parseFrom_tagsNotInAscendingOrder_Throws() {
     assertFailsWith<IllegalArgumentException> {
       KeyDescription.parseFrom(readCertPath("invalid/tags_not_in_ascending_order.pem").leafCert())
@@ -155,5 +157,39 @@ class ExtensionTest {
         hardwareEnforced = authorizationList,
       )
     assertThat(KeyDescription.parseFrom(keyDescription.encodeToAsn1())).isEqualTo(keyDescription)
+  }
+
+  @Test
+  fun keyDescriptionParseFrom_partialAuthorizationListExtension_success() {
+    val authorizationList =
+      AuthorizationList(purposes = setOf(1.toBigInteger()), algorithms = 1.toBigInteger())
+    val keyDescription =
+      KeyDescription(
+        attestationVersion = 1.toBigInteger(),
+        attestationSecurityLevel = SecurityLevel.SOFTWARE,
+        keyMintVersion = 1.toBigInteger(),
+        keyMintSecurityLevel = SecurityLevel.SOFTWARE,
+        attestationChallenge = ByteString.empty(),
+        uniqueId = ByteString.empty(),
+        softwareEnforced = authorizationList,
+        hardwareEnforced = authorizationList,
+      )
+    assertThat(KeyDescription.parseFrom(keyDescription.encodeToAsn1())).isEqualTo(keyDescription)
+  }
+
+  @Test
+  fun keyDescriptionParseFrom_malformedAuthorizationListExtension_successAndLogs() {
+    val logHook = FakeLogHook()
+    assertThat(
+        KeyDescription.parseFrom(
+            V3Extensions.keyDescriptionWithMalformedSoftwareAuthorizations,
+            logFn = logHook.fakeVerifyRequestLog::logInfoMessage,
+          )
+          .softwareEnforced
+          .keySize
+      )
+      .isNull()
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages)
+      .contains("Exception when parsing key_size: Must be an ASN1Integer, was DEROctetString")
   }
 }
