@@ -225,11 +225,7 @@ open class Verifier(
     log: VerifyRequestLog? = null,
   ): VerificationResult {
     log?.logInputChain(certPath.certificatesWithAnchor.map { it.getEncoded().toByteString() })
-    log?.logCertSerialNumbers(
-      certPath.certificatesWithAnchor.subList(1, certPath.certificatesWithAnchor.size).map {
-        it.serialNumber.toString(16)
-      }
-    )
+    log?.logCertSerialNumbers(certPath.serialNumbers())
     val certPathValidator = CertPathValidator.getInstance("KeyAttestation")
     val certPathParameters =
       PKIXParameters(trustAnchorsSource()).apply {

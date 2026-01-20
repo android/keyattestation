@@ -95,6 +95,13 @@ class KeyAttestationCertPathTest {
   }
 
   @Test
+  fun getSerialNumbers_returnsExpectedSerialNumbers() {
+    assertThat(KeyAttestationCertPath(CertLists.validFactoryProvisioned).serialNumbers())
+      .containsExactly("1", "cafbad", "1234567890", "ca11cafe")
+      .inOrder()
+  }
+
+  @Test
   fun provisioningMethod_returnsExpectedType(@TestParameter testCase: ProvisioningMethodTestCase) {
     val certPath = readCertPath("${testCase.path}.pem")
     assertThat(certPath.provisioningMethod()).isEqualTo(testCase.expected)

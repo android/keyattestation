@@ -63,6 +63,15 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
   override fun getCertificates(): List<X509Certificate> = certificatesWithAnchor.dropLast(1)
 
+  /**
+   * Returns the serial numbers of the certificates in the certificate chain.
+   *
+   * The format is unpadded hex strings.
+   *
+   * @return the serial numbers of the certificates in the certificate chain.
+   */
+  fun serialNumbers() = certificatesWithAnchor.map { it.serialNumber.toString(16) }
+
   fun provisioningMethod() =
     when {
       isFactoryProvisioned() -> ProvisioningMethod.FACTORY_PROVISIONED
