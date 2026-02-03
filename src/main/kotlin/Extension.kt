@@ -170,6 +170,7 @@ data class KeyDescription(
 
     @JvmStatic
     @JvmOverloads
+    @Throws(ExtensionParsingException::class)
     fun parseFrom(cert: X509Certificate, logFn: (String) -> Unit = {}) =
       cert
         .getExtensionValue(OID.id)
@@ -178,6 +179,7 @@ data class KeyDescription(
 
     @JvmStatic
     @JvmOverloads
+    @Throws(ExtensionParsingException::class)
     fun parseFrom(bytes: ByteArray, logFn: (String) -> Unit = {}) =
       try {
         from(ASN1Sequence.getInstance(bytes), logFn)
