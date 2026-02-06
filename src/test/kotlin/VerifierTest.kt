@@ -173,20 +173,34 @@ class VerifierTest {
   fun rootOfTrustMissing_givesRootOfTrustMissingReason() {
     val result =
       assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.missingRootOfTrust))
-    assertThat(result.reason).isEqualTo(KeyAttestationReason.ROOT_OF_TRUST_MISSING)
+    assertThat(result.reason).isEqualTo(KeyAttestationReason.ROOT_OF_TRUST_CONSTRAINT_VIOLATION)
   }
 
   @Test
   fun keyOriginNotGenerated_throwsCertPathValidatorException() {
     val result = assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.importedOrigin))
-    assertThat(result.reason).isEqualTo(KeyAttestationReason.KEY_ORIGIN_NOT_GENERATED)
+    assertThat(result.reason).isEqualTo(KeyAttestationReason.KEY_ORIGIN_CONSTRAINT_VIOLATION)
   }
 
   @Test
   fun mismatchedSecurityLevels_throwsCertPathValidatorException() {
     val result =
       assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.mismatchedSecurityLevels))
-    assertThat(result.reason).isEqualTo(KeyAttestationReason.MISMATCHED_SECURITY_LEVELS)
+    assertThat(result.reason).isEqualTo(KeyAttestationReason.SECURITY_LEVEL_CONSTRAINT_VIOLATION)
+  }
+
+  @Test
+  fun mismatchedSecurityLevels_customConfig_succeeds() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        ExtensionConstraintConfig(securityLevel = ValidationLevel.NOT_NULL),
+      )
+    val result =
+      assertIs<VerificationResult.Success>(verifier.verify(CertLists.mismatchedSecurityLevels))
+    assertThat(result.securityLevel).isEqualTo(SecurityLevel.SOFTWARE)
   }
 
   @Test
