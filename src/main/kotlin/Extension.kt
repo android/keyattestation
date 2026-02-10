@@ -174,8 +174,8 @@ data class KeyDescription(
     fun parseFrom(cert: X509Certificate, logFn: (String) -> Unit = {}) =
       cert
         .getExtensionValue(OID.id)
-        .let { ASN1OctetString.getInstance(it).octets }
-        .let { parseFrom(it, logFn) }
+        ?.let { ASN1OctetString.getInstance(it).octets }
+        ?.let { parseFrom(it, logFn) }
 
     @JvmStatic
     @JvmOverloads
