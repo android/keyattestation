@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier
 
+import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import org.junit.Test
@@ -106,5 +107,20 @@ class ExtensionConstraintConfigTest {
     assertThat(level.isSatisfiedBy(keyDescriptionWithTeeSecurityLevels)).isTrue()
     assertThat(level.isSatisfiedBy(keyDescriptionWithSoftwareSecurityLevels)).isTrue()
     assertThat(level.isSatisfiedBy(keyDescriptionWithMismatchedSecurityLevels)).isFalse()
+  }
+
+  @Test
+  fun AuthorizationListOrderingIsSatisfiedBy_strictWithUnorderedTags_fails() {
+    val ordering = TagOrderValidationLevel.STRICT
+
+    assertThat(ordering.isSatisfiedBy(keyDescriptionWithStrongBoxSecurityLevels)).isTrue()
+    assertThat(
+        ordering.isSatisfiedBy(
+          KeyDescription.parseFrom(
+            readCertPath("invalid/tags_not_in_ascending_order.pem").leafCert()
+          )
+        )
+      )
+      .isFalse()
   }
 }

@@ -46,6 +46,9 @@ enum class KeyAttestationReason : CertPathValidatorException.Reason {
   // Using the default config, this means the key description is missing the root of trust, and an
   // Android key attestation chain without a root of trust is malformed.
   ROOT_OF_TRUST_CONSTRAINT_VIOLATION,
+  // The authorization list ordering violated the constraint provided in
+  // [ExtensionConstraintConfig].
+  AUTHORIZATION_LIST_ORDERING_CONSTRAINT_VIOLATION,
   // There was an error parsing the key description and an unknown tag number was encountered.
   UNKNOWN_TAG_NUMBER,
 }

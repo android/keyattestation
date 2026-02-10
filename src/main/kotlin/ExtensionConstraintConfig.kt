@@ -30,6 +30,7 @@ data class ExtensionConstraintConfig(
   val securityLevel: ValidationLevel<KeyDescription> =
     SecurityLevelValidationLevel.STRICT(SecurityLevel.TRUSTED_ENVIRONMENT),
   val rootOfTrust: ValidationLevel<RootOfTrust> = ValidationLevel.NOT_NULL,
+  val authorizationListTagOrder: ValidationLevel<KeyDescription> = ValidationLevel.IGNORE,
 )
 
 /** Configuration for validating a single extension in an Android attestation certificate. */
@@ -112,6 +113,27 @@ sealed class SecurityLevelValidationLevel : ValidationLevel<KeyDescription> {
     override fun isSatisfiedBy(extension: Any?): Boolean {
       val keyDescription = extension as? KeyDescription ?: return false
       return areSecurityLevelsMatching(keyDescription)
+    }
+  }
+}
+
+/**
+ * Configuration for validating the ordering of the extensions in the AuthorizationList sequence in
+ * an Android attestation certificate.
+ */
+@Immutable
+sealed interface TagOrderValidationLevel : ValidationLevel<KeyDescription> {
+  /**
+   * Checks that the extensions in the AuthorizationList sequence appear in the order specified by
+   * https://source.android.com/docs/security/features/keystore/attestation#schema.
+   */
+  @Immutable
+  data object STRICT : TagOrderValidationLevel {
+    @RequiresApi(24)
+    override fun isSatisfiedBy(extension: Any?): Boolean {
+      val keyDescription = extension as? KeyDescription ?: return false
+      return keyDescription.softwareEnforced.areTagsOrdered &&
+        keyDescription.hardwareEnforced.areTagsOrdered
     }
   }
 }

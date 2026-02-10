@@ -34,8 +34,6 @@ import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.readText
 import kotlin.io.path.reader
-import kotlin.test.assertFailsWith
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -81,14 +79,6 @@ class ExtensionTest {
       KeyDescription.parseFrom(
         testData.resolve("allow_while_on_body.pem").inputStream().asX509Certificate()
       )
-  }
-
-  @Test
-  @Ignore("TODO(google-internal bug): Reenable test once enabling tag order validator is configurable.")
-  fun parseFrom_tagsNotInAscendingOrder_Throws() {
-    assertFailsWith<IllegalArgumentException> {
-      KeyDescription.parseFrom(readCertPath("invalid/tags_not_in_ascending_order.pem").leafCert())
-    }
   }
 
   @Test

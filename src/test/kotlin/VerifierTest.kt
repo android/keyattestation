@@ -204,6 +204,20 @@ class VerifierTest {
   }
 
   @Test
+  fun unorderedTags_customConfig_throwsCertPathValidatorException() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        ExtensionConstraintConfig(authorizationListTagOrder = TagOrderValidationLevel.STRICT),
+      )
+    val result = assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.unorderedTags))
+    assertThat(result.reason)
+      .isEqualTo(KeyAttestationReason.AUTHORIZATION_LIST_ORDERING_CONSTRAINT_VIOLATION)
+  }
+
+  @Test
   fun verifyAsync_failure_inputChainLogged() = runBlocking {
     val logHook = FakeLogHook()
     assertIs<VerificationResult.PathValidationFailure>(

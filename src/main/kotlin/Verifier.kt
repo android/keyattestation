@@ -283,6 +283,7 @@ constructor(
         return VerificationResult.ExtensionParsingFailure(ExtensionParsingException(e.toString()))
       }
     log?.logKeyDescription(keyDescription)
+
     if (challengeChecker != null) {
       val checkResult = challengeChecker.checkChallenge(keyDescription.attestationChallenge).await()
       if (!checkResult) {
@@ -316,6 +317,13 @@ constructor(
       )
     }
     val verifiedBootState = rootOfTrust?.verifiedBootState ?: VerifiedBootState.UNVERIFIED
+
+    if (!extensionConstraintConfig.authorizationListTagOrder.isSatisfiedBy(keyDescription)) {
+      return VerificationResult.ExtensionConstraintViolation(
+        "Authorization list ordering violates constraint: config=${extensionConstraintConfig.authorizationListTagOrder}",
+        KeyAttestationReason.AUTHORIZATION_LIST_ORDERING_CONSTRAINT_VIOLATION,
+      )
+    }
 
     return VerificationResult.Success(
       pathValidationResult.publicKey,

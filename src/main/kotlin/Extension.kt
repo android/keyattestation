@@ -335,6 +335,7 @@ data class AuthorizationList(
   val bootPatchLevel: PatchLevel? = null,
   val attestationIdSecondImei: String? = null,
   val moduleHash: ByteString? = null,
+  @get:JvmName("areTagsOrdered") internal val areTagsOrdered: Boolean = true,
 ) {
   /**
    * Converts the representation of an [AuthorizationList] to an ASN.1 sequence.
@@ -462,7 +463,8 @@ data class AuthorizationList(
        * 2. within each class of tags, the elements or alternatives shall appear in ascending order
        *    of their tag numbers.
        */
-      if (!objects.keys.zipWithNext().all { (lhs, rhs) -> rhs > lhs }) {
+      val areTagsOrdered = (objects.keys.zipWithNext().all { (lhs, rhs) -> rhs > lhs })
+      if (!areTagsOrdered) {
         logFn("AuthorizationList tags should appear in ascending order")
       }
 
@@ -509,6 +511,7 @@ data class AuthorizationList(
         bootPatchLevel = converter.parsePatchLevel(KeyMintTag.BOOT_PATCH_LEVEL, "boot"),
         attestationIdSecondImei = converter.parseStr(KeyMintTag.ATTESTATION_ID_SECOND_IMEI),
         moduleHash = converter.parseByteString(KeyMintTag.MODULE_HASH),
+        areTagsOrdered = areTagsOrdered,
       )
     }
   }
