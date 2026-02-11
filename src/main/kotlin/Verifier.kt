@@ -23,6 +23,7 @@ import com.android.keyattestation.verifier.provider.ProvisioningMethod
 import com.android.keyattestation.verifier.provider.RevocationChecker
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.errorprone.annotations.Immutable
 import com.google.errorprone.annotations.ThreadSafe
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
@@ -42,8 +43,13 @@ import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.runBlocking
 
 /** The result of verifying an Android Key Attestation certificate chain. */
+@Immutable
 sealed interface VerificationResult {
+  @Immutable
   data class Success(
+    @SuppressWarnings(
+      "Immutable"
+    ) // PublicKey implementations are immutable but not marked as such.
     val publicKey: PublicKey,
     val challenge: ByteString,
     val securityLevel: SecurityLevel,
@@ -52,18 +58,31 @@ sealed interface VerificationResult {
     val attestedDeviceIds: DeviceIdentity,
   ) : VerificationResult
 
-  data object ChallengeMismatch : VerificationResult
+  @Immutable data object ChallengeMismatch : VerificationResult
 
-  data class PathValidationFailure(val cause: CertPathValidatorException) : VerificationResult
+  @Immutable
+  data class PathValidationFailure(
+    @SuppressWarnings("Immutable") // Exceptions are not deeply immutable.
+    val cause: CertPathValidatorException
+  ) : VerificationResult
 
-  data class ChainParsingFailure(val cause: Exception) : VerificationResult
+  @Immutable
+  data class ChainParsingFailure(
+    @SuppressWarnings("Immutable") // Exceptions are not deeply immutable.
+    val cause: Exception
+  ) : VerificationResult
 
-  data class ExtensionParsingFailure(val cause: ExtensionParsingException) : VerificationResult
+  @Immutable
+  data class ExtensionParsingFailure(
+    @SuppressWarnings("Immutable") // Exceptions are not deeply immutable.
+    val cause: ExtensionParsingException
+  ) : VerificationResult
 
+  @Immutable
   data class ExtensionConstraintViolation(val cause: String, val reason: KeyAttestationReason) :
     VerificationResult
 
-  data object SoftwareAttestationUnsupported : VerificationResult
+  @Immutable data object SoftwareAttestationUnsupported : VerificationResult
 }
 
 /**
