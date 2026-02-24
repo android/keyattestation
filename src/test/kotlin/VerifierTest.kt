@@ -97,6 +97,10 @@ class VerifierTest {
       "caiman/sdk36/TEE_EC_RKP",
       LocalDate.of(2025, 9, 30).atStartOfDay(ZoneOffset.UTC).toInstant(),
     ),
+    PIXEL_9A_SDK36(
+      "tegu/sdk36/TEE_EC_2026_ROOT",
+      LocalDate.of(2026, 2, 23).atStartOfDay(ZoneOffset.UTC).toInstant(),
+    ),
   }
 
   @Test
