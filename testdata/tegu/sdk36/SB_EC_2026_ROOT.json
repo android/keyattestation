@@ -1,0 +1,38 @@
+{
+  "attestationVersion": "300",
+  "attestationSecurityLevel": "STRONG_BOX",
+  "keyMintVersion": "300",
+  "keyMintSecurityLevel": "STRONG_BOX",
+  "attestationChallenge": "OTA1NzhlMWQtZjViZi00Y2NmLWEyN2YtYTRmNGQ4OWVlMjFm",
+  "uniqueId": "",
+  "softwareEnforced": {
+    "creationDateTime": "1771979841867",
+    "attestationApplicationId": {
+      "packages": [
+        { "name": "com.google.android.attestation", "version": "0" }
+      ],
+      "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
+    },
+    "areTagsOrdered": true
+  },
+  "hardwareEnforced": {
+    "purposes": ["2", "3"],
+    "algorithms": "3",
+    "keySize": "256",
+    "digests": ["4"],
+    "ecCurve": "1",
+    "noAuthRequired": true,
+    "origin": "GENERATED",
+    "rootOfTrust": {
+      "verifiedBootKey": "MyevYthKuJevJSOhbctYAeYMXVuX9ByhvQmcR4T3t0M=",
+      "deviceLocked": true,
+      "verifiedBootState": "VERIFIED",
+      "verifiedBootHash": "7Owyr9T0ZfyInz7SDm95qsof0as6351/GX7KuwyaOFY="
+    },
+    "osVersion": "160000",
+    "osPatchLevel": "202602",
+    "vendorPatchLevel": "20260205",
+    "bootPatchLevel": "20260205",
+    "areTagsOrdered": true
+  }
+}

@@ -101,6 +101,10 @@ class VerifierTest {
       "tegu/sdk36/TEE_EC_2026_ROOT",
       LocalDate.of(2026, 2, 23).atStartOfDay(ZoneOffset.UTC).toInstant(),
     ),
+    PIXEL_9A_SDK36_STRONGBOX(
+      "tegu/sdk36/SB_EC_2026_ROOT",
+      LocalDate.of(2026, 2, 24).atStartOfDay(ZoneOffset.UTC).toInstant(),
+    ),
   }
 
   @Test

@@ -27,8 +27,7 @@ import com.google.errorprone.annotations.ThreadSafe
 @ThreadSafe
 data class ExtensionConstraintConfig(
   val keyOrigin: ValidationLevel<Origin> = ValidationLevel.STRICT(Origin.GENERATED),
-  val securityLevel: ValidationLevel<KeyDescription> =
-    SecurityLevelValidationLevel.STRICT(SecurityLevel.TRUSTED_ENVIRONMENT),
+  val securityLevel: ValidationLevel<KeyDescription> = SecurityLevelValidationLevel.NOT_SOFTWARE,
   val rootOfTrust: ValidationLevel<RootOfTrust> = ValidationLevel.NOT_NULL,
   val authorizationListTagOrder: ValidationLevel<KeyDescription> = ValidationLevel.IGNORE,
 )
