@@ -52,6 +52,8 @@ tasks {
     useJUnitPlatform()
     testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
   }
+
+  compileTestKotlin { compilerOptions { javaParameters = true } }
 }
 
 val generatedSourcesDir = layout.buildDirectory.dir("generated")

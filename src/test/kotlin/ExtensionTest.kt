@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.android.keyattestation.verifier
 
 import com.android.keyattestation.verifier.testing.Chains
@@ -27,10 +26,15 @@ import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
+import com.google.testing.junit.testparameterinjector.TestParameters
+import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider
 import java.time.YearMonth
 import kotlin.io.path.Path
 import kotlin.io.path.inputStream
+import kotlin.io.path.isDirectory
 import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.readText
 import kotlin.io.path.reader
@@ -54,23 +58,46 @@ class ExtensionTest {
   }
 
   @Test
-  fun parseFrom_success(@TestParameter testCase: TestCase) {
-    val path = testData.resolve("${testCase.model}/sdk${testCase.sdk}")
+  @TestParameters(valuesProvider = TestCaseProvider::class)
+  fun parseFrom_success(model: String, sdk: Int) {
+    val path = testData.resolve("${model}/sdk${sdk}")
     val chainMap =
       path.listDirectoryEntries("*.pem").map {
         Pair(it, Path("${it.parent}/${it.nameWithoutExtension}.json"))
       }
-
     for ((pemPath, jsonPath) in chainMap) {
       assertThat(KeyDescription.parseFrom(readCertPath(pemPath.reader()).leafCert()))
         .isEqualTo(jsonPath.readText().toKeyDescription())
     }
   }
 
-  enum class TestCase(val model: String, val sdk: Int) {
-    PIXEL_SDK29("marlin", 29),
-    PIXEL_3_SDK28("blueline", 28),
-    PIXEL_8A_SDK34("akita", 34),
+  class TestCaseProvider : TestParametersValuesProvider() {
+    override fun provideValues(context: Context): List<TestParametersValues> {
+      val root = Path("testdata")
+      val parameters =
+        root
+          .listDirectoryEntries()
+          .filter { it.isDirectory() }
+          .flatMap { modelDir ->
+            modelDir
+              .listDirectoryEntries("sdk*")
+              .filter { it.isDirectory() }
+              .mapNotNull { sdkDir ->
+                val sdkVersion = sdkDir.name.removePrefix("sdk").toIntOrNull()
+                if (sdkVersion == null) {
+                  null
+                } else {
+                  TestParametersValues.builder()
+                    .name("${modelDir.name}_sdk$sdkVersion")
+                    .addParameter("model", modelDir.name)
+                    .addParameter("sdk", sdkVersion)
+                    .build()
+                }
+              }
+          }
+      assertThat(parameters).isNotEmpty()
+      return parameters
+    }
   }
 
   @Test

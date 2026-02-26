@@ -1,3 +1,4 @@
+// Test data from a preproduction Pixel 9a
 {
   "attestationVersion": "400",
   "attestationSecurityLevel": "TRUSTED_ENVIRONMENT",
@@ -6,14 +7,15 @@
   "attestationChallenge": "NjQxN2Y5MmMtZGFlZi00Y2MxLTg4MjgtNWJiMzkzMzhmZmQ1",
   "uniqueId": "",
   "softwareEnforced": {
-    "creationDateTime": "1758900680964",
+    "creationDateTime": "1771894563060",
     "attestationApplicationId": {
       "packages": [
         { "name": "com.google.android.attestation", "version": "0" }
       ],
       "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
     },
-    "moduleHash": "9LgYqeXS71yyjWDapgmLq8vfI/9ugHeO+C1+Qe9Ill4="
+    "moduleHash": "9LgYqeXS71yyjWDapgmLq8vfI/9ugHeO+C1+Qe9Ill4=",
+    "areTagsOrdered": true
   },
   "hardwareEnforced": {
     "purposes": ["2", "3"],
@@ -31,12 +33,10 @@
     },
     "osVersion": "160000",
     "osPatchLevel": "202602",
-    "attestationIdBrand": "google",
-    "attestationIdDevice": "tegu",
-    "attestationIdProduct": "tegu",
-    "attestationIdManufacturer": "Google",
-    "attestationIdModel": "Pixel 9a",
     "vendorPatchLevel": "20260205",
-    "bootPatchLevel": "20260205"
+    "bootPatchLevel": "20260205",
+    // Not all device fields are populated, as a pre-production test
+    // device was used. This device was not fully provisioned.
+    "areTagsOrdered": true
   }
 }
