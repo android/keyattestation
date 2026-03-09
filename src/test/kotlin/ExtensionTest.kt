@@ -109,6 +109,18 @@ class ExtensionTest {
   }
 
   @Test
+  fun parseFrom_malformedRotDeviceLocked_successfullyParsed() {
+    val keyDescription =
+      KeyDescription.parseFrom(
+        testData
+          .resolve("invalid/malformed_rot_device_locked.pem")
+          .inputStream()
+          .asX509Certificate()
+      )
+    assertThat(keyDescription?.hardwareEnforced?.rootOfTrust?.deviceLocked).isTrue()
+  }
+
+  @Test
   fun parseFrom_invalidPatchLevel_returnsNull(
     @TestParameter("202400", "00000000", "2000231") patchLevel: String
   ) {
