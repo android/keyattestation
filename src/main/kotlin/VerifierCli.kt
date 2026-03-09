@@ -19,15 +19,16 @@ package com.android.keyattestation.verifier
 import java.io.File
 import java.io.PrintStream
 import java.security.cert.X509Certificate
+import java.time.Instant
 
 // Any chain shorter than this is not possibly valid Key Attestation chain.
 private const val MIN_CERTS_IN_VALID_CHAIN = 3
 
-class VerifierCli(private val output: PrintStream) {
+class VerifierCli(private val output: PrintStream, private val instantSource: InstantSource) {
   companion object {
     @JvmStatic
     fun main(args: Array<String>) {
-      VerifierCli(System.out).run(args)
+      VerifierCli(System.out, { Instant.now() }).run(args)
     }
   }
 
@@ -62,7 +63,7 @@ class VerifierCli(private val output: PrintStream) {
       Verifier(
         trustAnchorsSource = GoogleTrustAnchors,
         revokedSerialsSource = { emptySet() },
-        instantSource = { java.time.Instant.now() },
+        instantSource,
       )
 
     val result = verifier.verify(certs)
