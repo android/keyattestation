@@ -21,42 +21,42 @@ import com.google.errorprone.annotations.Immutable
 import com.google.errorprone.annotations.ThreadSafe
 
 /**
- * Configuration for validating the extensions in an Android attestation certificate, as described
+ * Configuration for validating the attributes in an Android attestation certificate, as described
  * at https://source.android.com/docs/security/features/keystore/attestation.
  */
 @ThreadSafe
-data class ExtensionConstraintConfig(
+data class ConstraintConfig(
   val keyOrigin: ValidationLevel<Origin> = ValidationLevel.STRICT(Origin.GENERATED),
   val securityLevel: ValidationLevel<KeyDescription> = SecurityLevelValidationLevel.NOT_SOFTWARE,
   val rootOfTrust: ValidationLevel<RootOfTrust> = ValidationLevel.NOT_NULL,
   val authorizationListTagOrder: ValidationLevel<KeyDescription> = ValidationLevel.IGNORE,
 )
 
-/** Configuration for validating a single extension in an Android attestation certificate. */
+/** Configuration for validating a single attribute in an Android attestation certificate. */
 @Immutable(containerOf = ["T"])
 sealed interface ValidationLevel<out T> {
-  /** Evaluates whether the [extension] is satisfied by this [ValidationLevel]. */
-  fun isSatisfiedBy(extension: Any?): Boolean
+  /** Evaluates whether the [attribute] is satisfied by this [ValidationLevel]. */
+  fun isSatisfiedBy(attribute: Any?): Boolean
 
   /**
-   * Checks that the extension exists and matches the expected value.
+   * Checks that the attribute exists and matches the expected value.
    *
-   * @param expectedVal The expected value of the extension.
+   * @param expectedVal The expected value of the attribute.
    */
   @Immutable(containerOf = ["T"])
   data class STRICT<T>(val expectedVal: T) : ValidationLevel<T> {
-    override fun isSatisfiedBy(extension: Any?): Boolean = extension == expectedVal
+    override fun isSatisfiedBy(attribute: Any?): Boolean = attribute == expectedVal
   }
 
-  /* Check that the extension exists. */
+  /* Check that the attribute exists. */
   @Immutable
   data object NOT_NULL : ValidationLevel<Nothing> {
-    override fun isSatisfiedBy(extension: Any?): Boolean = extension != null
+    override fun isSatisfiedBy(attribute: Any?): Boolean = attribute != null
   }
 
   @Immutable
   data object IGNORE : ValidationLevel<Nothing> {
-    override fun isSatisfiedBy(extension: Any?): Boolean = true
+    override fun isSatisfiedBy(attribute: Any?): Boolean = true
   }
 }
 
@@ -80,8 +80,8 @@ sealed class SecurityLevelValidationLevel : ValidationLevel<KeyDescription> {
   @Immutable
   data class STRICT(val expectedVal: SecurityLevel) : SecurityLevelValidationLevel() {
     @RequiresApi(24)
-    override fun isSatisfiedBy(extension: Any?): Boolean {
-      val keyDescription = extension as? KeyDescription ?: return false
+    override fun isSatisfiedBy(attribute: Any?): Boolean {
+      val keyDescription = attribute as? KeyDescription ?: return false
       val securityLevelIsExpected = keyDescription.attestationSecurityLevel == this.expectedVal
       return areSecurityLevelsMatching(keyDescription) && securityLevelIsExpected
     }
@@ -94,8 +94,8 @@ sealed class SecurityLevelValidationLevel : ValidationLevel<KeyDescription> {
   @Immutable
   data object NOT_SOFTWARE : SecurityLevelValidationLevel() {
     @RequiresApi(24)
-    override fun isSatisfiedBy(extension: Any?): Boolean {
-      val keyDescription = extension as? KeyDescription ?: return false
+    override fun isSatisfiedBy(attribute: Any?): Boolean {
+      val keyDescription = attribute as? KeyDescription ?: return false
       val securityLevelIsSoftware =
         keyDescription.attestationSecurityLevel == SecurityLevel.SOFTWARE
       return areSecurityLevelsMatching(keyDescription) && !securityLevelIsSoftware
@@ -109,28 +109,28 @@ sealed class SecurityLevelValidationLevel : ValidationLevel<KeyDescription> {
   @Immutable
   data object CONSISTENT : SecurityLevelValidationLevel() {
     @RequiresApi(24)
-    override fun isSatisfiedBy(extension: Any?): Boolean {
-      val keyDescription = extension as? KeyDescription ?: return false
+    override fun isSatisfiedBy(attribute: Any?): Boolean {
+      val keyDescription = attribute as? KeyDescription ?: return false
       return areSecurityLevelsMatching(keyDescription)
     }
   }
 }
 
 /**
- * Configuration for validating the ordering of the extensions in the AuthorizationList sequence in
+ * Configuration for validating the ordering of the attributes in the AuthorizationList sequence in
  * an Android attestation certificate.
  */
 @Immutable
 sealed interface TagOrderValidationLevel : ValidationLevel<KeyDescription> {
   /**
-   * Checks that the extensions in the AuthorizationList sequence appear in the order specified by
+   * Checks that the attributes in the AuthorizationList sequence appear in the order specified by
    * https://source.android.com/docs/security/features/keystore/attestation#schema.
    */
   @Immutable
   data object STRICT : TagOrderValidationLevel {
     @RequiresApi(24)
-    override fun isSatisfiedBy(extension: Any?): Boolean {
-      val keyDescription = extension as? KeyDescription ?: return false
+    override fun isSatisfiedBy(attribute: Any?): Boolean {
+      val keyDescription = attribute as? KeyDescription ?: return false
       return keyDescription.softwareEnforced.areTagsOrdered &&
         keyDescription.hardwareEnforced.areTagsOrdered
     }

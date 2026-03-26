@@ -60,7 +60,7 @@ sealed interface VerificationResult {
 
   data class ExtensionParsingFailure(val cause: ExtensionParsingException) : VerificationResult
 
-  data class ExtensionConstraintViolation(val cause: String, val reason: KeyAttestationReason) :
+  data class ConstraintViolation(val cause: String, val reason: KeyAttestationReason) :
     VerificationResult
 
   data object SoftwareAttestationUnsupported : VerificationResult
@@ -142,7 +142,7 @@ constructor(
   private val trustAnchorsSource: () -> Set<TrustAnchor>,
   private val revokedSerialsSource: () -> Set<String>,
   private val instantSource: InstantSource,
-  private val extensionConstraintConfig: ExtensionConstraintConfig = ExtensionConstraintConfig(),
+  private val constraintConfig: ConstraintConfig = ConstraintConfig(),
 ) {
   init {
     Security.addProvider(KeyAttestationProvider())
@@ -292,35 +292,35 @@ constructor(
     }
 
     val origin = keyDescription.hardwareEnforced.origin
-    if (!extensionConstraintConfig.keyOrigin.isSatisfiedBy(origin)) {
-      return VerificationResult.ExtensionConstraintViolation(
-        "Origin violates constraint: value=${origin}, config=${extensionConstraintConfig.keyOrigin}",
+    if (!constraintConfig.keyOrigin.isSatisfiedBy(origin)) {
+      return VerificationResult.ConstraintViolation(
+        "Origin violates constraint: value=${origin}, config=${constraintConfig.keyOrigin}",
         KeyAttestationReason.KEY_ORIGIN_CONSTRAINT_VIOLATION,
       )
     }
 
     val securityLevel =
-      if (extensionConstraintConfig.securityLevel.isSatisfiedBy(keyDescription)) {
+      if (constraintConfig.securityLevel.isSatisfiedBy(keyDescription)) {
         minOf(keyDescription.attestationSecurityLevel, keyDescription.keyMintSecurityLevel)
       } else {
-        return VerificationResult.ExtensionConstraintViolation(
-          "Security level violates constraint: value=${keyDescription.attestationSecurityLevel}, config=${extensionConstraintConfig.securityLevel}",
+        return VerificationResult.ConstraintViolation(
+          "Security level violates constraint: value=${keyDescription.attestationSecurityLevel}, config=${constraintConfig.securityLevel}",
           KeyAttestationReason.SECURITY_LEVEL_CONSTRAINT_VIOLATION,
         )
       }
 
     val rootOfTrust = keyDescription.hardwareEnforced.rootOfTrust
-    if (!extensionConstraintConfig.rootOfTrust.isSatisfiedBy(rootOfTrust)) {
-      return VerificationResult.ExtensionConstraintViolation(
-        "Root of trust violates constraint: value=${rootOfTrust}, config=${extensionConstraintConfig.rootOfTrust}",
+    if (!constraintConfig.rootOfTrust.isSatisfiedBy(rootOfTrust)) {
+      return VerificationResult.ConstraintViolation(
+        "Root of trust violates constraint: value=${rootOfTrust}, config=${constraintConfig.rootOfTrust}",
         KeyAttestationReason.ROOT_OF_TRUST_CONSTRAINT_VIOLATION,
       )
     }
     val verifiedBootState = rootOfTrust?.verifiedBootState ?: VerifiedBootState.UNVERIFIED
 
-    if (!extensionConstraintConfig.authorizationListTagOrder.isSatisfiedBy(keyDescription)) {
-      return VerificationResult.ExtensionConstraintViolation(
-        "Authorization list ordering violates constraint: config=${extensionConstraintConfig.authorizationListTagOrder}",
+    if (!constraintConfig.authorizationListTagOrder.isSatisfiedBy(keyDescription)) {
+      return VerificationResult.ConstraintViolation(
+        "Authorization list ordering violates constraint: config=${constraintConfig.authorizationListTagOrder}",
         KeyAttestationReason.AUTHORIZATION_LIST_ORDERING_CONSTRAINT_VIOLATION,
       )
     }

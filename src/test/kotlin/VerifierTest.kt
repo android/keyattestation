@@ -16,7 +16,7 @@
 
 package com.android.keyattestation.verifier
 
-import com.android.keyattestation.verifier.VerificationResult.ExtensionConstraintViolation
+import com.android.keyattestation.verifier.VerificationResult.ConstraintViolation
 import com.android.keyattestation.verifier.VerificationResult.ExtensionParsingFailure
 import com.android.keyattestation.verifier.VerificationResult.PathValidationFailure
 import com.android.keyattestation.verifier.challengecheckers.ChallengeMatcher
@@ -179,21 +179,19 @@ class VerifierTest {
 
   @Test
   fun rootOfTrustMissing_givesRootOfTrustMissingReason() {
-    val result =
-      assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.missingRootOfTrust))
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.missingRootOfTrust))
     assertThat(result.reason).isEqualTo(KeyAttestationReason.ROOT_OF_TRUST_CONSTRAINT_VIOLATION)
   }
 
   @Test
   fun keyOriginNotGenerated_throwsCertPathValidatorException() {
-    val result = assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.importedOrigin))
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.importedOrigin))
     assertThat(result.reason).isEqualTo(KeyAttestationReason.KEY_ORIGIN_CONSTRAINT_VIOLATION)
   }
 
   @Test
   fun mismatchedSecurityLevels_throwsCertPathValidatorException() {
-    val result =
-      assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.mismatchedSecurityLevels))
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.mismatchedSecurityLevels))
     assertThat(result.reason).isEqualTo(KeyAttestationReason.SECURITY_LEVEL_CONSTRAINT_VIOLATION)
   }
 
@@ -204,7 +202,7 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        ExtensionConstraintConfig(securityLevel = ValidationLevel.NOT_NULL),
+        ConstraintConfig(securityLevel = ValidationLevel.NOT_NULL),
       )
     val result =
       assertIs<VerificationResult.Success>(verifier.verify(CertLists.mismatchedSecurityLevels))
@@ -218,9 +216,9 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        ExtensionConstraintConfig(authorizationListTagOrder = TagOrderValidationLevel.STRICT),
+        ConstraintConfig(authorizationListTagOrder = TagOrderValidationLevel.STRICT),
       )
-    val result = assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.unorderedTags))
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.unorderedTags))
     assertThat(result.reason)
       .isEqualTo(KeyAttestationReason.AUTHORIZATION_LIST_ORDERING_CONSTRAINT_VIOLATION)
   }
