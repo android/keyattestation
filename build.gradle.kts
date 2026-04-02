@@ -15,6 +15,9 @@
  */
 
 plugins {
+  id("com.android.application") version "8.4.0" apply false
+  id("com.android.library") version "8.4.0" apply false
+  id("org.jetbrains.kotlin.android") version "2.2.0" apply false
   id("com.adarshr.test-logger") version "4.0.0"
   id("org.jetbrains.kotlin.jvm") version "2.2.0"
   `java-library`
@@ -52,6 +55,8 @@ java {
   withSourcesJar()
 }
 
+tasks.withType<Jar>().configureEach { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
+
 tasks {
   test {
     useJUnitPlatform()
@@ -81,6 +86,7 @@ val googleTrustAnchors by tasks.registering {
         import com.android.keyattestation.verifier.asX509Certificate
 
         import com.google.gson.Gson
+
         import java.security.cert.TrustAnchor
 
         object GoogleTrustAnchors : () -> Set<TrustAnchor> {
@@ -108,6 +114,8 @@ val generateSources by tasks.registering {
 sourceSets { main { kotlin.srcDir(generateSources) } }
 
 tasks.named("compileKotlin").configure { dependsOn("generateSources") }
+
+tasks.named("sourcesJar").configure { dependsOn("generateSources") }
 
 publishing {
   publications {
