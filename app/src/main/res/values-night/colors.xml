@@ -1,0 +1,26 @@
+<resources>
+    <color name="colorPrimary">#D0BCFF</color>
+    <color name="colorOnPrimary">#381E72</color>
+    <color name="colorPrimaryContainer">#4F378B</color>
+    <color name="colorOnPrimaryContainer">#EADDFF</color>
+    <color name="colorSecondary">#CCC2DC</color>
+    <color name="colorOnSecondary">#332D41</color>
+    <color name="colorSecondaryContainer">#4A4458</color>
+    <color name="colorOnSecondaryContainer">#E8DEF8</color>
+    <color name="colorTertiary">#EFB8C8</color>
+    <color name="colorOnTertiary">#492532</color>
+    <color name="colorTertiaryContainer">#633B48</color>
+    <color name="colorOnTertiaryContainer">#FFD8E4</color>
+    <color name="colorError">#F2B8B5</color>
+    <color name="colorOnError">#601410</color>
+    <color name="colorErrorContainer">#8C1D18</color>
+    <color name="colorOnErrorContainer">#F9DEDC</color>
+    <color name="backgroundColor">#1C1B1F</color>
+    <color name="onBackgroundColor">#E6E1E5</color>
+    <color name="surfaceColor">#1C1B1F</color>
+    <color name="onSurfaceColor">#E6E1E5</color>
+    <color name="surfaceVariantColor">#49454F</color>
+    <color name="onSurfaceVariantColor">#CAC4D0</color>
+    <color name="outlineColor">#938F99</color>
+    <color name="brand_purple">#D0BCFF</color>
+</resources>

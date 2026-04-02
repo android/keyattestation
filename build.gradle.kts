@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 plugins {
   id("com.adarshr.test-logger") version "4.0.0"
   id("org.jetbrains.kotlin.jvm") version "2.2.0"
@@ -36,11 +35,9 @@ dependencies {
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2")
   implementation("com.google.guava:guava:33.5.0-jre")
-
   testImplementation(kotlin("test"))
   testImplementation("com.google.testparameterinjector:test-parameter-injector:1.18")
   testImplementation("com.google.truth:truth:1.4.4")
-
   // Required to run JUnit 4 tests.
   testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
 }
@@ -52,38 +49,29 @@ tasks {
     useJUnitPlatform()
     testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
   }
-
   compileTestKotlin { compilerOptions { javaParameters = true } }
 }
 
 val generatedSourcesDir = layout.buildDirectory.dir("generated")
-
-val googleTrustAnchors by
-  tasks.registering {
-    val jsonFile = file("roots.json")
-    val json = jsonFile.readText()
-    val generatedFile = generatedSourcesDir.get().file("main/kotlin/GoogleTrustAnchors.kt")
-
-    inputs.files(jsonFile)
-    outputs.file(generatedFile)
-
-    doLast {
-      generatedFile
-        .getAsFile()
-        .writeText(
-          """
+val googleTrustAnchors by tasks.registering {
+  val jsonFile = file("roots.json")
+  val json = jsonFile.readText()
+  val generatedFile = generatedSourcesDir.get().file("main/kotlin/GoogleTrustAnchors.kt")
+  inputs.files(jsonFile)
+  outputs.file(generatedFile)
+  doLast {
+    generatedFile
+      .getAsFile()
+      .writeText(
+        """
         package com.android.keyattestation.verifier
-
         import com.android.keyattestation.verifier.asX509Certificate
-
         import com.google.gson.Gson
         import java.security.cert.TrustAnchor
-
         object GoogleTrustAnchors : () -> Set<TrustAnchor> {
           const val JSON = ""${'"'}
             $json
             ""${'"'}
-
           override operator fun invoke(): Set<TrustAnchor> {
             return Gson()
               .fromJson(JSON, Array<String>::class.java)
@@ -92,15 +80,13 @@ val googleTrustAnchors by
           }
         }
         """
-        )
-    }
+      )
   }
-
-val generateSources by
-  tasks.registering {
-    outputs.dir(generatedSourcesDir)
-    dependsOn(tasks.named("googleTrustAnchors"))
-  }
+}
+val generateSources by tasks.registering {
+  outputs.dir(generatedSourcesDir)
+  dependsOn(tasks.named("googleTrustAnchors"))
+}
 
 sourceSets { main { kotlin.srcDir(generateSources) } }
 
