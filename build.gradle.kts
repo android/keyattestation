@@ -15,8 +15,12 @@
  */
 
 plugins {
+  id("com.android.application") version "8.4.0" apply false
+  id("com.android.library") version "8.4.0" apply false
+  id("org.jetbrains.kotlin.android") version "2.1.0" apply false
   id("com.adarshr.test-logger") version "4.0.0"
   id("org.jetbrains.kotlin.jvm") version "2.2.0"
+  id("org.jetbrains.kotlin.kapt") version "2.1.0"
 }
 
 repositories {
@@ -36,6 +40,7 @@ dependencies {
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2")
   implementation("com.google.guava:guava:33.5.0-jre")
+  implementation("com.google.guava:guava:33.5.0-android")
 
   testImplementation(kotlin("test"))
   testImplementation("com.google.testparameterinjector:test-parameter-injector:1.18")
@@ -43,9 +48,20 @@ dependencies {
 
   // Required to run JUnit 4 tests.
   testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
+  compileOnly("com.google.auto.value:auto-value-annotations:1.11.0")
+  kapt("com.google.auto.value:auto-value:1.11.0")
+  implementation("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.9.0")
 }
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+
+tasks.withType<JavaCompile>().configureEach {
+  val sourceSet = if (name.contains("Test")) "test" else "main"
+  val kaptClassesDir = layout.buildDirectory.dir("tmp/kapt3/classes/$sourceSet").get().asFile
+  val targetDir = layout.buildDirectory.dir("classes/kotlin/$sourceSet").get().asFile
+}
+
+tasks.withType<Jar>().configureEach { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
 
 tasks {
   test {
@@ -58,25 +74,25 @@ tasks {
 
 val generatedSourcesDir = layout.buildDirectory.dir("generated")
 
-val googleTrustAnchors by
-  tasks.registering {
-    val jsonFile = file("roots.json")
-    val json = jsonFile.readText()
-    val generatedFile = generatedSourcesDir.get().file("main/kotlin/GoogleTrustAnchors.kt")
+val googleTrustAnchors by tasks.registering {
+  val jsonFile = file("roots.json")
+  val json = jsonFile.readText()
+  val generatedFile = generatedSourcesDir.get().file("main/kotlin/GoogleTrustAnchors.kt")
 
-    inputs.files(jsonFile)
-    outputs.file(generatedFile)
+  inputs.files(jsonFile)
+  outputs.file(generatedFile)
 
-    doLast {
-      generatedFile
-        .getAsFile()
-        .writeText(
-          """
+  doLast {
+    generatedFile
+      .getAsFile()
+      .writeText(
+        """
         package com.android.keyattestation.verifier
 
         import com.android.keyattestation.verifier.asX509Certificate
 
         import com.google.gson.Gson
+
         import java.security.cert.TrustAnchor
 
         object GoogleTrustAnchors : () -> Set<TrustAnchor> {
@@ -92,15 +108,19 @@ val googleTrustAnchors by
           }
         }
         """
-        )
-    }
+      )
   }
+}
 
-val generateSources by
-  tasks.registering {
-    outputs.dir(generatedSourcesDir)
-    dependsOn(tasks.named("googleTrustAnchors"))
-  }
+val generateSources by tasks.registering {
+  outputs.dir(generatedSourcesDir)
+  dependsOn(tasks.named("googleTrustAnchors"))
+}
+
+kapt {
+  correctErrorTypes = true
+  arguments { arg("autovalue.builder.class_visibility", "public") }
+}
 
 sourceSets { main { kotlin.srcDir(generateSources) } }
 

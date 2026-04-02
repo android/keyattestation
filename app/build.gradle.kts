@@ -1,0 +1,68 @@
+/*
+ * Copyright 2026 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+plugins {
+  id("com.android.application")
+  id("org.jetbrains.kotlin.android")
+}
+
+android {
+  namespace = "com.android.attestation.app"
+  compileSdk = 34
+
+  defaultConfig {
+    applicationId = "com.android.attestation.app"
+    minSdk = 34
+    targetSdk = 34
+    versionCode = 1
+    versionName = "1.0"
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  buildTypes {
+    release {
+      isMinifyEnabled = false
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+  }
+
+  packaging { resources { excludes.add("META-INF/versions/9/OSGI-INF/MANIFEST.MF") } }
+}
+
+dependencies {
+  implementation(project(":"))
+  implementation("androidx.appcompat:appcompat:1.7.0")
+  implementation("com.google.android.material:material:1.12.0")
+  implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+  implementation("androidx.activity:activity:1.9.0")
+  implementation("androidx.activity:activity-compose:1.8.0")
+  implementation("androidx.core:core-ktx:1.10.1")
+  implementation("com.google.guava:guava:33.5.0-android")
+  implementation("com.google.protobuf:protobuf-javalite:4.28.3")
+
+  testImplementation("junit:junit:4.13.2")
+  androidTestImplementation("androidx.test.ext:junit:1.1.5")
+  androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+}
+
+repositories {
+  google()
+  mavenCentral()
+}
