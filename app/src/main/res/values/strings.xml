@@ -1,0 +1,183 @@
+<resources>
+    <string translatable="false" name="app_name">Attestation Verifier</string>
+    <string translatable="false" name="attestation_output">Attestation output will be shown here.</string>
+    <string translatable="false" name="attestation_failed_message">Attestation failed: %s</string>
+    <string translatable="false" name="attestation_generated_message">Attestation generated successfully.</string>
+    <string translatable="false" name="generate_and_verify_button">Generate and verify attestation</string>
+    <string translatable="false" name="use_strongbox">Use StrongBox</string>
+    <string translatable="false" name="export_certificate_chain">Export certificate chain</string>
+    <string translatable="false" name="ok">OK</string>
+    <string translatable="false" name="toggle_attest_device_ids">Attest Device IDs (IMEI/Serial)</string>
+    <string translatable="false" name="content_desc_security_icon">Security enforcement level indicator</string>
+    <string translatable="false" name="content_desc_summary_status">Verification status icon</string>
+    <string translatable="false" name="label_attestation_header">Attestation</string>
+    <string translatable="false" name="label_keymaster_header">Keymaster</string>
+    <string translatable="false" name="label_auth_list_header">Authorization List</string>
+    <string translatable="false" name="attest_device_props">Attest device props</string>
+    <string translatable="false" name="show_all">Show all</string>
+    <string translatable="false" name="save_to_file">Save to file</string>
+    <string translatable="false" name="about">About</string>
+    <string translatable="false" name="bootloader_locked">Bootloader is locked</string>
+    <string translatable="false" name="bootloader_unlocked">Bootloader is unlocked</string>
+    <string translatable="false" name="export_certificate_chain_title">Export Certificate Chain</string>
+    <string translatable="false" name="unexpected_error_alert_dialog_msg">An unexpected error occurred during attestation.</string>
+    <string translatable="false" name="export_certificate_chain_dialog_message">Save the PEM chain to your device. Retrieve it via:\n\nadb pull /sdcard/Download/attestation_certs.pem</string>
+    <string translatable="false" name="about_key_attestation_title">About Key Attestation</string>
+    <string translatable="false" name="about_key_attestation_dialog_message">Verifies Android Keystore integrity using official Trust Anchors.</string>
+    <string translatable="false" name="unexpected_error_alert_dialog_title">Unexpected Error</string>
+    <string translatable="false" name="network_error_alert_dialog_title">Network Error</string>
+    <string translatable="false" name="cannot_attest_ids_alert_dialog_title">Cannot Attest IDs</string>
+    <string translatable="false" name="network_error_alert_dialog_msg">"The attestation process requires an internet connection.\n\nSteps to fix:\n1. Check your Wi-Fi or Data connection.\n2. Ensure you are connected to the network.\n3. Try attesting again."</string>
+    <string translatable="false" name="cannot_attest_ids_alert_dialog_msg">"The device was unable to attest to hardware identifiers (Device IDs).\n\nReason may include:\n Device not having provisioned identifiers or Device identifiers are not supported .\n"</string>
+    <string translatable="false" name="cannot_attest_ids_tip">\n\nTip: Key generation failed. If this device does not support ID attestation, try disabling the \'Attest Device IDs\' toggle on the main screen.</string>
+    <string translatable="false" name="summary_title_secured">Device Secured</string>
+    <string translatable="false" name="summary_subtitle_secured">Hardware-backed attestation verified successfully.</string>
+    <string translatable="false" name="summary_title_warning">Security Warning</string>
+    <string translatable="false" name="summary_subtitle_warning">Attestation failed or is software-enforced.</string>
+    <string translatable="false" name="desc_verification_result">The outcome of validating the certificate chain against the official Root of Trust.</string>
+    <string translatable="false" name="ex_verification_result">A \'Success\' indicates the chain is authentic and untampered.</string>
+
+
+    <string translatable="false" name="desc_attestation_challenge">A unique value provided to ensure the attestation is fresh and not a replay of a previous one.</string>
+    <string translatable="false" name="ex_attestation_challenge">It is typically represented as a Base64 string or a timestamp.</string>
+
+    <string translatable="false" name="desc_attestation_security_level">The security level of the environment that generated the attestation.</string>
+    <string translatable="false" name="ex_attestation_security_level">Levels include \'TRUSTED_ENVIRONMENT\' (TEE) or \'STRONG_BOX\'.</string>
+
+    <string translatable="false" name="desc_keymaster_version">The version of the hardware-backed Keymaster or KeyMint implementation on the device.</string>
+    <string translatable="false" name="ex_keymaster_version">For example, version 400 represents Keymaster 4.0.</string>
+
+    <string translatable="false" name="desc_keymaster_security_level">Specifies where the keys themselves are stored and managed.</string>
+    <string translatable="false" name="ex_keymaster_security_level">This is typically \'TRUSTED_ENVIRONMENT\' for TEE-backed keys.</string>
+
+    <string translatable="false" name="desc_creation_date">The date and time when the key was created, specified in milliseconds since the epoch.</string>
+    <string translatable="false" name="ex_creation_date">For example, January 1, 2021 is represented as 1609459200000.</string>
+
+    <string translatable="false" name="desc_application_id">Identifies the specific Android application and its signature that requested this key.</string>
+    <string translatable="false" name="ex_application_id">It contains the package name and the SHA-256 hash of the signing certificate.</string>
+
+    <string translatable="false" name="desc_attestation_purposes">The cryptographic operations that the hardware allows this key to perform.</string>
+    <string translatable="false" name="ex_attestation_purposes">Purposes include \'Sign\', \'Verify\', \'Encrypt\', or \'Decrypt\'.</string>
+
+    <string translatable="false" name="desc_attestation_algorithms">The cryptographic algorithm used for the key pair.</string>
+    <string translatable="false" name="ex_attestation_algorithms">Standard values include \'RSA\' (1) or \'EC\' (3).</string>
+
+    <string translatable="false" name="desc_key_size">The bit length of the generated key.</string>
+    <string translatable="false" name="ex_key_size">For example, 2048 for RSA or 256 for Elliptic Curve.</string>
+
+    <string translatable="false" name="desc_digests">The hashing algorithms permitted for use with this key.</string>
+    <string translatable="false" name="ex_digests">Commonly used digests include \'SHA-256\' or \'SHA-512\'.</string>
+
+    <string translatable="false" name="desc_ec_curve">The elliptic curve used for EC key generation.</string>
+    <string translatable="false" name="ex_ec_curve">For example, \'P-256\' (secp256r1) is represented as 1.</string>
+
+    <string translatable="false" name="desc_attestation_origin">The source of the key material.</string>
+    <string translatable="false" name="ex_attestation_origin">Levels include \'Generated\' (0) for keys created inside the hardware.</string>
+
+    <string translatable="false" name="desc_root_of_trust">The foundational security state of the device, including bootloader and verified boot info.</string>
+    <string translatable="false" name="ex_root_of_trust">It confirms if the device bootloader is \'Locked\' or \'Unlocked\'.</string>
+
+    <string translatable="false" name="desc_no_auth_required">If true, the key can be used without requiring a user to authenticate (PIN/Biometric).</string>
+    <string translatable="false" name="ex_no_auth_required">A \'true\' value means no biometric prompt is needed to use this key.</string>
+
+    <string translatable="false" name="desc_active_date">The date before which the key cannot be used.</string>
+
+    <string translatable="false" name="desc_origination_expire_date">The date after which the key can no longer be used for signing.</string>
+
+    <string translatable="false" name="desc_usage_expire_date">The date after which the key can no longer be used for verification.</string>
+
+    <string translatable="false" name="desc_user_auth_type">The type of authentication required to access the key.</string>
+    <string translatable="false" name="ex_user_auth_type">Common values include 1 (Password/PIN) or 2 (Fingerprint).</string>
+
+    <string translatable="false" name="desc_auth_timeout">The duration in seconds that the user\'s authentication remains valid.</string>
+
+    <string translatable="false" name="desc_trusted_user_presence_required">If true, the user must provide physical proof of presence (e.g., button press).</string>
+
+    <string translatable="false" name="desc_unlocked_device_required">If true, the key can only be used when the device screen is currently unlocked.</string>
+
+    <string translatable="false" name="desc_attestation_os_version">The version of the Android OS currently running on the device.</string>
+    <string translatable="false" name="ex_attestation_os_version">For example, 14 represents Android 14.</string>
+
+    <string translatable="false" name="desc_attestation_os_patch">The month and year associated with the security patch being used within the Keymaster.</string>
+    <string translatable="false" name="ex_attestation_os_patch">For example, the August 2018 patch is represented as 201808.</string>
+
+    <string translatable="false" name="desc_vendor_patch_level">The security patch level of the vendor-specific partition.</string>
+    <string translatable="false" name="ex_vendor_patch_level">It follows the YYYYMMDD format to denote the specific driver update.</string>
+
+    <string translatable="false" name="desc_boot_patch_level">The security patch level of the bootloader image.</string>
+    <string translatable="false" name="ex_boot_patch_level">Represented as YYYYMMDD.</string>
+
+    <string translatable="false" name="desc_attestation_id_brand">The device brand name verified by the hardware.</string>
+    <string translatable="false" name="ex_attestation_id_brand">For example: \'samsung\'.</string>
+
+    <string translatable="false" name="desc_attestation_id_model">The device model name verified by the hardware.</string>
+    <string translatable="false" name="ex_attestation_id_model">For example: \'Pixel 8 Pro\'.</string>
+    <string translatable="false" name="desc_attestation_id_serial">The hardware serial number of the device, if attestation is permitted.</string>
+    <string translatable="false" name="desc_attestation_id_imei">The International Mobile Equipment Identity of the primary SIM slot.</string>
+    <string translatable="false" name="desc_rsa_public_exponent">The public exponent value used in the RSA algorithm math.</string>
+    <string translatable="false" name="ex_rsa_public_exponent">Usually 65537.</string>
+    <string translatable="false" name="desc_attestation_module_hash">A hash representing the state of the security modules loaded in the OS.</string>
+    <string translatable="false" name="desc_default">A technical security parameter defined by the Android Keystore attestation schema.</string>
+    <string translatable="false" name="desc_rot_state">The current state of the device\'s root of trust.</string>
+    <string translatable="false" name="ex_rot_state">This indicates whether the device is \'Locked\' or \'Unlocked\'.</string>
+    <string translatable="false" name="desc_rot_locked">If true, the device bootloader is locked, which is required for strong attestation.</string>
+    <string translatable="false" name="ex_rot_locked">A \'true\' value means the bootloader is locked and the device is secured.</string>
+    <string translatable="false" name="enforced_by_tee">Enforced by TEE</string>
+    <string translatable="false" name="enforced_by_sw">Enforced by Software</string>
+    <string translatable="false" name="enforced_by_hw">Enforced by Hardware</string>
+    <string translatable="false" name="label_example_prefix">Example:</string>
+    <string translatable="false" name="not_applicable">N/A</string>
+    <string translatable="false" name="label_verification_result">Verification Result</string>
+    <string translatable="false" name="label_attestation_challenge">Attestation Challenge</string>
+    <string translatable="false" name="label_attestation_security_level">Attestation Security Level</string>
+    <string translatable="false" name="label_keymaster_version">Keymaster Version</string>
+    <string translatable="false" name="label_keymaster_security_level">Keymaster Security Level</string>
+    <string translatable="false" name="label_creation_date">Creation Date</string>
+    <string translatable="false" name="label_application_id">Application ID</string>
+    <string translatable="false" name="label_attestation_purposes">Attestation Purposes</string>
+    <string translatable="false" name="label_attestation_algorithms">Attestation Algorithms</string>
+    <string translatable="false" name="label_os_version">Attestation OS Version</string>
+    <string translatable="false" name="label_os_patch">Attestation OS Patch</string>
+    <string translatable="false" name="label_origin">Attestation Origin</string>
+    <string translatable="false" name="label_id_brand">Attestation ID Brand</string>
+    <string translatable="false" name="label_id_device">Attestation ID Device</string>
+    <string translatable="false" name="label_rot_state">Root of Trust (State)</string>
+    <string translatable="false" name="label_root_of_trust">Root of Trust</string>
+    <string translatable="false" name="label_rot_locked">Root of Trust (Locked)</string>
+    <string translatable="false" name="label_active_date">Active Date</string>
+    <string translatable="false" name="label_origination_expire_date">Origination Expire Date</string>
+    <string translatable="false" name="label_usage_expire_date">Usage Expire Date</string>
+    <string translatable="false" name="label_no_auth_required">No Auth Required</string>
+    <string translatable="false" name="label_user_auth_type">User Auth Type</string>
+    <string translatable="false" name="label_auth_timeout">Auth Timeout</string>
+    <string translatable="false" name="label_presence_required">Trusted User Presence Required</string>
+    <string translatable="false" name="label_unlocked_required">Unlocked Device Required</string>
+    <string translatable="false" name="label_vendor_patch">Vendor Patch Level</string>
+    <string translatable="false" name="label_boot_patch">Boot Patch Level</string>
+    <string translatable="false" name="label_id_model">Attestation ID Model</string>
+    <string translatable="false" name="label_id_serial">Attestation ID Serial</string>
+    <string translatable="false" name="label_id_imei">Attestation ID IMEI</string>
+    <string translatable="false" name="label_key_size">Key Size</string>
+    <string translatable="false" name="label_digests">Digests</string>
+    <string translatable="false" name="label_ec_curve">EC Curve</string>
+    <string translatable="false" name="label_rsa_exponent">RSA Public Exponent</string>
+    <string translatable="false" name="label_module_hash">Attestation Module Hash</string>
+    <string translatable="false" name="purpose_sign">Sign</string>
+    <string translatable="false" name="purpose_verify">Verify</string>
+    <string translatable="false" name="purpose_encrypt">Encrypt</string>
+    <string translatable="false" name="purpose_decrypt">Decrypt</string>
+    <string translatable="false" name="purpose_attest">Attest</string>
+    <string translatable="false" name="purpose_unknown">Unknown (%1$s)</string>
+    <string translatable="false" name="auth_type_password">Password/PIN</string>
+    <string translatable="false" name="auth_type_biometric">Biometric</string>
+    <string translatable="false" name="auth_type_none">None</string>
+    <string translatable="false" name="summary_title_verified">Attestation Verified</string>
+    <string translatable="false" name="summary_subtitle_verified">The key and its properties were successfully verified.</string>
+    <string translatable="false" name="summary_title_unverified">Verification Failed</string>
+    <string translatable="false" name="summary_subtitle_unverified">The certificate chain or challenge could not be verified.</string>
+    <plurals translatable="false" name="unit_seconds">
+        <item quantity="one">1 second</item>
+        <item quantity="other">%1$d seconds</item>
+    </plurals>
+    <string translatable="false" name="label_error">Error</string>
+</resources>
