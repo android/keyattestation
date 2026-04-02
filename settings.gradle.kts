@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Google LLC
+ * Copyright 2026 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,24 @@
  * limitations under the License.
  */
 
+pluginManagement {
+  repositories {
+    google {
+      content {
+        includeGroupAndSubgroups("com.android")
+        includeGroupAndSubgroups("com.google")
+        includeGroupAndSubgroups("androidx")
+      }
+    }
+    mavenCentral()
+    gradlePluginPortal()
+  }
+}
+
 plugins { id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0" }
 
 rootProject.name = "keyattestation"
+
+include(":app")
+
+project(":app").projectDir = file("app")
