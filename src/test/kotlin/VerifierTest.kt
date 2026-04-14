@@ -180,19 +180,23 @@ class VerifierTest {
   @Test
   fun rootOfTrustMissing_givesRootOfTrustMissingReason() {
     val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.missingRootOfTrust))
-    assertThat(result.reason).isEqualTo(KeyAttestationReason.ROOT_OF_TRUST_CONSTRAINT_VIOLATION)
+    assertThat(result.constraintLabel).isEqualTo("Root of trust")
+    assertThat(result.cause).contains("Root of trust")
+    assertThat(result.cause).contains("Root of trust violates constraint")
   }
 
   @Test
   fun keyOriginNotGenerated_throwsCertPathValidatorException() {
     val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.importedOrigin))
-    assertThat(result.reason).isEqualTo(KeyAttestationReason.KEY_ORIGIN_CONSTRAINT_VIOLATION)
+    assertThat(result.constraintLabel).isEqualTo("Origin")
+    assertThat(result.cause).contains("Origin violates constraint")
   }
 
   @Test
   fun mismatchedSecurityLevels_throwsCertPathValidatorException() {
     val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.mismatchedSecurityLevels))
-    assertThat(result.reason).isEqualTo(KeyAttestationReason.SECURITY_LEVEL_CONSTRAINT_VIOLATION)
+    assertThat(result.constraintLabel).isEqualTo("Security level")
+    assertThat(result.cause).contains("Security level violates constraint")
   }
 
   @Test
@@ -202,11 +206,39 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        ConstraintConfig(securityLevel = ValidationLevel.NOT_NULL),
+        constraintConfig { securityLevel { IgnoredConstraint } },
       )
     val result =
       assertIs<VerificationResult.Success>(verifier.verify(CertLists.mismatchedSecurityLevels))
     assertThat(result.securityLevel).isEqualTo(SecurityLevel.SOFTWARE)
+  }
+
+  @Test
+  fun importedOrigins_customConfig_succeeds() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig {
+          keyOrigin {
+            AttributeConstraint.STRICT("Test", Origin.IMPORTED) { it.hardwareEnforced.origin }
+          }
+        },
+      )
+    assertIs<VerificationResult.Success>(verifier.verify(CertLists.importedOrigin))
+  }
+
+  @Test
+  fun softwareRootOfTrust_customConfig_succeeds() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig { rootOfTrust { IgnoredConstraint } },
+      )
+    assertIs<VerificationResult.Success>(verifier.verify(CertLists.missingRootOfTrust))
   }
 
   @Test
@@ -216,11 +248,14 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        ConstraintConfig(authorizationListTagOrder = TagOrderValidationLevel.STRICT),
+        constraintConfig {
+          additionalConstraint { TagOrderConstraint.STRICT }
+          additionalConstraint { IgnoredConstraint }
+        },
       )
     val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.unorderedTags))
-    assertThat(result.reason)
-      .isEqualTo(KeyAttestationReason.AUTHORIZATION_LIST_ORDERING_CONSTRAINT_VIOLATION)
+    assertThat(result.constraintLabel).isEqualTo("Tag order")
+    assertThat(result.cause).contains("Authorization list tags must be in ascending order")
   }
 
   @Test

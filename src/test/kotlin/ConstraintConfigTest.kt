@@ -19,6 +19,7 @@ package com.android.keyattestation.verifier
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
+import kotlin.test.assertIs
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
@@ -55,72 +56,106 @@ class ConstraintConfigTest {
   val keyDescriptionWithMismatchedSecurityLevels =
     createTestKeyDescription(SecurityLevel.STRONG_BOX, SecurityLevel.TRUSTED_ENVIRONMENT)
 
-  @Test
-  fun ValidationLevelIsSatisfiedBy_strictWithExpectedValue() {
-    val level = ValidationLevel.STRICT("foo")
+  private val testCertPath = readCertPath("akita/sdk34/TEE_EC_NONE.pem")
 
-    assertThat(level.isSatisfiedBy("foo")).isTrue()
-    assertThat(level.isSatisfiedBy("bar")).isFalse()
-    assertThat(level.isSatisfiedBy(null)).isFalse()
+  @Test
+  fun AttributeConstraintIsSatisfied_strictWithExpectedValue() {
+    val level = AttributeConstraint.STRICT("Unique ID", "foo") { it.uniqueId.toStringUtf8() }
+    val kd =
+      keyDescriptionWithSoftwareSecurityLevels.copy(uniqueId = ByteString.copyFromUtf8("foo"))
+
+    assertIs<Constraint.Satisfied>(level.check(kd))
+    assertIs<Constraint.Violated>(level.check(kd.copy(uniqueId = ByteString.copyFromUtf8("bar"))))
   }
 
   @Test
-  fun ValidationLevelIsSatisfiedBy_notNull_allowsAnyValue() {
-    val level = ValidationLevel.NOT_NULL
+  fun AttributeConstraintIsSatisfied_notNull_allowsAnyValue() {
+    val level = AttributeConstraint.NOT_NULL("Root of trust") { it.hardwareEnforced.rootOfTrust }
 
-    assertThat(level.isSatisfiedBy("foo")).isTrue()
-    assertThat(level.isSatisfiedBy(null)).isFalse()
-  }
+    assertIs<Constraint.Violated>(level.check(keyDescriptionWithSoftwareSecurityLevels))
 
-  @Test
-  fun ValidationLevelIsSatisfiedBy_ignore_allowsAnyValue() {
-    val level = ValidationLevel.IGNORE
-
-    assertThat(level.isSatisfiedBy("foo")).isTrue()
-    assertThat(level.isSatisfiedBy(null)).isTrue()
-  }
-
-  @Test
-  fun SecurityLevelValidationLevelIsSatisfiedBy_strictWithExpectedValue() {
-    val level = SecurityLevelValidationLevel.STRICT(SecurityLevel.STRONG_BOX)
-
-    assertThat(level.isSatisfiedBy(keyDescriptionWithStrongBoxSecurityLevels)).isTrue()
-    assertThat(level.isSatisfiedBy(keyDescriptionWithTeeSecurityLevels)).isFalse()
-    assertThat(level.isSatisfiedBy(keyDescriptionWithMismatchedSecurityLevels)).isFalse()
-  }
-
-  @Test
-  fun SecurityLevelValidationLevelIsSatisfiedBy_notSoftware_allowsAnyNonSoftwareMatchingLevels() {
-    val level = SecurityLevelValidationLevel.NOT_SOFTWARE
-
-    assertThat(level.isSatisfiedBy(keyDescriptionWithStrongBoxSecurityLevels)).isTrue()
-    assertThat(level.isSatisfiedBy(keyDescriptionWithTeeSecurityLevels)).isTrue()
-    assertThat(level.isSatisfiedBy(keyDescriptionWithSoftwareSecurityLevels)).isFalse()
-    assertThat(level.isSatisfiedBy(keyDescriptionWithMismatchedSecurityLevels)).isFalse()
-  }
-
-  @Test
-  fun SecurityLevelValidationLevelIsSatisfiedBy_consistent_allowsAnyMatchingLevels() {
-    val level = SecurityLevelValidationLevel.CONSISTENT
-
-    assertThat(level.isSatisfiedBy(keyDescriptionWithStrongBoxSecurityLevels)).isTrue()
-    assertThat(level.isSatisfiedBy(keyDescriptionWithTeeSecurityLevels)).isTrue()
-    assertThat(level.isSatisfiedBy(keyDescriptionWithSoftwareSecurityLevels)).isTrue()
-    assertThat(level.isSatisfiedBy(keyDescriptionWithMismatchedSecurityLevels)).isFalse()
-  }
-
-  @Test
-  fun AuthorizationListOrderingIsSatisfiedBy_strictWithUnorderedTags_fails() {
-    val ordering = TagOrderValidationLevel.STRICT
-
-    assertThat(ordering.isSatisfiedBy(keyDescriptionWithStrongBoxSecurityLevels)).isTrue()
-    assertThat(
-        ordering.isSatisfiedBy(
-          KeyDescription.parseFrom(
-            readCertPath("invalid/tags_not_in_ascending_order.pem").leafCert()
+    val kdWithRot =
+      keyDescriptionWithSoftwareSecurityLevels.copy(
+        hardwareEnforced =
+          keyDescriptionWithSoftwareSecurityLevels.hardwareEnforced.copy(
+            rootOfTrust = RootOfTrust(ByteString.empty(), false, VerifiedBootState.VERIFIED)
           )
-        )
       )
-      .isFalse()
+    assertIs<Constraint.Satisfied>(level.check(kdWithRot))
+  }
+
+  @Test
+  fun SecurityLevelConstraintIsSatisfied_strictWithExpectedValue() {
+    val level = SecurityLevelConstraint.STRICT(SecurityLevel.STRONG_BOX)
+
+    assertIs<Constraint.Satisfied>(level.check(keyDescriptionWithStrongBoxSecurityLevels))
+    assertIs<Constraint.Violated>(level.check(keyDescriptionWithTeeSecurityLevels))
+    assertIs<Constraint.Violated>(level.check(keyDescriptionWithMismatchedSecurityLevels))
+  }
+
+  @Test
+  fun SecurityLevelConstraintIsSatisfied_notSoftware_allowsAnyNonSoftwareMatchingLevels() {
+    val level = SecurityLevelConstraint.NOT_SOFTWARE
+
+    assertIs<Constraint.Satisfied>(level.check(keyDescriptionWithStrongBoxSecurityLevels))
+    assertIs<Constraint.Satisfied>(level.check(keyDescriptionWithTeeSecurityLevels))
+    assertIs<Constraint.Violated>(level.check(keyDescriptionWithSoftwareSecurityLevels))
+    assertIs<Constraint.Violated>(level.check(keyDescriptionWithMismatchedSecurityLevels))
+  }
+
+  @Test
+  fun SecurityLevelConstraintIsSatisfied_consistent_allowsAnyMatchingLevels() {
+    val level = SecurityLevelConstraint.CONSISTENT
+
+    assertIs<Constraint.Satisfied>(level.check(keyDescriptionWithStrongBoxSecurityLevels))
+    assertIs<Constraint.Satisfied>(level.check(keyDescriptionWithTeeSecurityLevels))
+    assertIs<Constraint.Satisfied>(level.check(keyDescriptionWithSoftwareSecurityLevels))
+    assertIs<Constraint.Violated>(level.check(keyDescriptionWithMismatchedSecurityLevels))
+  }
+
+  @Test
+  fun AuthorizationListOrderingIsSatisfied_strictWithUnorderedTags_fails() {
+    val ordering = TagOrderConstraint.STRICT
+
+    assertIs<Constraint.Satisfied>(ordering.check(keyDescriptionWithStrongBoxSecurityLevels))
+
+    val kdUnordered =
+      KeyDescription.parseFrom(readCertPath("invalid/tags_not_in_ascending_order.pem").leafCert())!!
+
+    assertIs<Constraint.Violated>(ordering.check(kdUnordered))
+  }
+
+  @Test
+  fun attributeConstraint_withViolation_returnsCorrectMessage() {
+    val level = AttributeConstraint.STRICT("Unique ID", "foo") { it.uniqueId.toStringUtf8() }
+    val kd =
+      keyDescriptionWithSoftwareSecurityLevels.copy(uniqueId = ByteString.copyFromUtf8("bar"))
+
+    val violation = assertIs<Constraint.Violated>(level.check(kd))
+    assertThat(violation.failureMessage)
+      .isEqualTo("Unique ID violates constraint: value=bar, config=$level")
+  }
+
+  @Test
+  fun securityLevelConstraint_withViolation_returnsCorrectMessage() {
+    val level = SecurityLevelConstraint.STRICT(SecurityLevel.STRONG_BOX)
+
+    val violation = assertIs<Constraint.Violated>(level.check(keyDescriptionWithTeeSecurityLevels))
+    assertThat(violation.failureMessage)
+      .isEqualTo(
+        "Security level violates constraint: keyMintSecurityLevel=TRUSTED_ENVIRONMENT, " +
+          "attestationSecurityLevel=TRUSTED_ENVIRONMENT, config=$level"
+      )
+  }
+
+  @Test
+  fun tagOrderConstraint_withViolation_returnsCorrectMessage() {
+    val level = TagOrderConstraint.STRICT
+    val kdUnordered =
+      KeyDescription.parseFrom(readCertPath("invalid/tags_not_in_ascending_order.pem").leafCert())!!
+
+    val violation = assertIs<Constraint.Violated>(level.check(kdUnordered))
+    assertThat(violation.failureMessage)
+      .isEqualTo("Authorization list tags must be in ascending order")
   }
 }

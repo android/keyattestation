@@ -33,22 +33,8 @@ enum class KeyAttestationReason : CertPathValidatorException.Reason {
   // extension. This likely indicates that an attacker is trying to manipulate the key and
   // device properties.
   CHAIN_EXTENDED_WITH_FAKE_ATTESTATION_EXTENSION,
-  // The origin violated the constraint provided in [ConstraintConfig].
-  // Using the default config, this means the key was not generated, so the verifier cannot know
-  // that the key has always been in the secure environment.
-  KEY_ORIGIN_CONSTRAINT_VIOLATION,
-  // The security level violated the constraint provided in [ConstraintConfig].
-  // Using the default config, this means the attestation and the KeyMint security levels do not
-  // match, which likely indicates that the attestation was generated in software and so cannot be
-  // trusted.
-  SECURITY_LEVEL_CONSTRAINT_VIOLATION,
-  // The root of trust violated the constraint provided in [ConstraintConfig].
-  // Using the default config, this means the key description is missing the root of trust, and an
-  // Android key attestation chain without a root of trust is malformed.
-  ROOT_OF_TRUST_CONSTRAINT_VIOLATION,
-  // The authorization list ordering violated the constraint provided in
-  // [ConstraintConfig].
-  AUTHORIZATION_LIST_ORDERING_CONSTRAINT_VIOLATION,
+  // One of the constraints provided to the verifier was violated.
+  CONSTRAINT_VIOLATION,
   // There was an error parsing the key description and an unknown tag number was encountered.
   UNKNOWN_TAG_NUMBER,
 }
