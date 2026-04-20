@@ -58,10 +58,14 @@ import org.bouncycastle.asn1.DERSet
 import org.bouncycastle.asn1.DERTaggedObject
 import org.bouncycastle.asn1.x509.Extension
 
-@Immutable
 @RequiresApi(24)
-data class ExtensionParsingException(val msg: String, val reason: KeyAttestationReason? = null) :
-  Exception(msg)
+data class ExtensionParsingException
+@JvmOverloads
+constructor(
+  override val message: String,
+  val reason: KeyAttestationReason? = null,
+  override val cause: Throwable? = null,
+) : Exception(message, cause)
 
 @Immutable
 data class ProvisioningInfoMap(
@@ -444,13 +448,12 @@ data class AuthorizationList(
     }
 
     fun from(seq: ASN1Sequence, logFn: (String) -> Unit = { _ -> }): AuthorizationList {
-      val objects =
-        seq.associate {
-          require(it is ASN1TaggedObject) {
-            "Must be an ASN1TaggedObject, was ${it::class.simpleName}"
-          }
-          KeyMintTag.from(it.tagNo) to it.explicitBaseObject
+      val objects = seq.associate {
+        require(it is ASN1TaggedObject) {
+          "Must be an ASN1TaggedObject, was ${it::class.simpleName}"
         }
+        KeyMintTag.from(it.tagNo) to it.explicitBaseObject
+      }
 
       /**
        * X.680 section 8.6
@@ -775,11 +778,15 @@ private inline fun <reified T> ASN1Encodable.toSet(): Set<T> {
 
 @RequiresApi(24)
 private fun ASN1Encodable.toStr() =
-  UTF_8.newDecoder()
-    .onMalformedInput(CodingErrorAction.REPORT)
-    .onUnmappableCharacter(CodingErrorAction.REPORT)
-    .decode(this.toByteBuffer())
-    .toString()
+  try {
+    UTF_8.newDecoder()
+      .onMalformedInput(CodingErrorAction.REPORT)
+      .onUnmappableCharacter(CodingErrorAction.REPORT)
+      .decode(this.toByteBuffer())
+      .toString()
+  } catch (e: CharacterCodingException) {
+    throw ExtensionParsingException("error decoding ASN.1: ${e.message}", cause = e)
+  }
 
 private fun ASN1Encodable.toTaggedObject(tag: KeyMintTag) = DERTaggedObject(tag.value, this)
 
