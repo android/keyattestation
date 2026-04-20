@@ -22,6 +22,7 @@ import com.android.keyattestation.verifier.testing.Certs.rootAnchor as testAncho
 import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeCalendar
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
+import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
 import java.security.InvalidAlgorithmParameterException
 import java.security.Security
@@ -34,6 +35,8 @@ import java.security.cert.PKIXCertPathChecker
 import java.security.cert.PKIXCertPathValidatorResult
 import java.security.cert.PKIXParameters
 import java.security.cert.PKIXReason
+import java.security.cert.TrustAnchor
+import java.time.LocalDate
 import kotlin.test.assertFailsWith
 import org.junit.BeforeClass
 import org.junit.Test
@@ -84,14 +87,14 @@ class KeyAttestationCertPathValidatorTest {
     val exception =
       assertFailsWith<CertPathValidatorException> {
         certPathValidator.validate(
-          Chains.validFactoryProvisioned,
+          Chains.validRemotelyProvisioned,
           PKIXParameters(setOf(testAnchor)),
         )
       }
     val pkixException =
       assertFailsWith<CertPathValidatorException> {
         pkixCertPathValidator.validate(
-          Chains.validFactoryProvisioned,
+          Chains.validRemotelyProvisioned,
           PKIXParameters(setOf(testAnchor)),
         )
       }
@@ -205,12 +208,41 @@ class KeyAttestationCertPathValidatorTest {
   }
 
   @Test
-  fun expired_throwsCertPathValidatorException() {
-    val certPath = Chains.expired
+  fun expiredFactory_succeeds() {
+    certPathValidator.validate(Chains.expiredFactoryProvisioned, testParams)
+  }
+
+  @Test
+  fun expiredRkp_throwsCertPathValidatorException() {
+    val certPath = Chains.expiredRemotelyProvisioned
     val exception =
       assertFailsWith<CertPathValidatorException> {
         certPathValidator.validate(certPath, testParams)
       }
+    assertThat(exception.reason).isEqualTo(BasicReason.EXPIRED)
+  }
+
+  @Test
+  fun bluelineSdk28_factoryProvisioned_expiryIgnored() {
+    val certPath = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
+    val root = certPath.certificatesWithAnchor.last()
+    val params =
+      PKIXParameters(setOf(TrustAnchor(root, null))).apply {
+        date = FakeCalendar(LocalDate.of(2030, 1, 1)).today()
+      }
+    certPathValidator.validate(certPath, params)
+  }
+
+  @Test
+  fun caimanSdk36_remoteProvisioned_expiryHonored() {
+    val certPath = readCertPath("caiman/sdk36/TEE_EC_RKP.pem")
+    val root = certPath.certificatesWithAnchor.last()
+    val params =
+      PKIXParameters(setOf(TrustAnchor(root, null))).apply {
+        date = FakeCalendar(LocalDate.of(2030, 1, 1)).today()
+      }
+    val exception =
+      assertFailsWith<CertPathValidatorException> { certPathValidator.validate(certPath, params) }
     assertThat(exception.reason).isEqualTo(BasicReason.EXPIRED)
   }
 

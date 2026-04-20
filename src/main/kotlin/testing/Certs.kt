@@ -481,9 +481,9 @@ object Chains {
     )
   }
 
-  /* A chain where the attestation certificate has expired. */
+  /* A factory-provisioned chain where the attestation certificate has expired. */
   @JvmStatic
-  val expired by lazy {
+  val expiredFactoryProvisioned by lazy {
     KeyAttestationCertPath(
       certFactory.generateLeafCert(),
       certFactory.generateAttestationCert(
@@ -491,6 +491,24 @@ object Chains {
         notAfter = fakeCalendar.lastWeek(),
       ),
       Certs.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  /* A remotely-provisioned chain where the attestation certificate has expired. */
+  @JvmStatic
+  val expiredRemotelyProvisioned by lazy {
+    val rkpAttestationCert =
+      certFactory.generateRkpAttestationCert(
+        serialNumber = BigInteger.valueOf(0x1234567890),
+        notBefore = fakeCalendar.lastWeek(),
+        notAfter = fakeCalendar.lastWeek(),
+      )
+    KeyAttestationCertPath(
+      certFactory.generateLeafCert(issuer = rkpAttestationCert.subject),
+      rkpAttestationCert,
+      certFactory.rkpIntermediate,
+      Certs.remoteIntermediate,
       certFactory.root,
     )
   }

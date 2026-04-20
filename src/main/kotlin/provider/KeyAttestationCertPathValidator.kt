@@ -303,6 +303,10 @@ private class BasicChecker(
         BasicReason.NOT_YET_VALID,
       )
     } catch (e: CertificateExpiredException) {
+      // Ignore validity on factory-provisioned certificate chains because it is not possible to
+      // safely rotate the keys.
+      if (certPath.provisioningMethod() == ProvisioningMethod.FACTORY_PROVISIONED) return
+
       throw CertPathValidatorException(
         "Validity check failed",
         e,

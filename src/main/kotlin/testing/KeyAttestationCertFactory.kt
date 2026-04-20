@@ -117,12 +117,16 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
   internal fun generateRkpAttestationCert(
     securityLevel: SecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
     serialNumber: BigInteger,
+    notBefore: Date = fakeCalendar.lastWeek(),
+    notAfter: Date = fakeCalendar.nextWeek(),
   ) =
     generateAttestationCert(
       signingKey = rkpKey.private,
       subject = rkpAttestationName(securityLevel, serialNumber),
       issuer = rkpIntermediate.subject,
       serialNumber,
+      notBefore,
+      notAfter,
       extraExtension =
         Extension(
           ProvisioningInfoMap.OID,
