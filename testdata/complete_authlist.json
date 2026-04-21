@@ -1,0 +1,82 @@
+{
+  "attestationVersion": "400",
+  "attestationSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "keyMintVersion": "400",
+  "keyMintSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "attestationChallenge": "Y2hhbGxlbmdl",
+  "uniqueId": "dW5pcXVlSWQ=",
+  "softwareEnforced": {
+    "purposes": ["1", "2"],
+    "algorithms": "1",
+    "keySize": "2048",
+    "blockModes": ["1", "2"],
+    "digests": ["1", "2"],
+    "paddings": ["1", "2"],
+    "ecCurve": "10",
+    "rsaPublicExponent": "65537",
+    "rsaOaepMgfDigests": ["1", "2"],
+    "activeDateTime": "1000",
+    "originationExpireDateTime": "2000",
+    "usageExpireDateTime": "3000",
+    "noAuthRequired": true,
+    "userAuthType": "1",
+    "authTimeout": "60",
+    "allowWhileOnBody": true,
+    "trustedUserPresenceRequired": true,
+    "unlockedDeviceRequired": true,
+    "creationDateTime": "123456789",
+    "origin": "GENERATED",
+    "rollbackResistant": true,
+    "rootOfTrust": {
+      "verifiedBootKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "deviceLocked": true,
+      "verifiedBootState": "VERIFIED",
+      "verifiedBootHash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    },
+    "osVersion": "110000",
+    "osPatchLevel": "202101",
+    "attestationApplicationId": {
+        "packages": [
+            {"name": "package1", "version": "1"}
+        ],
+        "signatures": ["c2lnbmF0dXJlMQ=="]
+    },
+    "attestationIdBrand": "brand",
+    "attestationIdDevice": "device",
+    "attestationIdProduct": "product",
+    "attestationIdSerial": "serial",
+    "attestationIdImei": "imei",
+    "attestationIdMeid": "meid",
+    "attestationIdManufacturer": "manufacturer",
+    "attestationIdModel": "model",
+    "vendorPatchLevel": "20210101",
+    "bootPatchLevel": "20210101",
+    "attestationIdSecondImei": "secondImei",
+    "moduleHash": "bW9kdWxlSGFzaA=="
+  },
+  "hardwareEnforced": {
+    "purposes": ["2"],
+    "algorithms": "1",
+    "keySize": "2048",
+    "rsaPublicExponent": "65537",
+    "noAuthRequired": true,
+    "origin": "GENERATED",
+    "rootOfTrust": {
+      "verifiedBootKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "deviceLocked": false,
+      "verifiedBootState": "UNVERIFIED",
+      "verifiedBootHash": "iCWIV2R1rsyzkpgv4vvF9ixpyfyEunPmxTzAUqEWFYY="
+    },
+    "osVersion": "140000",
+    "osPatchLevel": "202408",
+    "attestationIdBrand": "google",
+    "attestationIdDevice": "akita",
+    "attestationIdProduct": "akita",
+    "attestationIdImei": "351163520096208",
+    "attestationIdManufacturer": "Google",
+    "attestationIdModel": "Pixel 8a",
+    "vendorPatchLevel": "20240805",
+    "bootPatchLevel": "20240805",
+    "attestationIdSecondImei": "351163520096216"
+  }
+}
