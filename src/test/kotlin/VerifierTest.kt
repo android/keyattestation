@@ -82,6 +82,8 @@ class VerifierTest {
     assertThat(result.securityLevel).isEqualTo(json.attestationSecurityLevel)
     assertThat(result.verifiedBootState)
       .isEqualTo(json.hardwareEnforced.rootOfTrust?.verifiedBootState)
+    assertThat(result.deviceLocked)
+      .isEqualTo(json.hardwareEnforced.rootOfTrust?.deviceLocked ?: false)
   }
 
   enum class TestCase(val path: String, val timestamp: Instant) {
