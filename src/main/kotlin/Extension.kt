@@ -536,7 +536,9 @@ data class PatchLevel(val yearMonth: YearMonth, val version: Int? = null) {
       partitionName: String = "",
       logFn: (String) -> Unit = { _ -> },
     ): PatchLevel? {
-      check(patchLevel is ASN1Integer) { "Must be an ASN1Integer, was ${this::class.simpleName}" }
+      check(patchLevel is ASN1Integer) {
+        "Must be an ASN1Integer, was ${patchLevel::class.simpleName}"
+      }
       return from(patchLevel.value.toString(), partitionName, logFn)
     }
 
@@ -768,7 +770,7 @@ private inline fun <reified T> ASN1Encodable.toSet(): Set<T> {
   return this.map {
       if (it !is T) {
         throw ExtensionParsingException(
-          "Object must be a ${T::class.simpleName}, was ${this::class.simpleName}"
+          "Object must be a ${T::class.simpleName}, was ${it::class.simpleName}"
         )
       }
       it
