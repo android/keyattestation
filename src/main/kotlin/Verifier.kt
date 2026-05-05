@@ -48,6 +48,7 @@ sealed interface VerificationResult {
     val challenge: ByteString,
     val securityLevel: SecurityLevel,
     val verifiedBootState: VerifiedBootState,
+    val deviceLocked: Boolean,
     val deviceInformation: ProvisioningInfoMap?,
     val attestedDeviceIds: DeviceIdentity,
   ) : VerificationResult
@@ -305,12 +306,14 @@ constructor(
       minOf(keyDescription.attestationSecurityLevel, keyDescription.keyMintSecurityLevel)
     val rootOfTrust = keyDescription.hardwareEnforced.rootOfTrust
     val verifiedBootState = rootOfTrust?.verifiedBootState ?: VerifiedBootState.UNVERIFIED
+    val deviceLocked = rootOfTrust?.deviceLocked ?: false
 
     return VerificationResult.Success(
       pathValidationResult.publicKey,
       keyDescription.attestationChallenge,
       securityLevel,
       verifiedBootState,
+      deviceLocked,
       deviceInformation,
       DeviceIdentity.parseFrom(keyDescription),
     )
