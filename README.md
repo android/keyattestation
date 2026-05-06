@@ -40,7 +40,7 @@ when verifying. For example, if you expect the challenge to be equal to
 
 ```kotlin
 // Create a ChallengeChecker
-val challengeChecker = ChallengeMatcher("challenge123")
+val challengeChecker = ChallengeMatcher(ByteString.copyFromUtf8("challenge123"))
 
 // Verify an attestation certificate chain with the checker
 val result = verifier.verify(certificateChain, challengeChecker)
@@ -57,9 +57,14 @@ with an `InMemoryLruCache` like in this sample:
 ```kotlin
 val cacheSize = 100
 
-// Create a ChainedChallengeChecker with desired ChallengeCheckers
+// Create a ChainedChallengeChecker with desired ChallengeCheckers. The
+// coroutineScope is used to run each individual checker.
 val challengeChecker =
-  ChainedChallengeChecker.of(ChallengeMatcher("expectedChallenge"), InMemoryLruCache(cacheSize))
+  ChainedChallengeChecker.of(
+    coroutineScope,
+    ChallengeMatcher(ByteString.copyFromUtf8("expectedChallenge")),
+    InMemoryLruCache(cacheSize),
+  )
 
 // Verify an attestation certificate chain with the checker
 val result = verifier.verify(certificateChain, challengeChecker)
