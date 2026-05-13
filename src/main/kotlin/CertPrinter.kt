@@ -80,6 +80,16 @@ enum class EcCurve(val value: Int) {
   }
 }
 
+/** Representation of the MLDsaVariant enum contained within [AuthorizationList]. */
+enum class MlDsaVariant(val value: Int) {
+  ML_DSA_65(1),
+  ML_DSA_87(2);
+
+  companion object {
+    fun fromInt(value: Int) = values().firstOrNull { it.value == value }
+  }
+}
+
 /**
  * Representation of the BlockMode enum contained within [AuthorizationList].
  *
@@ -193,6 +203,7 @@ object CertPrinter {
     if (digests != null) appendIndentedLine("digests: ${digests?.toDigests()}")
     if (paddings != null) appendIndentedLine("paddings: $paddings")
     if (ecCurve != null) appendIndentedLine("ecCurve: ${ecCurve?.toEcCurve()}")
+    if (mlDsaVariant != null) appendIndentedLine("mlDsaVariant: ${mlDsaVariant.toMlDsaVariant()}")
     if (rsaPublicExponent != null) appendIndentedLine("rsaPublicExponent: $rsaPublicExponent")
     if (rsaOaepMgfDigests != null) {
       appendIndentedLine("rsaOaepMgfDigests: ${rsaOaepMgfDigests?.toDigests()}")
@@ -289,6 +300,8 @@ object CertPrinter {
   private fun BigInteger.toKeyAlgorithm(): KeyAlgorithm? = KeyAlgorithm.fromInt(this.toInt())
 
   private fun BigInteger.toEcCurve(): EcCurve? = EcCurve.fromInt(this.toInt())
+
+  private fun BigInteger.toMlDsaVariant(): MlDsaVariant? = MlDsaVariant.fromInt(this.toInt())
 
   private fun BigInteger.toDateTime(): String =
     if (this.toLong() < 0L) "" else Instant.ofEpochMilli(this.toLong()).toString()

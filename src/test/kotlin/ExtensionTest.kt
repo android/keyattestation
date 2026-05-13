@@ -137,6 +137,7 @@ class ExtensionTest {
         digests = setOf(1.toBigInteger()),
         paddings = setOf(1.toBigInteger()),
         ecCurve = 3.toBigInteger(),
+        mlDsaVariant = 2.toBigInteger(),
         rsaPublicExponent = 4.toBigInteger(),
         activeDateTime = 5.toBigInteger(),
         originationExpireDateTime = 6.toBigInteger(),

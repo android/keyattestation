@@ -253,6 +253,7 @@ enum class KeyMintTag(val value: Int) {
   DIGEST(5),
   PADDING(6),
   EC_CURVE(10),
+  ML_DSA_VARIANT(11),
   RSA_PUBLIC_EXPONENT(200),
   RSA_OAEP_MGF_DIGEST(203),
   ACTIVE_DATE_TIME(400),
@@ -310,6 +311,7 @@ data class AuthorizationList(
   @SuppressWarnings("Immutable") val digests: Set<BigInteger>? = null,
   @SuppressWarnings("Immutable") val paddings: Set<BigInteger>? = null,
   val ecCurve: BigInteger? = null,
+  val mlDsaVariant: BigInteger? = null,
   val rsaPublicExponent: BigInteger? = null,
   @SuppressWarnings("Immutable") val rsaOaepMgfDigests: Set<BigInteger>? = null,
   val activeDateTime: BigInteger? = null,
@@ -355,6 +357,7 @@ data class AuthorizationList(
         digests?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.DIGEST)) }
         paddings?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.PADDING)) }
         ecCurve?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.EC_CURVE)) }
+        mlDsaVariant?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ML_DSA_VARIANT)) }
         rsaPublicExponent?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.RSA_PUBLIC_EXPONENT)) }
         rsaOaepMgfDigests?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.RSA_OAEP_MGF_DIGEST)) }
         activeDateTime?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ACTIVE_DATE_TIME)) }
@@ -480,6 +483,7 @@ data class AuthorizationList(
         digests = converter.parseIntSet(KeyMintTag.DIGEST),
         paddings = converter.parseIntSet(KeyMintTag.PADDING),
         ecCurve = converter.parseInt(KeyMintTag.EC_CURVE),
+        mlDsaVariant = converter.parseInt(KeyMintTag.ML_DSA_VARIANT),
         rsaPublicExponent = converter.parseInt(KeyMintTag.RSA_PUBLIC_EXPONENT),
         rsaOaepMgfDigests = converter.parseIntSet(KeyMintTag.RSA_OAEP_MGF_DIGEST),
         activeDateTime = converter.parseInt(KeyMintTag.ACTIVE_DATE_TIME),

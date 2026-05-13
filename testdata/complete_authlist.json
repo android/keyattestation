@@ -13,6 +13,7 @@
     "digests": ["1", "2"],
     "paddings": ["1", "2"],
     "ecCurve": "10",
+    "mlDsaVariant": "1",
     "rsaPublicExponent": "65537",
     "rsaOaepMgfDigests": ["1", "2"],
     "activeDateTime": "1000",
