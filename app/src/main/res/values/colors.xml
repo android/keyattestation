@@ -1,0 +1,37 @@
+<resources>
+    <color name="brand_blue">#4285F4</color>
+    <color name="brand_blue_light">#D2E3FC</color>
+    <color name="brand_purple">#6750A4</color>
+    <color name="brand_grey">#80868B</color>
+    <color name="brand_blue_dark">#174EA6</color>
+    <color name="brand_brown_dark">#3E2723</color>
+    <color name="brand_blue_accent">#AECBFA</color>
+    <color name="brand_warning_light">#FDE293</color>
+    <color name="brand_error">#EA4335</color>
+    <color name="brand_warning">#FBBC05</color>
+    <color name="brand_success">#34A853</color>
+
+    <color name="colorPrimary">#6750A4</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorPrimaryContainer">#EADDFF</color>
+    <color name="colorOnPrimaryContainer">#21005D</color>
+    <color name="colorSecondary">#625B71</color>
+    <color name="colorOnSecondary">#FFFFFF</color>
+    <color name="colorSecondaryContainer">#E8DEF8</color>
+    <color name="colorOnSecondaryContainer">#1D192B</color>
+    <color name="colorTertiary">#7D5260</color>
+    <color name="colorOnTertiary">#FFFFFF</color>
+    <color name="colorTertiaryContainer">#FFD8E4</color>
+    <color name="colorOnTertiaryContainer">#31111D</color>
+    <color name="colorError">#B3261E</color>
+    <color name="colorOnError">#FFFFFF</color>
+    <color name="colorErrorContainer">#F9DEDC</color>
+    <color name="colorOnErrorContainer">#410E0B</color>
+    <color name="backgroundColor">#FFFBFE</color>
+    <color name="onBackgroundColor">#1C1B1F</color>
+    <color name="surfaceColor">#FFFBFE</color>
+    <color name="onSurfaceColor">#1C1B1F</color>
+    <color name="surfaceVariantColor">#E7E0EC</color>
+    <color name="onSurfaceVariantColor">#49454F</color>
+    <color name="outlineColor">#79747E</color>
+</resources>
