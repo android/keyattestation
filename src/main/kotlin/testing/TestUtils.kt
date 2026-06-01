@@ -41,6 +41,9 @@ import java.security.cert.TrustAnchor
 import java.security.cert.X509Certificate
 import java.util.Base64
 import kotlin.io.path.Path
+import kotlin.io.path.isDirectory
+import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.name
 import kotlin.io.path.reader
 import org.bouncycastle.cert.X509CertificateHolder
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
@@ -98,6 +101,31 @@ object TestUtils {
 
   private fun readFile(path: Path) = path.reader()
   private fun readFile(path: String) = readFile(Path(path))
+
+  data class TestCaseInfo(val model: String, val sdk: Int)
+
+  fun getTestCases(): List<TestCaseInfo> {
+    val root = Path(TESTDATA_PATH)
+    val testCases =
+      root
+        .listDirectoryEntries()
+        .filter { it.isDirectory() }
+        .flatMap { modelDir ->
+          modelDir
+            .listDirectoryEntries("sdk*")
+            .filter { it.isDirectory() }
+            .mapNotNull { sdkDir ->
+              val sdkVersion = sdkDir.name.removePrefix("sdk").toIntOrNull()
+              if (sdkVersion == null) {
+                null
+              } else {
+                TestCaseInfo(modelDir.name, sdkVersion)
+              }
+            }
+        }
+    check(testCases.isNotEmpty()) { "No test cases found in $root" }
+    return testCases
+  }
 }
 
 object Base64ByteStringAdapter : JsonDeserializer<ByteString>, JsonSerializer<ByteString> {

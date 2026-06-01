@@ -18,6 +18,7 @@ package com.android.keyattestation.verifier
 import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeLogHook
 import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
+import com.android.keyattestation.verifier.testing.TestUtils.getTestCases
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.android.keyattestation.verifier.testing.V3Extensions
 import com.android.keyattestation.verifier.testing.toKeyDescription
@@ -29,12 +30,11 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector
 import com.google.testing.junit.testparameterinjector.TestParameters
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider.Context
 import java.time.YearMonth
 import kotlin.io.path.Path
 import kotlin.io.path.inputStream
-import kotlin.io.path.isDirectory
 import kotlin.io.path.listDirectoryEntries
-import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.readText
 import kotlin.io.path.reader
@@ -72,32 +72,14 @@ class ExtensionTest {
   }
 
   class TestCaseProvider : TestParametersValuesProvider() {
-    override fun provideValues(context: Context): List<TestParametersValues> {
-      val root = Path("testdata")
-      val parameters =
-        root
-          .listDirectoryEntries()
-          .filter { it.isDirectory() }
-          .flatMap { modelDir ->
-            modelDir
-              .listDirectoryEntries("sdk*")
-              .filter { it.isDirectory() }
-              .mapNotNull { sdkDir ->
-                val sdkVersion = sdkDir.name.removePrefix("sdk").toIntOrNull()
-                if (sdkVersion == null) {
-                  null
-                } else {
-                  TestParametersValues.builder()
-                    .name("${modelDir.name}_sdk$sdkVersion")
-                    .addParameter("model", modelDir.name)
-                    .addParameter("sdk", sdkVersion)
-                    .build()
-                }
-              }
-          }
-      assertThat(parameters).isNotEmpty()
-      return parameters
-    }
+    override fun provideValues(context: Context): List<TestParametersValues> =
+      getTestCases().map { testCase ->
+        TestParametersValues.builder()
+          .name("${testCase.model}_sdk${testCase.sdk}")
+          .addParameter("model", testCase.model)
+          .addParameter("sdk", testCase.sdk)
+          .build()
+      }
   }
 
   @Test

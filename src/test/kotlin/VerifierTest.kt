@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier
 
+import kotlin.io.path.Path
 import com.android.keyattestation.verifier.VerificationResult.ConstraintViolation
 import com.android.keyattestation.verifier.VerificationResult.ExtensionParsingFailure
 import com.android.keyattestation.verifier.VerificationResult.PathValidationFailure
@@ -24,6 +25,7 @@ import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.Certs
 import com.android.keyattestation.verifier.testing.FakeCalendar
 import com.android.keyattestation.verifier.testing.FakeLogHook
+import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
 import com.android.keyattestation.verifier.testing.TestUtils.falseChecker
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
 import com.android.keyattestation.verifier.testing.TestUtils.readCertList
@@ -32,17 +34,21 @@ import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
-import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
+import com.google.testing.junit.testparameterinjector.TestParameters
+import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider.Context
 import java.security.cert.PKIXReason
 import java.security.cert.TrustAnchor
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.nameWithoutExtension
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlinx.coroutines.guava.await
@@ -53,6 +59,8 @@ import org.junit.runner.RunWith
 /** Unit tests for [Verifier]. */
 @RunWith(TestParameterInjector::class)
 class VerifierTest {
+  private val testData = Path("testdata")
+
   private val verifier =
     Verifier(
       { prodAnchors + TrustAnchor(Certs.root, null) },
@@ -72,41 +80,48 @@ class VerifierTest {
     }
 
   @Test
-  fun verify_validChain_returnsSuccess(@TestParameter testCase: TestCase) {
-    val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { testCase.timestamp })
-    val chain = readCertList("${testCase.path}.pem")
-    val json = readJson("${testCase.path}.json")
-    val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
-    assertThat(result.publicKey).isEqualTo(chain[0].publicKey)
-    assertThat(result.challenge).isEqualTo(json.attestationChallenge)
-    assertThat(result.securityLevel).isEqualTo(json.attestationSecurityLevel)
-    assertThat(result.verifiedBootState)
-      .isEqualTo(json.hardwareEnforced.rootOfTrust?.verifiedBootState)
-    assertThat(result.deviceLocked)
-      .isEqualTo(json.hardwareEnforced.rootOfTrust?.deviceLocked ?: false)
+  @TestParameters(valuesProvider = TestCaseProvider::class)
+  fun verify_validChain_returnsSuccess(model: String, sdk: Int) {
+    val path = testData.resolve("${model}/sdk${sdk}")
+    val pemFiles = path.listDirectoryEntries("*.pem")
+    for (pemPath in pemFiles) {
+      val subpath = "${model}/sdk${sdk}/${pemPath.nameWithoutExtension}"
+      val json = readJson("${subpath}.json")
+
+      // TODO(google-internal bug): update here once sw root is supported.
+      if (json.attestationSecurityLevel == SecurityLevel.SOFTWARE) {
+        continue
+      }
+
+      val creationDateTime =
+        json.softwareEnforced.creationDateTime ?: json.hardwareEnforced.creationDateTime
+      assertThat(creationDateTime).isNotNull()
+      val timestamp = Instant.ofEpochMilli(creationDateTime!!.toLong())
+
+      val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { timestamp })
+      val chain = readCertList("${subpath}.pem")
+      val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
+      assertThat(result.publicKey).isEqualTo(chain[0].publicKey)
+      assertThat(result.challenge).isEqualTo(json.attestationChallenge)
+      assertThat(result.securityLevel).isEqualTo(json.attestationSecurityLevel)
+      assertThat(result.verifiedBootState)
+        .isEqualTo(json.hardwareEnforced.rootOfTrust?.verifiedBootState)
+      assertThat(result.deviceLocked)
+        .isEqualTo(json.hardwareEnforced.rootOfTrust?.deviceLocked ?: false)
+    }
   }
 
-  enum class TestCase(val path: String, val timestamp: Instant) {
-    PIXEL_3_SDK28(
-      "blueline/sdk28/TEE_EC_NONE",
-      LocalDate.of(2024, 10, 1).atStartOfDay(ZoneOffset.UTC).toInstant(),
-    ),
-    PIXEL_8A_SDK34(
-      "akita/sdk34/TEE_EC_NONE",
-      LocalDate.of(2024, 10, 1).atStartOfDay(ZoneOffset.UTC).toInstant(),
-    ),
-    PIXEL_9PRO_SDK36(
-      "caiman/sdk36/TEE_EC_RKP",
-      LocalDate.of(2025, 9, 30).atStartOfDay(ZoneOffset.UTC).toInstant(),
-    ),
-    PIXEL_9A_SDK36(
-      "tegu/sdk36/TEE_EC_2026_ROOT",
-      LocalDate.of(2026, 2, 23).atStartOfDay(ZoneOffset.UTC).toInstant(),
-    ),
-    PIXEL_9A_SDK36_STRONGBOX(
-      "tegu/sdk36/SB_EC_2026_ROOT",
-      LocalDate.of(2026, 2, 24).atStartOfDay(ZoneOffset.UTC).toInstant(),
-    ),
+  class TestCaseProvider : TestParametersValuesProvider() {
+    override fun provideValues(context: Context): List<TestParametersValues> {
+      val testCases = com.android.keyattestation.verifier.testing.TestUtils.getTestCases()
+      return testCases.map { testCase ->
+        TestParametersValues.builder()
+          .name("${testCase.model}_sdk${testCase.sdk}")
+          .addParameter("model", testCase.model)
+          .addParameter("sdk", testCase.sdk)
+          .build()
+      }
+    }
   }
 
   @Test
