@@ -76,7 +76,7 @@ object CertLists {
       certFactory.generateLeafCert(
         certFactory.leafKey.public,
         certFactory.leafKey.private,
-        leafCert.subject,
+        issuer = leafCert.subject,
       ),
       leafCert,
       Certs.factoryAttestation,
