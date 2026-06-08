@@ -54,6 +54,16 @@ object Certs {
   val factoryIntermediate = certFactory.factoryIntermediate
   val remoteIntermediate = certFactory.remoteIntermediate
   val factoryAttestation = certFactory.factoryAttestation
+  val notSelfIssuedAnchor =
+    TrustAnchor(
+      certFactory.generateIntermediateCertificate(
+        publicKey = certFactory.rootKey.public,
+        signingKey = certFactory.rootKey.private,
+        subject = certFactory.root.subject,
+        issuer = certFactory.factoryIntermediate.subject,
+      ),
+      null,
+    )
 }
 
 /**

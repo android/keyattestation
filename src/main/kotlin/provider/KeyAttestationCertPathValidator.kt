@@ -92,7 +92,7 @@ class KeyAttestationCertPathValidator : CertPathValidatorSpi() {
     sigProvider: String?,
   ): CertPathValidatorResult {
     val certList = certPath.toCertList()
-    val selector = X509CertSelector().apply { issuer = certList.first().issuerX500Principal }
+    val selector = X509CertSelector().apply { subject = certList.first().issuerX500Principal }
 
     var lastException: CertPathValidatorException? = null
     for (anchor in trustAnchors) {

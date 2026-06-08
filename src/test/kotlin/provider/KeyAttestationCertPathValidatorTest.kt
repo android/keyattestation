@@ -18,6 +18,7 @@ package com.android.keyattestation.verifier.provider
 
 import com.android.keyattestation.verifier.KeyAttestationReason
 import com.android.keyattestation.verifier.testing.CertLists
+import com.android.keyattestation.verifier.testing.Certs.notSelfIssuedAnchor
 import com.android.keyattestation.verifier.testing.Certs.rootAnchor as testAnchor
 import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeCalendar
@@ -165,6 +166,19 @@ class KeyAttestationCertPathValidatorTest {
         certPathValidator.validate(Chains.validFactoryProvisioned, params)
       }
     assertThat(exception.reason).isEqualTo(PKIXReason.NO_TRUST_ANCHOR)
+  }
+
+  @Test
+  fun notSelfIssuedTrustAnchor_succeeds() {
+    val params =
+      PKIXParameters(setOf(notSelfIssuedAnchor)).apply { date = FakeCalendar.DEFAULT.today() }
+    val result =
+      certPathValidator.validate(Chains.validFactoryProvisioned, params)
+        as PKIXCertPathValidatorResult
+    assertThat(result.trustAnchor).isEqualTo(notSelfIssuedAnchor)
+    assertThat(result.policyTree).isNull()
+    assertThat(result.publicKey)
+      .isEqualTo(Chains.validFactoryProvisioned.certificates.first().publicKey)
   }
 
   @Test
