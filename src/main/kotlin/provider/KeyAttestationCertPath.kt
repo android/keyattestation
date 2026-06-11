@@ -111,7 +111,7 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
   private fun isFactoryProvisioned(): Boolean {
     val rdn = parseDN(this.intermediateCert().subjectX500Principal.getName(X500Principal.RFC1779))
-    return rdn.containsKey(SERIAL_NUMBER_OID) && rdn[TITLE_OID] in setOf("TEE", "StrongBox")
+    return rdn.containsKey(SERIAL_NUMBER_OID)
   }
 
   // TODO(google-internal bug): Update this to use fields in the RKP root.

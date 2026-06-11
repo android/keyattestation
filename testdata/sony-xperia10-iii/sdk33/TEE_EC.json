@@ -1,0 +1,41 @@
+{
+  "attestationVersion": "3",
+  "attestationSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "keyMintVersion": "41",
+  "keyMintSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "attestationChallenge": "Pq/k1d0AkN5aQrQytCSBr1zimWNlayWExZpJLeFtAMk=",
+  "uniqueId": "",
+  "softwareEnforced": {
+    "creationDateTime": "1780585145000",
+    "attestationApplicationId": {
+      "packages": [{ "name": "com.android.vending", "version": "85162330" }],
+      "signatures": ["8P1sW0EPJcslw7UzRsiXL64w+O50Ed+RBICtay1g24M="]
+    },
+    "areTagsOrdered": true
+  },
+  "hardwareEnforced": {
+    "purposes": ["2"],
+    "algorithms": "3",
+    "keySize": "256",
+    "digests": ["6"],
+    "ecCurve": "1",
+    "noAuthRequired": true,
+    "origin": "GENERATED",
+    "rootOfTrust": {
+      "verifiedBootKey": "gdG7IUVTlNoNf2DCV7dUWYDtUt/XyKiBbM88pwdDb54=",
+      "deviceLocked": true,
+      "verifiedBootState": "VERIFIED",
+      "verifiedBootHash": "UNZsaZbE8OV1KFQV9dBC0iDGeN7N1Bc79PHTAhz55KE="
+    },
+    "osVersion": "130000",
+    "osPatchLevel": "202307",
+    "attestationIdBrand": "docomo",
+    "attestationIdDevice": "SO-52B",
+    "attestationIdProduct": "SO-52B",
+    "attestationIdManufacturer": "Sony",
+    "attestationIdModel": "SO-52B",
+    "vendorPatchLevel": "20230701",
+    "bootPatchLevel": "20230701",
+    "areTagsOrdered": true
+  }
+}

@@ -108,6 +108,10 @@ class KeyAttestationCertPathTest {
   }
 
   enum class ProvisioningMethodTestCase(val path: String, val expected: ProvisioningMethod) {
+    FACTORY_PROVISIONED_OLD_STYLE(
+      "sony-xperia10-iii/sdk33/TEE_EC",
+      ProvisioningMethod.FACTORY_PROVISIONED,
+    ),
     FACTORY_PROVISIONED("blueline/sdk28/TEE_EC_NONE", ProvisioningMethod.FACTORY_PROVISIONED),
     REMOTELY_PROVISIONED("caiman/sdk36/TEE_EC_RKP", ProvisioningMethod.REMOTELY_PROVISIONED),
     UNKNOWN("marlin/sdk29/TEE_EC_NONE", ProvisioningMethod.UNKNOWN),
