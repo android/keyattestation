@@ -84,7 +84,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
 
   internal fun generateRootCertificate(
     keyPair: KeyPair = rootKey,
-    subject: X500Name = X500Name("SERIALNUMBER=badc0de"),
+    subject: X500Name = RKP_ROOT_SUBJECT,
   ) =
     generateCertificate(
       keyPair.public,
@@ -92,8 +92,8 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       subject = subject,
       issuer = subject,
       serialNumber = BigInteger.valueOf(0xca11cafe),
-      notBefore = fakeCalendar.lastWeek(),
-      notAfter = fakeCalendar.nextWeek(),
+      notBefore = fakeCalendar.longAgo(),
+      notAfter = fakeCalendar.farInTheFuture(),
       extensions = listOf(BASIC_CONSTRAINTS_EXT),
     )
 
@@ -258,6 +258,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       )
     val RKP_INTERMEDIATE_SUBJECT = X500Name("O=Google LLC, CN=Droid CA3")
     val REMOTE_INTERMEDIATE_SUBJECT = X500Name("CN=Droid CA2, O=Google LLC")
+    val RKP_ROOT_SUBJECT = X500Name("CN=Test Key Attestation CA1, OU=Android, O=Google LLC, C=US")
   }
 }
 
