@@ -259,11 +259,13 @@ enum class KeyMintTag(val value: Int) {
   ACTIVE_DATE_TIME(400),
   ORIGINATION_EXPIRE_DATE_TIME(401),
   USAGE_EXPIRE_DATE_TIME(402),
+  USAGE_COUNT_LIMIT(405),
   NO_AUTH_REQUIRED(503),
   USER_AUTH_TYPE(504),
   AUTH_TIMEOUT(505),
   ALLOW_WHILE_ON_BODY(506),
   TRUSTED_USER_PRESENCE_REQUIRED(507),
+  TRUSTED_CONFIRMATION_REQUIRED(508),
   UNLOCKED_DEVICE_REQUIRED(509),
   CREATION_DATE_TIME(701),
   ORIGIN(702),
@@ -284,6 +286,14 @@ enum class KeyMintTag(val value: Int) {
   BOOT_PATCH_LEVEL(719),
   ATTESTATION_ID_SECOND_IMEI(723),
   MODULE_HASH(724);
+
+  // The following tags are intentionally unsupported:
+  // 7 (callerNonce): Used in symmetric ciphers only
+  // 8 (minMacLength): Used in symmetric ciphers only
+  // 303 (rollbackResistance): Not usable by 3p apps (framework API is hidden)
+  // 305 (earlyBootOnly): Not usable by 3p apps
+  // 502 (userSecureId): Not usable by 3p apps (framework API is hidden)
+  // 720 (deviceUniqueAttestation): Not widely used.
 
   companion object {
     fun from(value: Int) =
@@ -317,10 +327,12 @@ data class AuthorizationList(
   val activeDateTime: BigInteger? = null,
   val originationExpireDateTime: BigInteger? = null,
   val usageExpireDateTime: BigInteger? = null,
+  val usageCountLimit: BigInteger? = null,
   val noAuthRequired: Boolean? = null,
   val userAuthType: BigInteger? = null,
   val authTimeout: BigInteger? = null,
   val trustedUserPresenceRequired: Boolean? = null,
+  val trustedConfirmationRequired: Boolean? = null,
   val unlockedDeviceRequired: Boolean? = null,
   val creationDateTime: BigInteger? = null,
   val origin: Origin? = null,
@@ -367,6 +379,7 @@ data class AuthorizationList(
         usageExpireDateTime?.toAsn1()?.let {
           add(it.toTaggedObject(KeyMintTag.USAGE_EXPIRE_DATE_TIME))
         }
+        usageCountLimit?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.USAGE_COUNT_LIMIT)) }
         if (noAuthRequired != null) {
           check(noAuthRequired) { "noAuthRequired must be null or true" }
           add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.NO_AUTH_REQUIRED))
@@ -376,6 +389,10 @@ data class AuthorizationList(
         if (trustedUserPresenceRequired != null) {
           check(trustedUserPresenceRequired) { "trustedUserPresenceRequired must be null or true" }
           add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.TRUSTED_USER_PRESENCE_REQUIRED))
+        }
+        if (trustedConfirmationRequired != null) {
+          check(trustedConfirmationRequired) { "trustedConfirmationRequired must be null or true" }
+          add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.TRUSTED_CONFIRMATION_REQUIRED))
         }
         if (unlockedDeviceRequired != null) {
           check(unlockedDeviceRequired) { "unlockedDeviceRequired must be null or true" }
@@ -489,11 +506,14 @@ data class AuthorizationList(
         activeDateTime = converter.parseInt(KeyMintTag.ACTIVE_DATE_TIME),
         originationExpireDateTime = converter.parseInt(KeyMintTag.ORIGINATION_EXPIRE_DATE_TIME),
         usageExpireDateTime = converter.parseInt(KeyMintTag.USAGE_EXPIRE_DATE_TIME),
+        usageCountLimit = converter.parseInt(KeyMintTag.USAGE_COUNT_LIMIT),
         noAuthRequired = if (objects.containsKey(KeyMintTag.NO_AUTH_REQUIRED)) true else null,
         userAuthType = converter.parseInt(KeyMintTag.USER_AUTH_TYPE),
         authTimeout = converter.parseInt(KeyMintTag.AUTH_TIMEOUT),
         trustedUserPresenceRequired =
           if (objects.containsKey(KeyMintTag.TRUSTED_USER_PRESENCE_REQUIRED)) true else null,
+        trustedConfirmationRequired =
+          if (objects.containsKey(KeyMintTag.TRUSTED_CONFIRMATION_REQUIRED)) true else null,
         unlockedDeviceRequired =
           if (objects.containsKey(KeyMintTag.UNLOCKED_DEVICE_REQUIRED)) true else null,
         creationDateTime = converter.parseInt(KeyMintTag.CREATION_DATE_TIME),

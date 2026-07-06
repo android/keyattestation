@@ -1,0 +1,45 @@
+{
+  "attestationVersion": "500",
+  "attestationSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "keyMintVersion": "500",
+  "keyMintSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "attestationChallenge": "YjE2MzFkYWItMmU2Yy00NjVmLThhN2YtMjRhNjE1MmE1MThh",
+  "uniqueId": "",
+  "softwareEnforced": {
+    "creationDateTime": "1782942965900",
+    "attestationApplicationId": {
+      "packages": [
+        { "name": "com.google.android.attestation", "version": "1" }
+      ],
+      "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
+    },
+    "moduleHash": "al4AdvgYUvh6qnkfO7Wmn25Qtfs9I+pp4bbUBMm7N+4=",
+    "areTagsOrdered": true
+  },
+  "hardwareEnforced": {
+    "purposes": ["2", "3"],
+    "algorithms": "3",
+    "keySize": "256",
+    "digests": ["4"],
+    "ecCurve": "1",
+    "noAuthRequired": true,
+    "trustedConfirmationRequired": true,
+    "origin": "GENERATED",
+    "rootOfTrust": {
+      "verifiedBootKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "deviceLocked": false,
+      "verifiedBootState": "UNVERIFIED",
+      "verifiedBootHash": "UXikZWsan/XtVtixCSRIFR1OcFjTW3kzCaiHo2z23zY="
+    },
+    "osVersion": "170000",
+    "osPatchLevel": "202608",
+    "attestationIdBrand": "google",
+    "attestationIdDevice": "tegu",
+    "attestationIdProduct": "tegu",
+    "attestationIdManufacturer": "Google",
+    "attestationIdModel": "Pixel 9a",
+    "vendorPatchLevel": "20260805",
+    "bootPatchLevel": "20260805",
+    "areTagsOrdered": true
+  }
+}

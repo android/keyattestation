@@ -213,11 +213,15 @@ object CertPrinter {
       appendIndentedLine("originationExpireDateTime: $originationExpireDateTime")
     }
     if (usageExpireDateTime != null) appendIndentedLine("usageExpireDateTime: $usageExpireDateTime")
+    if (usageCountLimit != null) appendIndentedLine("usageCountLimit: $usageCountLimit")
     if (noAuthRequired != null) appendIndentedLine("noAuthRequired: $noAuthRequired")
     if (userAuthType != null) appendIndentedLine("userAuthType: $userAuthType")
     if (authTimeout != null) appendIndentedLine("authTimeout: $authTimeout")
     if (trustedUserPresenceRequired != null) {
       appendIndentedLine("trustedUserPresenceRequired: $trustedUserPresenceRequired")
+    }
+    if (trustedConfirmationRequired != null) {
+      appendIndentedLine("trustedConfirmationRequired: $trustedConfirmationRequired")
     }
     if (unlockedDeviceRequired != null) {
       appendIndentedLine("unlockedDeviceRequired: $unlockedDeviceRequired")

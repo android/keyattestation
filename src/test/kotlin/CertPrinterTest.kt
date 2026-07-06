@@ -16,18 +16,24 @@
 
 package com.android.keyattestation.verifier
 
+import kotlin.io.path.Path
+import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
+import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
+
 import com.google.protobuf.ByteString
 import java.io.ByteArrayInputStream
 import java.math.BigInteger
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
+import kotlin.io.path.reader
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 
 @RunWith(JUnit4::class)
 class CertPrinterTest {
+  private val testData = Path("testdata")
 
   @Test
   fun prettyPrint_certWithKeyDescription_containsExpectedFields() {
@@ -171,5 +177,22 @@ class CertPrinterTest {
       |"""
         .trimMargin()
     assertThat(infoString).isEqualTo(expectedString)
+  }
+
+  @Test
+  fun prettyPrint_certWithTrustedConfirmationRequired_containsExpectedFields() {
+    val cert = readCertPath(testData.resolve("tegu/sdk37/TEE_TRUSTED_CONF.pem").reader()).leafCert()
+    val certString = CertPrinter.prettyString(cert)
+
+    assertThat(certString).contains("trustedConfirmationRequired: true")
+  }
+
+  @Test
+  fun prettyPrint_certWithUsageCountLimit_containsExpectedFields() {
+    val cert =
+      readCertPath(testData.resolve("tegu/sdk37/TEE_MAX_USAGE_COUNT.pem").reader()).leafCert()
+    val certString = CertPrinter.prettyString(cert)
+
+    assertThat(certString).contains("usageCountLimit: 42")
   }
 }
