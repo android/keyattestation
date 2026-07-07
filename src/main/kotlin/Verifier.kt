@@ -304,6 +304,11 @@ constructor(
 
     val securityLevel =
       minOf(keyDescription.attestationSecurityLevel, keyDescription.keyMintSecurityLevel)
+    if (securityLevel != certPath.securityLevel()) {
+      log?.logInfoMessage(
+        "Security level mismatch: attestation security level is ${keyDescription.attestationSecurityLevel} and chain security level is ${certPath.securityLevel()}"
+      )
+    }
     val rootOfTrust = keyDescription.hardwareEnforced.rootOfTrust
     val verifiedBootState = rootOfTrust?.verifiedBootState ?: VerifiedBootState.UNVERIFIED
     val deviceLocked = rootOfTrust?.deviceLocked ?: false
