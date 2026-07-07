@@ -261,6 +261,15 @@ class KeyAttestationCertPathValidatorTest {
   }
 
   @Test
+  fun p256Sha384Intermediate_succeeds() {
+    val certPath = readCertPath("p256_sha384_intermediate.pem")
+    val root = certPath.certificatesWithAnchor.last()
+    val params =
+      PKIXParameters(setOf(TrustAnchor(root, null))).apply { date = FakeCalendar.DEFAULT.today() }
+    certPathValidator.validate(certPath, params)
+  }
+
+  @Test
   fun forgedKeybox_throwsCertPathValidatorException() {
     val certPath = Chains.forgedKeybox
     assertFailsWith<CertPathValidatorException> { certPathValidator.validate(certPath, testParams) }
