@@ -20,16 +20,24 @@ import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import java.math.BigInteger
+import java.security.KeyPair
 import java.security.PublicKey
+import java.security.cert.X509Certificate
 
 /**
  * Factory for creating valid [KeyAttestationCertPath] chains for testing.
  *
  * @param fakeCalendar the fake calendar for the certificate chains validity period.
  */
-class KeyAttestationCertPathFactory(val fakeCalendar: FakeCalendar = FakeCalendar()) {
+class KeyAttestationCertPathFactory
+@JvmOverloads
+constructor(
+  val fakeCalendar: FakeCalendar = FakeCalendar(),
+  val hardcodedRootKey: KeyPair? = null,
+  val hardcodedRoot: X509Certificate? = null,
+) {
   private val certFactory: KeyAttestationCertFactory =
-    KeyAttestationCertFactory(fakeCalendar = fakeCalendar)
+    KeyAttestationCertFactory(fakeCalendar, hardcodedRootKey, hardcodedRoot)
 
   /* The root certificate of all generated certificate chains. */
   val root = certFactory.root
