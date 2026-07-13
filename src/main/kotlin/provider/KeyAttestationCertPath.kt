@@ -19,9 +19,14 @@ package com.android.keyattestation.verifier.provider
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.asX509Certificate
 import com.google.protobuf.ByteString
+import java.security.PublicKey
 import java.security.cert.CertPath
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
+import java.security.interfaces.DSAPublicKey
+import java.security.interfaces.ECPublicKey
+import java.security.interfaces.RSAPublicKey
+import javax.crypto.interfaces.DHPublicKey
 import javax.security.auth.x500.X500Principal
 
 /**
@@ -71,6 +76,18 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
    * @return the serial numbers of the certificates in the certificate chain.
    */
   fun serialNumbers() = certificatesWithAnchor.map { it.serialNumber.toString(16) }
+
+  /**
+   * Returns the signing algorithms of the certificates in the certificate chain.
+   *
+   * The format is "algNameKeySizeN".
+   *
+   * @return the signing algorithms of the certificates in the certificate chain.
+   */
+  fun signingAlgorithms() =
+    certificatesWithAnchor
+      .zipWithNext { cert, issuer -> "${cert.sigAlgName}KeySize${issuer.publicKey.keySize()}" }
+      .toSet()
 
   fun provisioningMethod() =
     when {
@@ -151,6 +168,15 @@ private fun parseDN(dn: String): Map<String, String> {
   }
   return attributes
 }
+
+private fun PublicKey.keySize() =
+  when (this) {
+    is RSAPublicKey -> this.modulus.bitLength().toString()
+    is ECPublicKey -> this.params.curve.field.fieldSize.toString()
+    is DSAPublicKey -> this.y.bitLength().toString()
+    is DHPublicKey -> this.y.bitLength().toString()
+    else -> "unknown"
+  }
 
 private fun String?.toSecurityLevel() =
   when (this) {

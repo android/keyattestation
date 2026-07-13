@@ -102,6 +102,16 @@ class KeyAttestationCertPathTest {
   }
 
   @Test
+  fun signingAlgorithms_returnsExpectedSigningAlgorithms() {
+    assertThat(readCertPath("blueline/sdk28/TEE_EC_NONE.pem").signingAlgorithms())
+      .containsExactly(
+        "SHA256withECDSAKeySize256",
+        "SHA256withECDSAKeySize384",
+        "SHA256withRSAKeySize4096",
+      )
+  }
+
+  @Test
   fun provisioningMethod_returnsExpectedType(@TestParameter testCase: ProvisioningMethodTestCase) {
     val certPath = readCertPath("${testCase.path}.pem")
     assertThat(certPath.provisioningMethod()).isEqualTo(testCase.expected)

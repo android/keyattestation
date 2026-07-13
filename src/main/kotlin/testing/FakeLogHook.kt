@@ -51,6 +51,7 @@ class FakeVerifyRequestLog : VerifyRequestLog {
   var provisioningInfoMap: ProvisioningInfoMap? = null
   var certSerialNumbers = mutableListOf<String>()
   var infoMessages = mutableListOf<String>()
+  var certSigningAlgorithms = mutableSetOf<String>()
 
   override fun logInputChain(inputChain: List<ByteString>) {
     this.inputChain.addAll(inputChain)
@@ -70,6 +71,10 @@ class FakeVerifyRequestLog : VerifyRequestLog {
 
   override fun logCertSerialNumbers(certSerialNumbers: List<String>) {
     this.certSerialNumbers.addAll(certSerialNumbers)
+  }
+
+  override fun logCertSigningAlgorithms(certSigningAlgorithms: Set<String>) {
+    this.certSigningAlgorithms.addAll(certSigningAlgorithms)
   }
 
   override fun logInfoMessage(infoMessage: String) {

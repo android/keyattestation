@@ -83,14 +83,14 @@ interface VerifyRequestLog {
    *
    * @param inputChain The certificate chain which is being verified.
    */
-  fun logInputChain(inputChain: List<ByteString>)
+  fun logInputChain(inputChain: List<ByteString>) {}
 
   /**
    * Logs the result of the verification. Called for each call to [verify].
    *
    * @param result The result of the verification.
    */
-  fun logResult(result: VerificationResult)
+  fun logResult(result: VerificationResult) {}
 
   /**
    * Logs the key description of the leaf certificate. Called if [verify] reaches the point where
@@ -98,7 +98,7 @@ interface VerifyRequestLog {
    *
    * @param keyDescription The key description of the leaf certificate.
    */
-  fun logKeyDescription(keyDescription: KeyDescription)
+  fun logKeyDescription(keyDescription: KeyDescription) {}
 
   /**
    * Logs the provisioning info map extension of the attestation certificate. Called if [verify]
@@ -107,7 +107,7 @@ interface VerifyRequestLog {
    *
    * @param provisioningInfoMap The provisioning info map extension of the leaf certificate.
    */
-  fun logProvisioningInfoMap(provisioningInfoMap: ProvisioningInfoMap)
+  fun logProvisioningInfoMap(provisioningInfoMap: ProvisioningInfoMap) {}
 
   /**
    * Logs the serial numbers of the intermediate certificates in the certificate chain. Called if
@@ -116,17 +116,25 @@ interface VerifyRequestLog {
    * @param certSerialNumbers The serial numbers of the intermediate certificates in the certificate
    *   chain.
    */
-  fun logCertSerialNumbers(certSerialNumbers: List<String>)
+  fun logCertSerialNumbers(certSerialNumbers: List<String>) {}
+
+  /**
+   * Logs the certificate signing algorithms of the intermediate certificates in the certificate
+   * chain. Called if [verify] reaches the point where the certificate chain is validated.
+   *
+   * @param certSigningAlgorithms The certificate signing algorithms in the chain.
+   */
+  fun logCertSigningAlgorithms(certSigningAlgorithms: Set<String>) {}
 
   /**
    * Logs an info level message. May be called throughout the verification process.
    *
    * @param infoMessage The info level message to log.
    */
-  fun logInfoMessage(infoMessage: String)
+  fun logInfoMessage(infoMessage: String) {}
 
   /* Flushes any buffered logs. Called just before [verify] returns. */
-  fun flush()
+  fun flush() {}
 }
 
 /**
@@ -266,6 +274,8 @@ constructor(
         }
         return VerificationResult.PathValidationFailure(e)
       }
+
+    log?.logCertSigningAlgorithms(certPath.signingAlgorithms())
 
     val keyDescription =
       try {
