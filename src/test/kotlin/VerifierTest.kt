@@ -217,6 +217,47 @@ class VerifierTest {
   }
 
   @Test
+  fun teeIntermediateWithStrongBoxKeyMintAttributes_throwsConstraintViolation() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig { additionalConstraint { SecurityLevelConstraint.MATCHES_CERTIFICATE } },
+      )
+    val result =
+      assertIs<ConstraintViolation>(
+        verifier.verify(CertLists.teeIntermediateWithStrongBoxKeyMintAttributes)
+      )
+    assertThat(result.constraintLabel).isEqualTo("Security level")
+    assertThat(result.cause)
+      .contains(
+        "Security level of KeyMint (STRONG_BOX) does not match attestation certificate " + "(null)"
+      )
+  }
+
+  @Test
+  fun strongBoxIntermediateWithTeeKeyMintAttributes_throwsConstraintViolation() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig { additionalConstraint { SecurityLevelConstraint.MATCHES_CERTIFICATE } },
+      )
+    val result =
+      assertIs<ConstraintViolation>(
+        verifier.verify(CertLists.strongBoxIntermediateWithTeeKeyMintAttributes)
+      )
+    assertThat(result.constraintLabel).isEqualTo("Security level")
+    assertThat(result.cause)
+      .contains(
+        "Security level of KeyMint (TRUSTED_ENVIRONMENT) does not match attestation certificate " +
+          "(STRONG_BOX)"
+      )
+  }
+
+  @Test
   fun mismatchedSecurityLevels_customConfig_succeeds() {
     val verifier =
       Verifier(

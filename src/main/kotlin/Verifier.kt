@@ -303,7 +303,7 @@ constructor(
     }
 
     for (constraint in constraintConfig.getConstraints()) {
-      val result = constraint.check(keyDescription)
+      val result = constraint.check(keyDescription, certPath)
       when (result) {
         is Constraint.Satisfied -> {}
         is Constraint.Violated -> {
@@ -314,6 +314,7 @@ constructor(
 
     val securityLevel =
       minOf(keyDescription.attestationSecurityLevel, keyDescription.keyMintSecurityLevel)
+
     val rootOfTrust = keyDescription.hardwareEnforced.rootOfTrust
     val verifiedBootState = rootOfTrust?.verifiedBootState ?: VerifiedBootState.UNVERIFIED
     val deviceLocked = rootOfTrust?.deviceLocked ?: false

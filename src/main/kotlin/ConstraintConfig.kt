@@ -17,6 +17,7 @@
 package com.android.keyattestation.verifier
 
 import androidx.annotation.RequiresApi
+import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.google.common.collect.ImmutableList
 import com.google.errorprone.annotations.Immutable
 import com.google.errorprone.annotations.ThreadSafe
@@ -36,7 +37,7 @@ sealed interface Constraint {
   val label: String
 
   /** Verifies that [description] satisfies this [Constraint]. */
-  fun check(description: KeyDescription): Result
+  fun check(description: KeyDescription, certPath: KeyAttestationCertPath): Result
 }
 
 /**
@@ -113,7 +114,8 @@ fun constraintConfig(init: ConstraintConfigBuilder.() -> Unit): ConstraintConfig
 data object IgnoredConstraint : Constraint {
   override val label = "Ignored"
 
-  override fun check(description: KeyDescription) = Constraint.Satisfied
+  override fun check(description: KeyDescription, certPath: KeyAttestationCertPath) =
+    Constraint.Satisfied
 }
 
 /** Constraint that checks a single attribute of the [KeyDescription]. */
@@ -121,7 +123,7 @@ data object IgnoredConstraint : Constraint {
 sealed class AttributeConstraint<out T>(override val label: String, val mapper: AttributeMapper?) :
   Constraint {
   /** Evaluates whether the [description] is satisfied by this [AttributeConstraint]. */
-  override fun check(description: KeyDescription) =
+  override fun check(description: KeyDescription, certPath: KeyAttestationCertPath) =
     if (isSatisfied(mapper?.invoke(description))) {
       Constraint.Satisfied
     } else {
@@ -157,21 +159,26 @@ sealed class AttributeConstraint<out T>(override val label: String, val mapper: 
  */
 @Immutable
 @RequiresApi(24)
-sealed class SecurityLevelConstraint(val isSatisfied: (KeyDescription) -> Boolean) : Constraint {
+sealed class SecurityLevelConstraint(
+  val isSatisfied: (KeyDescription, KeyAttestationCertPath) -> Boolean
+) : Constraint {
   companion object {
     const val LABEL = "Security level"
   }
 
   override val label = LABEL
 
-  override fun check(description: KeyDescription) =
-    if (isSatisfied(description)) {
+  override fun check(description: KeyDescription, certPath: KeyAttestationCertPath) =
+    if (isSatisfied(description, certPath)) {
       Constraint.Satisfied
     } else {
-      Constraint.Violated(getFailureMessage(description))
+      Constraint.Violated(getFailureMessage(description, certPath))
     }
 
-  fun getFailureMessage(description: KeyDescription): String =
+  open fun getFailureMessage(
+    description: KeyDescription,
+    certPath: KeyAttestationCertPath,
+  ): String =
     "Security level violates constraint: " +
       "keyMintSecurityLevel=${description.keyMintSecurityLevel}, " +
       "attestationSecurityLevel=${description.attestationSecurityLevel}, " +
@@ -185,8 +192,8 @@ sealed class SecurityLevelConstraint(val isSatisfied: (KeyDescription) -> Boolea
    */
   @Immutable
   data class STRICT(val expectedVal: SecurityLevel) :
-    SecurityLevelConstraint({
-      it.keyMintSecurityLevel == expectedVal && it.attestationSecurityLevel == expectedVal
+    SecurityLevelConstraint({ desc, _ ->
+      desc.keyMintSecurityLevel == expectedVal && desc.attestationSecurityLevel == expectedVal
     })
 
   /**
@@ -195,9 +202,9 @@ sealed class SecurityLevelConstraint(val isSatisfied: (KeyDescription) -> Boolea
    */
   @Immutable
   data object NOT_SOFTWARE :
-    SecurityLevelConstraint({
-      it.keyMintSecurityLevel == it.attestationSecurityLevel &&
-        it.attestationSecurityLevel != SecurityLevel.SOFTWARE
+    SecurityLevelConstraint({ desc, _ ->
+      desc.keyMintSecurityLevel == desc.attestationSecurityLevel &&
+        desc.attestationSecurityLevel != SecurityLevel.SOFTWARE
     })
 
   /**
@@ -206,7 +213,39 @@ sealed class SecurityLevelConstraint(val isSatisfied: (KeyDescription) -> Boolea
    */
   @Immutable
   data object CONSISTENT :
-    SecurityLevelConstraint({ it.attestationSecurityLevel == it.keyMintSecurityLevel })
+    SecurityLevelConstraint({ desc, _ ->
+      desc.attestationSecurityLevel == desc.keyMintSecurityLevel
+    })
+
+  /**
+   * Checks that the keyMintSecurityLevel matches the security level claimed by the certificate.
+   * this constraint may be used in conjunction with other security level constraints. e.g. it may
+   * be combined with [STRICT] to verify that the keyMintSecurityLevel is precisely
+   * [SecurityLevel.STRONG_BOX] and that the security level matches the value claimed by the
+   * Google-signed certificate.
+   */
+  @Immutable
+  data object MATCHES_CERTIFICATE :
+    SecurityLevelConstraint({ desc, certPath ->
+      when (desc.keyMintSecurityLevel) {
+        SecurityLevel.SOFTWARE ->
+          certPath.securityLevel() == null || certPath.securityLevel() == SecurityLevel.SOFTWARE
+        // Older cert chains do not make a TEE security level claim, so allow null. StrongBox certs
+        // always explicitly claim the StrongBox security level, so there's no risk of a TEE cert
+        // chain claiming to be StrongBox.
+        SecurityLevel.TRUSTED_ENVIRONMENT ->
+          certPath.securityLevel() == null ||
+            certPath.securityLevel() == SecurityLevel.TRUSTED_ENVIRONMENT
+        SecurityLevel.STRONG_BOX -> certPath.securityLevel() == SecurityLevel.STRONG_BOX
+      }
+    }) {
+    override fun getFailureMessage(
+      description: KeyDescription,
+      certPath: KeyAttestationCertPath,
+    ): String =
+      "Security level of KeyMint (${description.keyMintSecurityLevel}) does not match " +
+        "attestation certificate (${certPath.securityLevel()})"
+  }
 }
 
 /**
@@ -224,7 +263,7 @@ sealed class TagOrderConstraint : Constraint {
    */
   @Immutable
   data object STRICT : TagOrderConstraint() {
-    override fun check(description: KeyDescription) =
+    override fun check(description: KeyDescription, certPath: KeyAttestationCertPath) =
       if (
         description.softwareEnforced.areTagsOrdered && description.hardwareEnforced.areTagsOrdered
       ) {

@@ -116,6 +116,26 @@ object CertLists {
     )
   }
 
+  /* A chain with TEE in the last intermediate certificate but keymint attributes claiming StrongBox. */
+  val teeIntermediateWithStrongBoxKeyMintAttributes by lazy {
+    listOf(
+      certFactory.generateLeafCert(extension = certFactory.STRONG_BOX_KEY_DESCRIPTION_EXT),
+      Certs.factoryAttestation,
+      Certs.factoryIntermediate,
+      Certs.root,
+    )
+  }
+
+  /* A chain with StrongBox in the last intermediate certificate but keymint attributes claiming TEE. */
+  val strongBoxIntermediateWithTeeKeyMintAttributes by lazy {
+    listOf(
+      certFactory.generateLeafCert(),
+      certFactory.generateAttestationCert(issuer = certFactory.strongBoxIntermediate.subject),
+      certFactory.strongBoxIntermediate,
+      Certs.root,
+    )
+  }
+
   /* A valid remotely provisioned chain for TEE keys. */
   val validRemotelyProvisioned by lazy {
     val rkpAttestationCert =

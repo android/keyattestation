@@ -26,6 +26,7 @@ import java.security.cert.X509Certificate
 import java.security.interfaces.DSAPublicKey
 import java.security.interfaces.ECPublicKey
 import java.security.interfaces.RSAPublicKey
+import java.util.Locale
 import javax.crypto.interfaces.DHPublicKey
 import javax.security.auth.x500.X500Principal
 
@@ -103,14 +104,27 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
    */
   fun securityLevel() =
     when (provisioningMethod()) {
-      ProvisioningMethod.FACTORY_PROVISIONED ->
-        parseDN(intermediateCert().subjectX500Principal.getName(X500Principal.RFC1779))[TITLE_OID]
-          .toSecurityLevel()
+      ProvisioningMethod.UNKNOWN -> null
       ProvisioningMethod.REMOTELY_PROVISIONED ->
         parseDN(attestationCert().subjectX500Principal.getName(X500Principal.RFC1779))["O"]
           .toSecurityLevel()
-      else -> SecurityLevel.SOFTWARE
+      ProvisioningMethod.FACTORY_PROVISIONED -> securityLevelFromFactoryChain()
     }
+
+  private fun securityLevelFromFactoryChain(): SecurityLevel? {
+    check(isFactoryProvisioned()) { "securityLevelFromFactoryChain() called on non-factory chain" }
+
+    // Only StrongBox factory chains are guaranteed to encode the security level. The logic here is
+    // based on the Compatibility Test Suite (CTS) verification logic for StrongBox certs:
+    // https://cs.android.com/android/platform/superproject/+/android-latest-release:cts/tests/tests/keystore/src/android/keystore/cts/KeyAttestationTest.java;drc=0ef830e0aa7c51200c1e4c7a24169fede350f1ba;l=2430
+    for (cert in arrayOf(attestationCert(), intermediateCert())) {
+      val name = cert.subjectX500Principal.getName(X500Principal.RFC1779)
+      if (name.lowercase(Locale.ROOT).contains("strongbox")) {
+        return SecurityLevel.STRONG_BOX
+      }
+    }
+    return null
+  }
 
   /**
    * Returns the leaf certificate from the certificate chain.
