@@ -6,11 +6,11 @@ A Kotlin library for verifying Android key attestation certificate chains.
 
 ```kotlin
 // Create a verifier with default, Google-rooted trust anchors, revocation
-// info, and time source
+// info, and time source.
 val verifier = Verifier(
-  GoogleTrustAnchors,                   // Trust anchors source
-  { setOf<String>() },                  // Revoked serials source
-  { Instant.now() }                     // Time source
+  GoogleTrustAnchors,                  // Trust anchors source
+  ::getGoogleRevocationStatusFromWeb,  // Revoked serials source
+  { Instant.now() }                    // Time source
 )
 
 // Verify an attestation certificate chain
@@ -100,7 +100,15 @@ Android Key Attestation root certificates are documented
 
 ## Getting Revoked Serials
 
-The revoked serials may be retrieved from https://android.googleapis.com/attestation/status.
+It's important to check the revoked serials list to prevent allowing accepting
+fraudulent attestations from known leaked keys. The revoked serials may be
+retrieved from https://android.googleapis.com/attestation/status. This list is
+updated relatively frequently so it's important to use a fresh copy of the
+revocation list.
+
+The above example will make a network call and parse the revoked serials list
+every time `verify` is called. For regularly updated binaries, it may make sense
+to build the revoked serial list into the binary.
 
 See [here](https://developer.android.com/privacy-and-security/security-key-attestation#certificate_status)
 for more information about the format of the data.
