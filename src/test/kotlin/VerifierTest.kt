@@ -17,7 +17,6 @@
 package com.android.keyattestation.verifier
 
 import kotlin.io.path.Path
-import com.android.keyattestation.verifier.SoftwareRoot.SOFTWARE_ROOTS
 import com.android.keyattestation.verifier.VerificationResult.ConstraintViolation
 import com.android.keyattestation.verifier.VerificationResult.ExtensionParsingFailure
 import com.android.keyattestation.verifier.VerificationResult.PathValidationFailure
@@ -88,31 +87,25 @@ class VerifierTest {
     for (pemPath in pemFiles) {
       val subpath = "${model}/sdk${sdk}/${pemPath.nameWithoutExtension}"
       val json = readJson("${subpath}.json")
+
+      // TODO(google-internal bug): update here once sw root is supported.
+      if (json.attestationSecurityLevel == SecurityLevel.SOFTWARE) {
+        continue
+      }
+
       val creationDateTime =
         json.softwareEnforced.creationDateTime ?: json.hardwareEnforced.creationDateTime
       assertThat(creationDateTime).isNotNull()
       val timestamp = Instant.ofEpochMilli(creationDateTime!!.toLong())
 
-      val verifier =
-        Verifier(
-          { prodAnchors + SOFTWARE_ROOTS.map { TrustAnchor(it, null) } },
-          { setOf<String>() },
-          { timestamp },
-          ConstraintConfig(
-            allowSoftwareRoot = true,
-            securityLevel = IgnoredConstraint,
-            rootOfTrust = IgnoredConstraint,
-          ),
-        )
+      val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { timestamp })
       val chain = readCertList("${subpath}.pem")
       val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
       assertThat(result.publicKey).isEqualTo(chain[0].publicKey)
       assertThat(result.challenge).isEqualTo(json.attestationChallenge)
       assertThat(result.securityLevel).isEqualTo(json.attestationSecurityLevel)
       assertThat(result.verifiedBootState)
-        .isEqualTo(
-          json.hardwareEnforced.rootOfTrust?.verifiedBootState ?: VerifiedBootState.UNVERIFIED
-        )
+        .isEqualTo(json.hardwareEnforced.rootOfTrust?.verifiedBootState)
       assertThat(result.deviceLocked)
         .isEqualTo(json.hardwareEnforced.rootOfTrust?.deviceLocked ?: false)
     }
@@ -376,11 +369,7 @@ class VerifierTest {
   @Test
   fun init_softwareRootAsTrustAnchor_fails() {
     assertFailsWith<IllegalArgumentException> {
-      Verifier(
-        { setOf(TrustAnchor(SOFTWARE_ROOTS.first(), null)) },
-        { setOf<String>() },
-        { Instant.now() },
-      )
+      Verifier({ setOf(TrustAnchor(SOFTWARE_ROOT, null)) }, { setOf<String>() }, { Instant.now() })
     }
   }
 }

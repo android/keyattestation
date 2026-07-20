@@ -17,7 +17,6 @@
 package com.android.keyattestation.verifier
 
 import androidx.annotation.RequiresApi
-import com.android.keyattestation.verifier.SoftwareRoot.isSoftwareRoot
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.android.keyattestation.verifier.provider.KeyAttestationProvider
 import com.android.keyattestation.verifier.provider.ProvisioningMethod
@@ -156,13 +155,11 @@ constructor(
 ) {
   init {
     Security.addProvider(KeyAttestationProvider())
-    if (!constraintConfig.allowSoftwareRoot) {
-      for (anchor in trustAnchorsSource()) {
-        if (anchor.trustedCert?.isSoftwareRoot() == true) {
-          throw IllegalArgumentException(
-            "Software attestation root cannot be used as a trust anchor."
-          )
-        }
+    for (anchor in trustAnchorsSource()) {
+      if (anchor.trustedCert?.isSoftwareRoot() == true) {
+        throw IllegalArgumentException(
+          "Software attestation root cannot be used as a trust anchor."
+        )
       }
     }
   }
