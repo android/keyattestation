@@ -46,6 +46,7 @@ sealed interface Constraint {
  */
 @ThreadSafe
 class ConstraintConfig(
+  val allowSoftwareRoot: Boolean = false,
   val keyOrigin: Constraint? = null,
   val securityLevel: Constraint? = null,
   val rootOfTrust: Constraint? = null,
@@ -65,6 +66,10 @@ class ConstraintConfig(
       )
       .addAll(additionalConstraints)
       .build()
+
+  companion object {
+    fun testDefault(): ConstraintConfig = ConstraintConfig(allowSoftwareRoot = true)
+  }
 }
 
 /**
@@ -72,6 +77,7 @@ class ConstraintConfig(
  * Kotlin-idiomatic builder function is provided below.
  */
 class ConstraintConfigBuilder() {
+  var allowSoftwareRoot: Boolean = false
   var keyOrigin: Constraint? = null
   var securityLevel: Constraint? = null
   var rootOfTrust: Constraint? = null
@@ -95,6 +101,7 @@ class ConstraintConfigBuilder() {
 
   fun build(): ConstraintConfig =
     ConstraintConfig(
+      allowSoftwareRoot,
       keyOrigin,
       securityLevel,
       rootOfTrust,
