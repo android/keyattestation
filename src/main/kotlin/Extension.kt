@@ -38,6 +38,7 @@ import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.security.cert.X509Certificate
+import java.time.Instant
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -913,15 +914,33 @@ fun cborEncode(dataItem: DataItem): ByteArray {
   return baos.toByteArray()
 }
 
-fun DataItem.asInteger(): Int {
-  if (this.majorType == MajorType.UNSIGNED_INTEGER) {
-    return (this as UnsignedInteger).value.toInt()
+private fun BigInteger.toIntExact(): Int {
+  if (bitLength() < Integer.SIZE) {
+    return toInt()
   }
-  if (this.majorType == MajorType.NEGATIVE_INTEGER) {
-    return (this as NegativeInteger).value.toInt()
-  }
-  throw CborException("Expected a number, got ${this.majorType}")
+  throw CborException("BigInteger out of int range")
 }
+
+private fun BigInteger.toLongExact(): Long {
+  if (bitLength() < java.lang.Long.SIZE) {
+    return toLong()
+  }
+  throw CborException("BigInteger out of long range")
+}
+
+fun DataItem.asInteger(): Int =
+  when (this) {
+    is UnsignedInteger -> value.toIntExact()
+    is NegativeInteger -> value.toIntExact()
+    else -> throw CborException("Expected a number, got $majorType")
+  }
+
+fun DataItem.asLong(): Long =
+  when (this) {
+    is UnsignedInteger -> value.toLongExact()
+    is NegativeInteger -> value.toLongExact()
+    else -> throw CborException("Expected a number, got $majorType")
+  }
 
 fun Int.asDataItem() =
   when {
