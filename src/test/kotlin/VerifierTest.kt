@@ -43,6 +43,7 @@ import com.google.testing.junit.testparameterinjector.TestParameters
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider.Context
+import java.math.BigInteger
 import java.security.cert.PKIXReason
 import java.security.cert.TrustAnchor
 import java.time.Instant
@@ -105,7 +106,16 @@ class VerifierTest {
           ),
         )
       val chain = readCertList("${subpath}.pem")
-      val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
+      val result =
+        assertIs<VerificationResult.Success>(
+          verifier.verify(
+            chain,
+            attestationApplicationIdChecker =
+              AttestationApplicationIdChecker.STRICT(
+                json.softwareEnforced.attestationApplicationId!!
+              ),
+          )
+        )
       assertThat(result.publicKey).isEqualTo(chain[0].publicKey)
       assertThat(result.challenge).isEqualTo(json.attestationChallenge)
       assertThat(result.securityLevel).isEqualTo(json.attestationSecurityLevel)
@@ -171,6 +181,25 @@ class VerifierTest {
     assertIs<VerificationResult.ChallengeMismatch>(
       verifier.verifyAsync(this, chain, falseChecker).await()
     )
+  }
+
+  @Test
+  fun verify_attestationApplicationIdCheckerReturnsFalse_returnsAttestationApplicationIdMismatch() {
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
+    val checker =
+      AttestationApplicationIdChecker.STRICT(
+        AttestationApplicationId(
+          packages = setOf(AttestationPackageInfo("com.wrong.package", BigInteger.ONE)),
+          signatures = emptySet(),
+        )
+      )
+
+    val result =
+      assertIs<VerificationResult.AttestationApplicationIdMismatch>(
+        verifier.verify(chain, attestationApplicationIdChecker = checker)
+      )
+
+    assertThat(result.config).isEqualTo("STRICT")
   }
 
   @Test
@@ -332,7 +361,7 @@ class VerifierTest {
           this,
           CertLists.wrongTrustAnchor,
           ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
-          logHook,
+          log = logHook,
         )
         .await()
     )

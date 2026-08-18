@@ -609,6 +609,26 @@ data class AttestationApplicationId(
       }
       .let { DERSequence(it.toTypedArray()) }
 
+  /**
+   * Checks if the AttestationApplicationId is satisfied by the [candidate]
+   * AttestationApplicationId.
+   *
+   * @param candidate The actual AttestationApplicationId.
+   * @return True if the candidate satisfies the AttestationApplicationId, false otherwise.
+   */
+  fun isSatisfiedBy(candidate: AttestationApplicationId?): Boolean {
+    if (candidate == null) return false
+
+    if (packages.isNotEmpty()) {
+      if (packages.none { it.isSatisfiedBy(candidate.packages) }) return false
+    }
+
+    if (signatures.isNotEmpty()) {
+      if (signatures.none { it in candidate.signatures }) return false
+    }
+    return true
+  }
+
   internal companion object {
     fun from(seq: ASN1Sequence): AttestationApplicationId {
       require(seq.size() == 2)
@@ -637,6 +657,10 @@ data class AttestationPackageInfo(val name: String, val version: BigInteger) {
         add(version.toAsn1())
       }
       .let { DERSequence(it.toTypedArray()) }
+
+  internal fun isSatisfiedBy(candidate: Set<AttestationPackageInfo>) = candidate.any {
+    it.name == name && it.version >= version
+  }
 
   internal companion object {
     fun from(attestationPackageInfo: ASN1Sequence): AttestationPackageInfo {

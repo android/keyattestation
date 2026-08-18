@@ -56,6 +56,8 @@ sealed interface VerificationResult {
 
   data object ChallengeMismatch : VerificationResult
 
+  data class AttestationApplicationIdMismatch(val config: String) : VerificationResult
+
   data class PathValidationFailure(val cause: CertPathValidatorException) : VerificationResult
 
   data class ChainParsingFailure(val cause: Exception) : VerificationResult
@@ -183,13 +185,19 @@ constructor(
   fun verify(
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
+    // TODO(google-internal bug): Make AttestationApplicationIdChecker a required parameter.
+    // All callers should be providing this.
+    attestationApplicationIdChecker: AttestationApplicationIdChecker =
+      AttestationApplicationIdChecker.NONE,
     log: LogHook? = null,
   ): VerificationResult {
     val requestLog = log?.createRequestLog()
     val result =
       try {
         val certPath = KeyAttestationCertPath(chain)
-        runBlocking { internalVerify(certPath, challengeChecker, requestLog) }
+        runBlocking {
+          internalVerify(certPath, attestationApplicationIdChecker, challengeChecker, requestLog)
+        }
       } catch (e: CertificateException) {
         requestLog?.logInputChain(chain.map { it.getEncoded().toByteString() })
         VerificationResult.ChainParsingFailure(e)
@@ -206,6 +214,8 @@ constructor(
    * @param chain The attestation certificate chain to verify.
    * @param coroutineScope The coroutine scope to from which to run the verification.
    * @param challengeChecker The challenge checker to use for additional challenge validation.
+   * @param attestationApplicationIdChecker The attestation application ID checker to use for
+   *   additional attestation application ID validation.
    * @param log The log hook to use for logging.
    * @return A [ListenableFuture] containing the [VerificationResult].
    */
@@ -214,6 +224,10 @@ constructor(
     coroutineScope: CoroutineScope,
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
+    // TODO(google-internal bug): Make AttestationApplicationIdChecker a required parameter.
+    // All callers should be providing this.
+    attestationApplicationIdChecker: AttestationApplicationIdChecker =
+      AttestationApplicationIdChecker.NONE,
     log: LogHook? = null,
   ): ListenableFuture<VerificationResult> {
     val immutableChain = ImmutableList.copyOf(chain)
@@ -222,7 +236,7 @@ constructor(
       val result =
         try {
           val certPath = KeyAttestationCertPath(immutableChain)
-          internalVerify(certPath, challengeChecker, requestLog)
+          internalVerify(certPath, attestationApplicationIdChecker, challengeChecker, requestLog)
         } catch (e: CertificateException) {
           requestLog?.logInputChain(immutableChain.map { it.getEncoded().toByteString() })
           VerificationResult.ChainParsingFailure(e)
@@ -236,6 +250,7 @@ constructor(
   @RequiresApi(24)
   private suspend fun internalVerify(
     certPath: KeyAttestationCertPath,
+    attestationApplicationIdChecker: AttestationApplicationIdChecker,
     challengeChecker: ChallengeChecker? = null,
     log: VerifyRequestLog? = null,
   ): VerificationResult {
@@ -303,6 +318,17 @@ constructor(
       if (!checkResult) {
         return VerificationResult.ChallengeMismatch
       }
+    }
+
+    if (
+      !attestationApplicationIdChecker.checkAttestationApplicationId(
+        keyDescription.softwareEnforced.attestationApplicationId,
+        keyDescription.hardwareEnforced.osVersion,
+      )
+    ) {
+      return VerificationResult.AttestationApplicationIdMismatch(
+        attestationApplicationIdChecker.javaClass.simpleName
+      )
     }
 
     for (constraint in constraintConfig.getConstraints()) {
