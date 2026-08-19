@@ -16,7 +16,6 @@
 
 package com.android.keyattestation.verifier
 
-import androidx.annotation.RequiresApi
 import com.android.keyattestation.verifier.SoftwareRoot.isSoftwareRoot
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.android.keyattestation.verifier.provider.KeyAttestationProvider
@@ -179,7 +178,6 @@ constructor(
    * @return [VerificationResult]
    */
   @JvmOverloads
-  @RequiresApi(24)
   fun verify(
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
@@ -199,7 +197,6 @@ constructor(
     return result
   }
 
-  @RequiresApi(24)
   /**
    * Verifies an Android Key Attestation certificate chain asynchronously.
    *
@@ -233,7 +230,6 @@ constructor(
     }
   }
 
-  @RequiresApi(24)
   private suspend fun internalVerify(
     certPath: KeyAttestationCertPath,
     challengeChecker: ChallengeChecker? = null,

@@ -16,7 +16,6 @@
 
 package com.android.keyattestation.verifier
 
-import androidx.annotation.RequiresApi
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.google.common.collect.ImmutableList
 import com.google.errorprone.annotations.Immutable
@@ -52,7 +51,6 @@ class ConstraintConfig(
   val rootOfTrust: Constraint? = null,
   val additionalConstraints: ImmutableList<Constraint> = ImmutableList.of(),
 ) {
-  @RequiresApi(24)
   fun getConstraints() =
     ImmutableList.builder<Constraint>()
       .add(
@@ -165,7 +163,6 @@ sealed class AttributeConstraint<out T>(override val label: String, val mapper: 
  * Android attestation certificate.
  */
 @Immutable
-@RequiresApi(24)
 sealed class SecurityLevelConstraint(
   val isSatisfied: (KeyDescription, KeyAttestationCertPath) -> Boolean
 ) : Constraint {
@@ -260,7 +257,6 @@ sealed class SecurityLevelConstraint(
  * an Android attestation certificate.
  */
 @Immutable
-@RequiresApi(24)
 sealed class TagOrderConstraint : Constraint {
   override val label = "Tag order"
 
