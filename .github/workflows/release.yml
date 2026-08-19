@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Gradle Build and Test
+name: Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
-  build:
+  build-maven-repo:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -30,7 +32,16 @@ jobs:
           distribution: "temurin"
           java-version: 21
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
-      - name: Build
-        run: ./gradlew build
-      - name: Test
-        run: ./gradlew test
+      - name: "Set environment variables"
+        run: |
+          echo "ORG_GRADLE_PROJECT_KeyAttestationMavenRepo=$GITHUB_WORKSPACE/keyattestation_m2repo" >> "$GITHUB_ENV"
+      - name: Build Maven repo
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: ./gradlew -PkeyAttestationReleaseVersion="$REF_NAME" publishAllPublicationsToLocalDirRepository
+
+      - name: Upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: keyattestation_m2repo
+          path: keyattestation_m2repo
