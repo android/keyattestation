@@ -68,6 +68,10 @@ fun getRevocationStatusFromWeb(
   }
 }
 
+internal data class StatusEntry(val status: String)
+
+internal data class StatusFile(val entries: Map<String, StatusEntry>)
+
 /**
  * Parses a revocation status list from an input stream.
  *
@@ -76,9 +80,6 @@ fun getRevocationStatusFromWeb(
  * @return A set of revoked serial numbers.
  */
 fun parseAttestationStatus(input: InputStream): Set<String> {
-  data class StatusEntry(val status: String)
-  data class StatusFile(val entries: Map<String, StatusEntry>)
-
   return Gson()
     .fromJson(InputStreamReader(input), StatusFile::class.java)
     .entries
