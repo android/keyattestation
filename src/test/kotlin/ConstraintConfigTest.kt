@@ -20,6 +20,7 @@ import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import kotlin.test.assertIs
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
@@ -180,5 +181,30 @@ class ConstraintConfigTest {
     val violation = assertIs<Constraint.Violated>(level.check(kdUnordered, testCertPath))
     assertThat(violation.failureMessage)
       .isEqualTo("Authorization list tags must be in ascending order")
+  }
+
+  @Test
+  fun constraintConfig_inputLimits_customValue() {
+    val config = constraintConfig {
+      inputLimits { InputLimits(maxPackages = 50, maxSignatures = 25) }
+    }
+    assertThat(config.inputLimits.maxPackages).isEqualTo(50)
+    assertThat(config.inputLimits.maxSignatures).isEqualTo(25)
+  }
+
+  @Test
+  fun inputLimits_zeroOrNegative_throws() {
+    assertThrows(IllegalArgumentException::class.java) {
+      InputLimits(maxPackages = 0, maxSignatures = 10)
+    }
+    assertThrows(IllegalArgumentException::class.java) {
+      InputLimits(maxPackages = -1, maxSignatures = 10)
+    }
+    assertThrows(IllegalArgumentException::class.java) {
+      InputLimits(maxPackages = 10, maxSignatures = 0)
+    }
+    assertThrows(IllegalArgumentException::class.java) {
+      InputLimits(maxPackages = 10, maxSignatures = -5)
+    }
   }
 }

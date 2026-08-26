@@ -45,4 +45,5 @@ fun InputStream.asX509Certificate() =
  * @return the DER-encoded OCTET string containing the ProvisioningInfo sequence or null if the
  *   extension is not present in the certificate.
  */
-fun X509Certificate.provisioningInfo() = ProvisioningInfoMap.parseFrom(this)
+fun X509Certificate.provisioningInfo(inputLimits: InputLimits = InputLimits()) =
+  ProvisioningInfoMap.parseFrom(this, inputLimits)

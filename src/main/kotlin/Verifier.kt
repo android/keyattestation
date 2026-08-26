@@ -247,7 +247,7 @@ constructor(
     val deviceInformation =
       if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
         try {
-          certPath.attestationCert().provisioningInfo()
+          certPath.attestationCert().provisioningInfo(constraintConfig.inputLimits)
         } catch (e: Exception) {
           log?.logInfoMessage("Failed to parse provisioning info map: ${e.message}")
           null
@@ -279,7 +279,11 @@ constructor(
     val keyDescription =
       try {
         checkNotNull(
-          KeyDescription.parseFrom(certPath.leafCert(), { msg -> log?.logInfoMessage(msg) })
+          KeyDescription.parseFrom(
+            certPath.leafCert(),
+            { msg -> log?.logInfoMessage(msg) },
+            inputLimits = constraintConfig.inputLimits,
+          )
         ) {
           // Should never happen since the extension's presence is checked by by validate().
           "Key attestation extension not found"

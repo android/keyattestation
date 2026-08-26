@@ -38,6 +38,7 @@ import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.readText
 import kotlin.io.path.reader
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -53,7 +54,10 @@ class ExtensionTest {
         certificatesIssued = 1,
       )
     val provisioningInfo =
-      ProvisioningInfoMap.parseFrom(Chains.validRemotelyProvisioned.attestationCert())
+      ProvisioningInfoMap.parseFrom(
+        Chains.validRemotelyProvisioned.attestationCert(),
+        InputLimits(),
+      )
     assertThat(provisioningInfo).isEqualTo(expectedProvisioningInfo)
   }
 
@@ -205,5 +209,50 @@ class ExtensionTest {
       .isNull()
     assertThat(logHook.fakeVerifyRequestLog.infoMessages)
       .contains("Exception when parsing key_size: Must be an ASN1Integer, was DEROctetString")
+  }
+
+  @Test
+  fun attestationApplicationId_maxPackages_success() {
+    val limits = InputLimits()
+    val packages =
+      (1..limits.maxPackages)
+        .map { AttestationPackageInfo("com.example.pkg$it", it.toBigInteger()) }
+        .toSet()
+    val id = AttestationApplicationId(packages = packages, signatures = setOf(ByteString.empty()))
+    assertThat(id.packages).hasSize(limits.maxPackages)
+  }
+
+  @Test
+  fun attestationApplicationId_fromAsn1_exceedsMaxPackages_throws() {
+    val limits = InputLimits(maxPackages = 1)
+    val packages =
+      (1..2).map { AttestationPackageInfo("com.example.pkg$it", it.toBigInteger()) }.toSet()
+    val seq =
+      V3Extensions.buildAttestationApplicationIdExtension(packages, setOf(ByteString.empty()))
+    assertThrows(ExtensionParsingException::class.java) {
+      AttestationApplicationId.from(seq, inputLimits = limits)
+    }
+  }
+
+  @Test
+  fun attestationApplicationId_fromAsn1_maxSignatures_success() {
+    val limits = InputLimits()
+    val packages = setOf(AttestationPackageInfo("com.example.pkg", 1.toBigInteger()))
+    val signatures =
+      (1..limits.maxSignatures).map { ByteString.copyFrom(byteArrayOf(it.toByte())) }.toSet()
+    val seq = V3Extensions.buildAttestationApplicationIdExtension(packages, signatures)
+    val id = AttestationApplicationId.from(seq, inputLimits = limits)
+    assertThat(id.signatures).hasSize(limits.maxSignatures)
+  }
+
+  @Test
+  fun attestationApplicationId_fromAsn1_exceedsMaxSignatures_throws() {
+    val limits = InputLimits(maxSignatures = 1)
+    val packages = setOf(AttestationPackageInfo("com.example.pkg", 1.toBigInteger()))
+    val signatures = (1..2).map { ByteString.copyFrom(byteArrayOf(it.toByte())) }.toSet()
+    val seq = V3Extensions.buildAttestationApplicationIdExtension(packages, signatures)
+    assertThrows(ExtensionParsingException::class.java) {
+      AttestationApplicationId.from(seq, inputLimits = limits)
+    }
   }
 }

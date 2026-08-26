@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.testing
 
+import com.android.keyattestation.verifier.AttestationPackageInfo
 import com.android.keyattestation.verifier.AuthorizationList
 import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.KeyMintTag
@@ -25,6 +26,7 @@ import com.android.keyattestation.verifier.RootOfTrust
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.VerifiedBootState
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
+import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteStringUtf8
 import java.math.BigInteger
 import java.security.cert.TrustAnchor
@@ -33,8 +35,10 @@ import org.bouncycastle.asn1.ASN1EncodableVector
 import org.bouncycastle.asn1.ASN1Enumerated
 import org.bouncycastle.asn1.ASN1Integer
 import org.bouncycastle.asn1.ASN1ObjectIdentifier
+import org.bouncycastle.asn1.ASN1Sequence
 import org.bouncycastle.asn1.DEROctetString
 import org.bouncycastle.asn1.DERSequence
+import org.bouncycastle.asn1.DERSet
 import org.bouncycastle.asn1.DERTaggedObject
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x509.Extension
@@ -615,4 +619,14 @@ object V3Extensions {
         )
       )
       .encoded
+
+  fun buildAttestationApplicationIdExtension(
+    packages: Set<AttestationPackageInfo>,
+    signatures: Set<ByteString>,
+  ): ASN1Sequence =
+    buildList<ASN1Encodable> {
+        add(DERSet(packages.map { it.toAsn1() }.toTypedArray()))
+        add(DERSet(signatures.map { DEROctetString(it.toByteArray()) }.toTypedArray()))
+      }
+      .let { DERSequence(it.toTypedArray()) }
 }

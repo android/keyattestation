@@ -44,12 +44,15 @@ sealed interface Constraint {
  * at https://source.android.com/docs/security/features/keystore/attestation.
  */
 @ThreadSafe
-class ConstraintConfig(
+class ConstraintConfig
+@JvmOverloads
+constructor(
   val allowSoftwareRoot: Boolean = false,
   val keyOrigin: Constraint? = null,
   val securityLevel: Constraint? = null,
   val rootOfTrust: Constraint? = null,
   val additionalConstraints: ImmutableList<Constraint> = ImmutableList.of(),
+  val inputLimits: InputLimits = InputLimits(),
 ) {
   fun getConstraints() =
     ImmutableList.builder<Constraint>()
@@ -80,6 +83,7 @@ class ConstraintConfigBuilder() {
   var securityLevel: Constraint? = null
   var rootOfTrust: Constraint? = null
   var additionalConstraints: MutableList<Constraint> = mutableListOf()
+  var inputLimits: InputLimits = InputLimits()
 
   fun securityLevel(constraint: () -> Constraint) {
     this.securityLevel = constraint()
@@ -97,6 +101,10 @@ class ConstraintConfigBuilder() {
     additionalConstraints.add(constraint())
   }
 
+  fun inputLimits(init: () -> InputLimits) {
+    this.inputLimits = init()
+  }
+
   fun build(): ConstraintConfig =
     ConstraintConfig(
       allowSoftwareRoot,
@@ -104,6 +112,7 @@ class ConstraintConfigBuilder() {
       securityLevel,
       rootOfTrust,
       ImmutableList.copyOf(additionalConstraints),
+      inputLimits,
     )
 }
 

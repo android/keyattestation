@@ -58,6 +58,34 @@ import org.bouncycastle.asn1.DERSet
 import org.bouncycastle.asn1.DERTaggedObject
 import org.bouncycastle.asn1.x509.Extension
 
+/**
+ * Limits on input sizes when parsing extensions from attestation certificates.
+ *
+ * @param maxPackages Maximum number of package infos allowed in an [AttestationApplicationId].
+ * @param maxSignatures Maximum number of signatures allowed in an [AttestationApplicationId].
+ *   Default matches the value in ApkSigner in AOSP (APK v3 only allows 1 signature, so 10 is for
+ *   legacy APKs).
+ * @param maxCborPreallocationSize Maximum of any pre-allocated CBOR parser buffers. These buffers
+ *   are an optimization only. If the input data is larger than this value, the parser will allocate
+ *   larger buffers as needed while parsing the input.
+ */
+@Immutable
+data class InputLimits
+@JvmOverloads
+constructor(
+  val maxPackages: Int = 8,
+  val maxSignatures: Int = 10,
+  val maxCborPreallocationSize: Int = 4096,
+) {
+  init {
+    require(maxPackages > 0) { "maxPackages must be > 0, was $maxPackages" }
+    require(maxSignatures > 0) { "maxSignatures must be > 0, was $maxSignatures" }
+    require(maxCborPreallocationSize > 0) {
+      "maxCborPreallocationSize must be > 0, was $maxCborPreallocationSize"
+    }
+  }
+}
+
 @RequiresApi(24)
 data class ExtensionParsingException
 @JvmOverloads
@@ -86,13 +114,16 @@ data class ProvisioningInfoMap(
     @JvmField val OID = ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.30")
 
     @JvmStatic
-    fun parseFrom(cert: X509Certificate) = cert.getExtensionValue(OID.id)?.let { parseFrom(it) }
+    @JvmOverloads
+    fun parseFrom(cert: X509Certificate, inputLimits: InputLimits = InputLimits()) =
+      cert.getExtensionValue(OID.id)?.let { parseFrom(it, inputLimits) }
 
     @JvmStatic
-    fun parseFrom(bytes: ByteArray?) =
+    @JvmOverloads
+    fun parseFrom(bytes: ByteArray?, inputLimits: InputLimits = InputLimits()) =
       try {
         val cborBytes = ASN1OctetString.getInstance(bytes).octets
-        from(cborDecode(cborBytes).asMap())
+        from(cborDecode(cborBytes, inputLimits).asMap())
       } catch (e: CborException) {
         throw IllegalArgumentException(e)
       }
@@ -175,25 +206,37 @@ data class KeyDescription(
     @JvmStatic
     @JvmOverloads
     @Throws(ExtensionParsingException::class)
-    fun parseFrom(cert: X509Certificate, logFn: (String) -> Unit = {}) =
+    fun parseFrom(
+      cert: X509Certificate,
+      logFn: (String) -> Unit = {},
+      inputLimits: InputLimits = InputLimits(),
+    ) =
       cert
         .getExtensionValue(OID.id)
         ?.let { ASN1OctetString.getInstance(it).octets }
-        ?.let { parseFrom(it, logFn) }
+        ?.let { parseFrom(it, logFn, inputLimits) }
 
     @JvmStatic
     @JvmOverloads
     @Throws(ExtensionParsingException::class)
-    fun parseFrom(bytes: ByteArray, logFn: (String) -> Unit = {}) =
+    fun parseFrom(
+      bytes: ByteArray,
+      logFn: (String) -> Unit = {},
+      inputLimits: InputLimits = InputLimits(),
+    ) =
       try {
-        from(ASN1Sequence.getInstance(bytes), logFn)
+        from(ASN1Sequence.getInstance(bytes), logFn, inputLimits)
       } catch (e: NullPointerException) {
         // Workaround for a NPE in BouncyCastle.
         // https://github.com/bcgit/bc-java/blob/228211ecb973fe87fdd0fc4ab16ba0446ec1a29c/core/src/main/java/org/bouncycastle/asn1/ASN1UniversalType.java#L24
         throw IllegalArgumentException(e)
       }
 
-    private fun from(seq: ASN1Sequence, logFn: (String) -> Unit = {}): KeyDescription {
+    private fun from(
+      seq: ASN1Sequence,
+      logFn: (String) -> Unit = {},
+      inputLimits: InputLimits = InputLimits(),
+    ): KeyDescription {
       require(seq.size() == 8)
       return KeyDescription(
         attestationVersion = seq.getObjectAt(0).toInt(),
@@ -202,8 +245,8 @@ data class KeyDescription(
         keyMintSecurityLevel = seq.getObjectAt(3).toSecurityLevel(),
         attestationChallenge = seq.getObjectAt(4).toByteString(),
         uniqueId = seq.getObjectAt(5).toByteString(),
-        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(logFn),
-        hardwareEnforced = seq.getObjectAt(7).toAuthorizationList(logFn),
+        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(logFn, inputLimits),
+        hardwareEnforced = seq.getObjectAt(7).toAuthorizationList(logFn, inputLimits),
       )
     }
   }
@@ -467,7 +510,11 @@ data class AuthorizationList(
         parse(tag) { it.toPatchLevel(partition, logFn) }
     }
 
-    fun from(seq: ASN1Sequence, logFn: (String) -> Unit = { _ -> }): AuthorizationList {
+    fun from(
+      seq: ASN1Sequence,
+      logFn: (String) -> Unit = { _ -> },
+      inputLimits: InputLimits = InputLimits(),
+    ): AuthorizationList {
       val objects = seq.associate {
         require(it is ASN1TaggedObject) {
           "Must be an ASN1TaggedObject, was ${it::class.simpleName}"
@@ -524,7 +571,7 @@ data class AuthorizationList(
         osPatchLevel = converter.parsePatchLevel(KeyMintTag.OS_PATCH_LEVEL, "OS"),
         attestationApplicationId =
           converter.parse(KeyMintTag.ATTESTATION_APPLICATION_ID) {
-            it.toAttestationApplicationId()
+            it.toAttestationApplicationId(inputLimits)
           },
         attestationIdBrand = converter.parseStr(KeyMintTag.ATTESTATION_ID_BRAND),
         attestationIdDevice = converter.parseStr(KeyMintTag.ATTESTATION_ID_DEVICE),
@@ -609,11 +656,26 @@ data class AttestationApplicationId(
       }
       .let { DERSequence(it.toTypedArray()) }
 
-  internal companion object {
-    fun from(seq: ASN1Sequence): AttestationApplicationId {
+  companion object {
+    internal fun from(
+      seq: ASN1Sequence,
+      inputLimits: InputLimits = InputLimits(),
+    ): AttestationApplicationId {
       require(seq.size() == 2)
-      val attestationPackageInfos = (seq.getObjectAt(0).toSet<ASN1Sequence>())
-      val signatureDigests = seq.getObjectAt(1).toSet<ASN1OctetString>()
+      val packagesSet = seq.getObjectAt(0)
+      if (packagesSet is ASN1Set && packagesSet.size() > inputLimits.maxPackages) {
+        throw ExtensionParsingException(
+          "AttestationApplicationId contains too many packages (${packagesSet.size()} > ${inputLimits.maxPackages})"
+        )
+      }
+      val signaturesSet = seq.getObjectAt(1)
+      if (signaturesSet is ASN1Set && signaturesSet.size() > inputLimits.maxSignatures) {
+        throw ExtensionParsingException(
+          "AttestationApplicationId contains too many signatures (${signaturesSet.size()} > ${inputLimits.maxSignatures})"
+        )
+      }
+      val attestationPackageInfos = (packagesSet.toSet<ASN1Sequence>())
+      val signatureDigests = (signaturesSet.toSet<ASN1OctetString>())
       return AttestationApplicationId(
         attestationPackageInfos.map { AttestationPackageInfo.from(it) }.toSet(),
         signatureDigests.map { it.toByteString() }.toSet(),
@@ -710,21 +772,26 @@ enum class VerifiedBootState(val value: Int) {
 }
 
 @RequiresApi(24)
-private fun ASN1Encodable.toAttestationApplicationId(): AttestationApplicationId {
+private fun ASN1Encodable.toAttestationApplicationId(
+  inputLimits: InputLimits = InputLimits()
+): AttestationApplicationId {
   if (this !is ASN1OctetString) {
     throw ExtensionParsingException(
       "Object must be an ASN1OctetString, was ${this::class.simpleName}"
     )
   }
-  return AttestationApplicationId.from(ASN1Sequence.getInstance(this.octets))
+  return AttestationApplicationId.from(ASN1Sequence.getInstance(this.octets), inputLimits)
 }
 
 @RequiresApi(24)
-private fun ASN1Encodable.toAuthorizationList(logFn: (String) -> Unit): AuthorizationList {
+private fun ASN1Encodable.toAuthorizationList(
+  logFn: (String) -> Unit,
+  inputLimits: InputLimits = InputLimits(),
+): AuthorizationList {
   if (this !is ASN1Sequence) {
     throw ExtensionParsingException("Object must be an ASN1Sequence, was ${this::class.simpleName}")
   }
-  return AuthorizationList.from(this, logFn)
+  return AuthorizationList.from(this, logFn, inputLimits)
 }
 
 @RequiresApi(24)
@@ -826,9 +893,11 @@ private fun Set<BigInteger>.toAsn1() = DERSet(this.map { it.toAsn1() }.toTypedAr
 
 private fun String.toAsn1() = DEROctetString(this.toByteArray(UTF_8))
 
-fun cborDecode(data: ByteArray): DataItem {
+fun cborDecode(data: ByteArray, inputLimits: InputLimits): DataItem {
   val bais = ByteArrayInputStream(data)
-  val dataItems = CborDecoder(bais).decode()
+  val decoder = CborDecoder(bais)
+  decoder.setMaxPreallocationSize(inputLimits.maxCborPreallocationSize)
+  val dataItems = decoder.decode()
   if (dataItems.size != 1) {
     throw CborException(
       "Byte stream cannot be decoded properly. Expected 1 item, found ${dataItems.size}"

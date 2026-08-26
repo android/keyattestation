@@ -166,7 +166,7 @@ object CertPrinter {
     appendIndentedLine("Custom Extensions:")
     indent {
       KeyDescription.parseFrom(cert)?.let { append(prettyString(it)) }
-      ProvisioningInfoMap.parseFrom(cert)?.let { append(prettyString(it)) }
+      ProvisioningInfoMap.parseFrom(cert, InputLimits())?.let { append(prettyString(it)) }
     }
   }
 
