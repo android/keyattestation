@@ -73,7 +73,7 @@ import org.bouncycastle.asn1.x509.Extension
 data class InputLimits
 @JvmOverloads
 constructor(
-  val maxPackages: Int = 8,
+  val maxPackages: Int = 32,
   val maxSignatures: Int = 10,
   val maxCborPreallocationSize: Int = 4096,
 ) {
