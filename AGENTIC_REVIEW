@@ -1,0 +1,4 @@
+# proto-file: learning/gemini/_agents/cl_review_agent/agentic_review.proto
+# proto-message: AgenticReview
+
+review_capability_skills: "learning/gemini/agents/skills/kotlin_readability/SKILL.md"
