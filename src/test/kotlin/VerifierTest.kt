@@ -279,6 +279,64 @@ class VerifierTest {
   }
 
   @Test
+  fun factoryProvisionedChain_withRemoteConstraint_failsVerification() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig { additionalConstraint { ProvisioningMethodConstraint.REMOTE } },
+      )
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.validFactoryProvisioned))
+    assertThat(result.constraintLabel).isEqualTo("Provisioning method")
+    assertThat(result.cause)
+      .isEqualTo(
+        "Provisioning method violates constraint: provisioningMethod=FACTORY_PROVISIONED, config=REMOTE"
+      )
+  }
+
+  @Test
+  fun factoryProvisionedChain_withFactoryConstraint_succeedsVerification() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } },
+      )
+    assertIs<VerificationResult.Success>(verifier.verify(CertLists.validFactoryProvisioned))
+  }
+
+  @Test
+  fun rkpProvisionedChain_withFactoryConstraint_failsVerification() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } },
+      )
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.validRemotelyProvisioned))
+    assertThat(result.constraintLabel).isEqualTo("Provisioning method")
+    assertThat(result.cause)
+      .isEqualTo(
+        "Provisioning method violates constraint: provisioningMethod=REMOTELY_PROVISIONED, config=FACTORY"
+      )
+  }
+
+  @Test
+  fun rkpProvisionedChain_withRemoteConstraint_succeedsVerification() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig { additionalConstraint { ProvisioningMethodConstraint.REMOTE } },
+      )
+    assertIs<VerificationResult.Success>(verifier.verify(CertLists.validRemotelyProvisioned))
+  }
+
+  @Test
   fun importedOrigins_customConfig_succeeds() {
     val verifier =
       Verifier(

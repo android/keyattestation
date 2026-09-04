@@ -58,6 +58,9 @@ class ConstraintConfigTest {
     createTestKeyDescription(SecurityLevel.STRONG_BOX, SecurityLevel.TRUSTED_ENVIRONMENT)
 
   private val testCertPath = readCertPath("akita/sdk34/TEE_EC_NONE.pem")
+  private val factoryCertPath = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
+  private val rkpCertPath = readCertPath("caiman/sdk36/TEE_EC_RKP.pem")
+  private val unknownCertPath = readCertPath("marlin/sdk29/TEE_EC_NONE.pem")
 
   @Test
   fun AttributeConstraintIsSatisfied_strictWithExpectedValue() {
@@ -206,5 +209,78 @@ class ConstraintConfigTest {
     assertThrows(IllegalArgumentException::class.java) {
       InputLimits(maxPackages = 10, maxSignatures = -5)
     }
+  }
+
+  @Test
+  fun ProvisioningMethodConstraintIsSatisfied_factory_allowsFactoryCertPath() {
+    assertIs<Constraint.Satisfied>(
+      ProvisioningMethodConstraint.FACTORY.check(
+        keyDescriptionWithTeeSecurityLevels,
+        factoryCertPath,
+      )
+    )
+    assertIs<Constraint.Violated>(
+      ProvisioningMethodConstraint.FACTORY.check(keyDescriptionWithTeeSecurityLevels, rkpCertPath)
+    )
+    assertIs<Constraint.Violated>(
+      ProvisioningMethodConstraint.FACTORY.check(
+        keyDescriptionWithTeeSecurityLevels,
+        unknownCertPath,
+      )
+    )
+  }
+
+  @Test
+  fun ProvisioningMethodConstraintIsSatisfied_rkp_allowsRkpCertPath() {
+    assertIs<Constraint.Satisfied>(
+      ProvisioningMethodConstraint.REMOTE.check(keyDescriptionWithTeeSecurityLevels, rkpCertPath)
+    )
+    assertIs<Constraint.Violated>(
+      ProvisioningMethodConstraint.REMOTE.check(
+        keyDescriptionWithTeeSecurityLevels,
+        factoryCertPath,
+      )
+    )
+    assertIs<Constraint.Violated>(
+      ProvisioningMethodConstraint.REMOTE.check(
+        keyDescriptionWithTeeSecurityLevels,
+        unknownCertPath,
+      )
+    )
+  }
+
+  @Test
+  fun provisioningMethodConstraint_factory_withViolation_returnsCorrectMessage() {
+    val factoryConstraint = ProvisioningMethodConstraint.FACTORY
+    val rkpViolation =
+      assertIs<Constraint.Violated>(
+        factoryConstraint.check(keyDescriptionWithTeeSecurityLevels, rkpCertPath)
+      )
+    assertThat(rkpViolation.failureMessage)
+      .isEqualTo(
+        "Provisioning method violates constraint: provisioningMethod=REMOTELY_PROVISIONED, config=$factoryConstraint"
+      )
+    assertThat(factoryConstraint.label).isEqualTo("Provisioning method")
+  }
+
+  @Test
+  fun provisioningMethodConstraint_remote_withViolation_returnsCorrectMessage() {
+    val remoteConstraint = ProvisioningMethodConstraint.REMOTE
+    val factoryViolation =
+      assertIs<Constraint.Violated>(
+        remoteConstraint.check(keyDescriptionWithTeeSecurityLevels, factoryCertPath)
+      )
+    assertThat(factoryViolation.failureMessage)
+      .isEqualTo(
+        "Provisioning method violates constraint: provisioningMethod=FACTORY_PROVISIONED, config=$remoteConstraint"
+      )
+    assertThat(remoteConstraint.label).isEqualTo("Provisioning method")
+  }
+
+  @Test
+  fun constraintConfig_provisioningMethod_configuredViaAdditionalConstraint() {
+    val config = constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } }
+    assertThat(config.additionalConstraints).contains(ProvisioningMethodConstraint.FACTORY)
+    assertThat(config.getConstraints()).contains(ProvisioningMethodConstraint.FACTORY)
   }
 }

@@ -17,6 +17,7 @@
 package com.android.keyattestation.verifier
 
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
+import com.android.keyattestation.verifier.provider.ProvisioningMethod
 import com.google.common.collect.ImmutableList
 import com.google.errorprone.annotations.Immutable
 import com.google.errorprone.annotations.ThreadSafe
@@ -284,4 +285,32 @@ sealed class TagOrderConstraint : Constraint {
         Constraint.Violated("Authorization list tags must be in ascending order")
       }
   }
+}
+
+/**
+ * Configuration for validating the provisioning method in an Android attestation certificate chain.
+ */
+@Immutable
+sealed class ProvisioningMethodConstraint(val provisioningMethod: ProvisioningMethod) : Constraint {
+  override val label = "Provisioning method"
+
+  override fun check(description: KeyDescription, certPath: KeyAttestationCertPath) =
+    if (certPath.provisioningMethod() == provisioningMethod) {
+      Constraint.Satisfied
+    } else {
+      Constraint.Violated(getFailureMessage(certPath))
+    }
+
+  open fun getFailureMessage(certPath: KeyAttestationCertPath): String =
+    "Provisioning method violates constraint: " +
+      "provisioningMethod=${certPath.provisioningMethod()}, " +
+      "config=$this"
+
+  /** Checks that the certificate chain is factory provisioned. */
+  @Immutable
+  data object FACTORY : ProvisioningMethodConstraint(ProvisioningMethod.FACTORY_PROVISIONED)
+
+  /** Checks that the certificate chain is remotely provisioned (RKP). */
+  @Immutable
+  data object REMOTE : ProvisioningMethodConstraint(ProvisioningMethod.REMOTELY_PROVISIONED)
 }
