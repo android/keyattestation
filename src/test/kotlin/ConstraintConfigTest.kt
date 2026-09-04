@@ -94,14 +94,28 @@ class ConstraintConfigTest {
 
   @Test
   fun SecurityLevelConstraintIsSatisfied_strictWithExpectedValue() {
-    val level = SecurityLevelConstraint.STRICT(SecurityLevel.STRONG_BOX)
+    val strongBoxCertPath = readCertPath("blueline/sdk28/SB_RSA_NONE.pem")
+    val strongBoxLevel = SecurityLevelConstraint.STRICT(SecurityLevel.STRONG_BOX)
 
     assertIs<Constraint.Satisfied>(
-      level.check(keyDescriptionWithStrongBoxSecurityLevels, testCertPath)
+      strongBoxLevel.check(keyDescriptionWithStrongBoxSecurityLevels, strongBoxCertPath)
     )
-    assertIs<Constraint.Violated>(level.check(keyDescriptionWithTeeSecurityLevels, testCertPath))
     assertIs<Constraint.Violated>(
-      level.check(keyDescriptionWithMismatchedSecurityLevels, testCertPath)
+      strongBoxLevel.check(keyDescriptionWithStrongBoxSecurityLevels, testCertPath)
+    )
+    assertIs<Constraint.Violated>(
+      strongBoxLevel.check(keyDescriptionWithTeeSecurityLevels, testCertPath)
+    )
+    assertIs<Constraint.Violated>(
+      strongBoxLevel.check(keyDescriptionWithMismatchedSecurityLevels, testCertPath)
+    )
+
+    val teeLevel = SecurityLevelConstraint.STRICT(SecurityLevel.TRUSTED_ENVIRONMENT)
+    assertIs<Constraint.Satisfied>(
+      teeLevel.check(keyDescriptionWithTeeSecurityLevels, testCertPath)
+    )
+    assertIs<Constraint.Violated>(
+      teeLevel.check(keyDescriptionWithTeeSecurityLevels, strongBoxCertPath)
     )
   }
 
@@ -164,14 +178,30 @@ class ConstraintConfigTest {
 
   @Test
   fun securityLevelConstraint_withViolation_returnsCorrectMessage() {
+    val level = SecurityLevelConstraint.NOT_SOFTWARE
+
+    val violation =
+      assertIs<Constraint.Violated>(
+        level.check(keyDescriptionWithSoftwareSecurityLevels, testCertPath)
+      )
+    assertThat(violation.failureMessage)
+      .isEqualTo(
+        "Security level violates constraint: keyMintSecurityLevel=SOFTWARE, " +
+          "attestationSecurityLevel=SOFTWARE, config=$level"
+      )
+  }
+
+  @Test
+  fun securityLevelConstraintStrict_withCertificateMismatch_returnsCorrectMessage() {
     val level = SecurityLevelConstraint.STRICT(SecurityLevel.STRONG_BOX)
 
     val violation =
-      assertIs<Constraint.Violated>(level.check(keyDescriptionWithTeeSecurityLevels, testCertPath))
+      assertIs<Constraint.Violated>(
+        level.check(keyDescriptionWithStrongBoxSecurityLevels, testCertPath)
+      )
     assertThat(violation.failureMessage)
       .isEqualTo(
-        "Security level violates constraint: keyMintSecurityLevel=TRUSTED_ENVIRONMENT, " +
-          "attestationSecurityLevel=TRUSTED_ENVIRONMENT, config=$level"
+        "Security level of KeyMint (STRONG_BOX) does not match attestation certificate (TRUSTED_ENVIRONMENT)"
       )
   }
 
@@ -209,6 +239,127 @@ class ConstraintConfigTest {
     assertThrows(IllegalArgumentException::class.java) {
       InputLimits(maxPackages = 10, maxSignatures = -5)
     }
+  }
+
+  @Test
+  fun SecurityLevelConstraintIsSatisfied_matchesCertificate_nullClaim() {
+    val factoryCertPathWithNoClaim = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
+
+    assertIs<Constraint.Satisfied>(
+      SecurityLevelConstraint.MATCHES_CERTIFICATE.check(
+        keyDescriptionWithTeeSecurityLevels,
+        factoryCertPathWithNoClaim,
+      )
+    )
+    assertIs<Constraint.Satisfied>(
+      SecurityLevelConstraint.MATCHES_CERTIFICATE.check(
+        keyDescriptionWithSoftwareSecurityLevels,
+        factoryCertPathWithNoClaim,
+      )
+    )
+    assertIs<Constraint.Violated>(
+      SecurityLevelConstraint.MATCHES_CERTIFICATE.check(
+        keyDescriptionWithStrongBoxSecurityLevels,
+        factoryCertPathWithNoClaim,
+      )
+    )
+  }
+
+  @Test
+  fun SecurityLevelConstraintIsSatisfied_matchesCertificate_trustedEnvironmentClaim() {
+    assertIs<Constraint.Satisfied>(
+      SecurityLevelConstraint.MATCHES_CERTIFICATE.check(
+        keyDescriptionWithTeeSecurityLevels,
+        testCertPath,
+      )
+    )
+    assertIs<Constraint.Violated>(
+      SecurityLevelConstraint.MATCHES_CERTIFICATE.check(
+        keyDescriptionWithSoftwareSecurityLevels,
+        testCertPath,
+      )
+    )
+    assertIs<Constraint.Violated>(
+      SecurityLevelConstraint.MATCHES_CERTIFICATE.check(
+        keyDescriptionWithStrongBoxSecurityLevels,
+        testCertPath,
+      )
+    )
+  }
+
+  @Test
+  fun SecurityLevelConstraintIsSatisfied_matchesCertificate_strongBoxClaim() {
+    val strongBoxCertPath = readCertPath("blueline/sdk28/SB_RSA_NONE.pem")
+
+    assertIs<Constraint.Satisfied>(
+      SecurityLevelConstraint.MATCHES_CERTIFICATE.check(
+        keyDescriptionWithStrongBoxSecurityLevels,
+        strongBoxCertPath,
+      )
+    )
+    assertIs<Constraint.Violated>(
+      SecurityLevelConstraint.MATCHES_CERTIFICATE.check(
+        keyDescriptionWithTeeSecurityLevels,
+        strongBoxCertPath,
+      )
+    )
+    assertIs<Constraint.Violated>(
+      SecurityLevelConstraint.MATCHES_CERTIFICATE.check(
+        keyDescriptionWithSoftwareSecurityLevels,
+        strongBoxCertPath,
+      )
+    )
+  }
+
+  @Test
+  fun matchesCertificate_withViolation_returnsCorrectMessage() {
+    val violation =
+      assertIs<Constraint.Violated>(
+        SecurityLevelConstraint.MATCHES_CERTIFICATE.check(
+          keyDescriptionWithStrongBoxSecurityLevels,
+          testCertPath,
+        )
+      )
+    assertThat(violation.failureMessage)
+      .isEqualTo(
+        "Security level of KeyMint (STRONG_BOX) does not match attestation certificate (TRUSTED_ENVIRONMENT)"
+      )
+  }
+
+  @Test
+  fun compositeConstraint_allSatisfied_returnsSatisfied() {
+    val composite =
+      CompositeConstraint(
+        "test constraint",
+        SecurityLevelConstraint.CONSISTENT,
+        SecurityLevelConstraint.NOT_SOFTWARE,
+      )
+
+    assertIs<Constraint.Satisfied>(
+      composite.check(keyDescriptionWithTeeSecurityLevels, testCertPath)
+    )
+    assertThat(composite.label).isEqualTo("test constraint")
+  }
+
+  @Test
+  fun compositeConstraint_stopsOnFirstViolation() {
+    val composite =
+      CompositeConstraint("test", SecurityLevelConstraint.NOT_SOFTWARE, TagOrderConstraint.STRICT)
+
+    val violation =
+      assertIs<Constraint.Violated>(
+        composite.check(keyDescriptionWithSoftwareSecurityLevels, testCertPath)
+      )
+    assertThat(violation.failureMessage).contains("Security level violates constraint")
+  }
+
+  @Test
+  fun compositeConstraint_emptyDefaultLabel() {
+    val composite = CompositeConstraint("test composite")
+    assertThat(composite.label).isEqualTo("test composite")
+    assertIs<Constraint.Satisfied>(
+      composite.check(keyDescriptionWithTeeSecurityLevels, testCertPath)
+    )
   }
 
   @Test

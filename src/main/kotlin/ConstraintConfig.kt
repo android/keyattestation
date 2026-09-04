@@ -26,6 +26,7 @@ private typealias AttributeMapper = (KeyDescription) -> Any?
 
 /** An individual limit to place on the KeyDescription from an attestation certificate. */
 @ThreadSafe
+@Immutable
 sealed interface Constraint {
   sealed interface Result {}
 
@@ -133,6 +134,34 @@ data object IgnoredConstraint : Constraint {
     Constraint.Satisfied
 }
 
+/** Constraint that composes multiple input constraints and sequentially evaluates each one. */
+@Immutable
+open class CompositeConstraint(
+  override val label: String,
+  val constraints: ImmutableList<Constraint>,
+) : Constraint {
+  constructor(
+    label: String,
+    vararg constraints: Constraint,
+  ) : this(
+    label,
+    ImmutableList.copyOf(constraints),
+  )
+
+  override fun check(
+    description: KeyDescription,
+    certPath: KeyAttestationCertPath,
+  ): Constraint.Result {
+    for (constraint in constraints) {
+      val result = constraint.check(description, certPath)
+      if (result is Constraint.Violated) {
+        return result
+      }
+    }
+    return Constraint.Satisfied
+  }
+}
+
 /** Constraint that checks a single attribute of the [KeyDescription]. */
 @Immutable(containerOf = ["T"])
 sealed class AttributeConstraint<out T>(override val label: String, val mapper: AttributeMapper?) :
@@ -200,12 +229,16 @@ sealed class SecurityLevelConstraint(
 
   /**
    * Checks that both the attestationSecurityLevel and keyMintSecurityLevel match the expected
-   * value.
+   * value, and that the keyMintSecurityLevel matches the certificate.
    *
    * @param expectedVal The expected value of the security level.
    */
   @Immutable
   data class STRICT(val expectedVal: SecurityLevel) :
+    CompositeConstraint(LABEL, MATCHES_CERTIFICATE, MATCHES_EXPECTED(expectedVal))
+
+  @Immutable
+  internal data class MATCHES_EXPECTED(val expectedVal: SecurityLevel) :
     SecurityLevelConstraint({ desc, _ ->
       desc.keyMintSecurityLevel == expectedVal && desc.attestationSecurityLevel == expectedVal
     })
