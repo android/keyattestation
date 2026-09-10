@@ -15,6 +15,9 @@
  */
 package com.android.keyattestation.verifier
 
+import co.nstant.`in`.cbor.CborException
+import co.nstant.`in`.cbor.model.NegativeInteger
+import co.nstant.`in`.cbor.model.UnsignedInteger
 import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeLogHook
 import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
@@ -31,6 +34,8 @@ import com.google.testing.junit.testparameterinjector.TestParameters
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider.Context
+import java.math.BigInteger
+import java.time.Instant
 import java.time.YearMonth
 import kotlin.io.path.Path
 import kotlin.io.path.inputStream
@@ -254,5 +259,40 @@ class ExtensionTest {
     assertThrows(ExtensionParsingException::class.java) {
       AttestationApplicationId.from(seq, inputLimits = limits)
     }
+  }
+
+  @Test
+  fun asInteger_validValues_success() {
+    assertThat(UnsignedInteger(0).asInteger()).isEqualTo(0)
+    assertThat(UnsignedInteger(Int.MAX_VALUE.toLong()).asInteger()).isEqualTo(Int.MAX_VALUE)
+    assertThat(NegativeInteger(-1).asInteger()).isEqualTo(-1)
+    assertThat(NegativeInteger(Int.MIN_VALUE.toLong()).asInteger()).isEqualTo(Int.MIN_VALUE)
+  }
+
+  @Test
+  fun asInteger_outOfBounds_throws() {
+    val unsignedOutOfRange = UnsignedInteger(Int.MAX_VALUE.toLong() + 1)
+    assertThrows(CborException::class.java) { unsignedOutOfRange.asInteger() }
+
+    val negativeOutOfRange = NegativeInteger(Int.MIN_VALUE.toLong() - 1)
+    assertThrows(CborException::class.java) { negativeOutOfRange.asInteger() }
+  }
+
+  @Test
+  fun asLong_validValues_success() {
+    assertThat(UnsignedInteger(0).asLong()).isEqualTo(0L)
+    assertThat(UnsignedInteger(Long.MAX_VALUE).asLong()).isEqualTo(Long.MAX_VALUE)
+    assertThat(NegativeInteger(-1).asLong()).isEqualTo(-1L)
+    assertThat(NegativeInteger(Long.MIN_VALUE).asLong()).isEqualTo(Long.MIN_VALUE)
+  }
+
+  @Test
+  fun asLong_outOfBounds_throws() {
+    val unsignedOutOfRange = UnsignedInteger(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE))
+    assertThrows(CborException::class.java) { unsignedOutOfRange.asLong() }
+
+    val negativeOutOfRange =
+      NegativeInteger(BigInteger.valueOf(Long.MIN_VALUE).subtract(BigInteger.ONE))
+    assertThrows(CborException::class.java) { negativeOutOfRange.asLong() }
   }
 }
