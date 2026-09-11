@@ -98,7 +98,7 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
     }
 
   /*
-   * The security level of the certitificate chain.
+   * The security level of the certificate chain.
    *
    * This should match the attestation security level in the key description.
    */

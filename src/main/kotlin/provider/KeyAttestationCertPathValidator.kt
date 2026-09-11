@@ -45,7 +45,7 @@ import javax.security.auth.x500.X500Principal
  * A [CertPathValidatorSpi] for verifying Android Key Attestation certificate chains.
  *
  * Older Android devices produce Key Attestation certificate chains that do not fully conform to RFC
- * 5280 and thus cannot be validating using [sun.security.provider.certpath.PKIXCertPathValidator].
+ * 5280 and thus cannot be validated using [sun.security.provider.certpath.PKIXCertPathValidator].
  * This provider implements a more permissive [CertPathValidatorSpi] implementation that is able to
  * validate these chains.
  *
@@ -334,7 +334,7 @@ private class BasicChecker(
         // TODO(google-internal bug): Add support for ATTEST_KEY chains.
         if (cert.hasAttestationExtension()) {
           throw CertPathValidatorException(
-            "Only the target certificate should contain an attestation extension, attestation extenion found in ${step}",
+            "Only the target certificate should contain an attestation extension, attestation extension found in ${step}",
             /* cause = */ null,
             certPath,
             /* index = */ remainingCerts,

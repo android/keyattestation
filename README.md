@@ -100,7 +100,7 @@ Android Key Attestation root certificates are documented
 
 ## Getting Revoked Serials
 
-It's important to check the revoked serials list to prevent allowing accepting
+It's important to check the revoked serials list to prevent accepting
 fraudulent attestations from known leaked keys. The revoked serials may be
 retrieved from https://android.googleapis.com/attestation/status. This list is
 updated relatively frequently so it's important to use a fresh copy of the

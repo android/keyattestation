@@ -21,7 +21,7 @@ import java.io.PrintStream
 import java.security.cert.X509Certificate
 import java.time.Instant
 
-// Any chain shorter than this is not possibly valid Key Attestation chain.
+// Any chain shorter than this cannot possibly be a valid Key Attestation chain.
 private const val MIN_CERTS_IN_VALID_CHAIN = 3
 
 class VerifierCli(private val output: PrintStream, private val instantSource: InstantSource) {

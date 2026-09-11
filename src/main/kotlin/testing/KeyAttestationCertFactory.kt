@@ -47,7 +47,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 
 internal class KeyAttestationCertFactory(
   val fakeCalendar: FakeCalendar = FakeCalendar.DEFAULT,
-  val hardodedRootKey: KeyPair? = null,
+  val hardcodedRootKey: KeyPair? = null,
   val hardcodedRoot: X509Certificate? = null,
 ) {
   private val ecKeyPairGenerator =
@@ -64,7 +64,7 @@ internal class KeyAttestationCertFactory(
 
   internal fun generateRsaKeyPair() = rsaKeyPairGenerator.generateKeyPair()
 
-  val rootKey = hardodedRootKey ?: ecKeyPairGenerator.generateKeyPair()
+  val rootKey = hardcodedRootKey ?: ecKeyPairGenerator.generateKeyPair()
   val intermediateKey = ecKeyPairGenerator.generateKeyPair()
   val rkpKey = ecKeyPairGenerator.generateKeyPair()
   val attestationKey = ecKeyPairGenerator.generateKeyPair()

@@ -266,7 +266,7 @@ sealed class SecurityLevelConstraint(
 
   /**
    * Checks that the keyMintSecurityLevel matches the security level claimed by the certificate.
-   * this constraint may be used in conjunction with other security level constraints. e.g. it may
+   * This constraint may be used in conjunction with other security level constraints. e.g. it may
    * be combined with [STRICT] to verify that the keyMintSecurityLevel is precisely
    * [SecurityLevel.STRONG_BOX] and that the security level matches the value claimed by the
    * Google-signed certificate.

@@ -201,7 +201,7 @@ constructor(
    * Verifies an Android Key Attestation certificate chain asynchronously.
    *
    * @param chain The attestation certificate chain to verify.
-   * @param coroutineScope The coroutine scope to from which to run the verification.
+   * @param coroutineScope The coroutine scope from which to run the verification.
    * @param challengeChecker The challenge checker to use for additional challenge validation.
    * @param log The log hook to use for logging.
    * @return A [ListenableFuture] containing the [VerificationResult].
@@ -285,7 +285,7 @@ constructor(
             inputLimits = constraintConfig.inputLimits,
           )
         ) {
-          // Should never happen since the extension's presence is checked by by validate().
+          // Should never happen since the extension's presence is checked by validate().
           "Key attestation extension not found"
         }
       } catch (e: ExtensionParsingException) {
