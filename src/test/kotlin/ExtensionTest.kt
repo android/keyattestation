@@ -255,4 +255,65 @@ class ExtensionTest {
       AttestationApplicationId.from(seq, inputLimits = limits)
     }
   }
+
+  @Test
+  fun authorizationList_fromAsn1_duplicateTagsWithIdenticalValues_success() {
+    val seq =
+      V3Extensions.buildAuthorizationList(
+        KeyMintTag.ALGORITHM to 1,
+        KeyMintTag.KEY_SIZE to 256,
+        KeyMintTag.ALGORITHM to 1,
+      )
+    val authList = AuthorizationList.from(seq)
+    assertThat(authList.algorithms).isEqualTo(1.toBigInteger())
+    assertThat(authList.keySize).isEqualTo(256.toBigInteger())
+  }
+
+  @Test
+  fun authorizationList_fromAsn1_duplicateTagsWithDifferentValues_throws() {
+    val seq =
+      V3Extensions.buildAuthorizationList(KeyMintTag.ALGORITHM to 1, KeyMintTag.ALGORITHM to 2)
+    assertThrows(ExtensionParsingException::class.java) { AuthorizationList.from(seq) }
+  }
+
+  @Test
+  fun authorizationList_fromAsn1_duplicateTagsWithDifferentTypes_throws() {
+    val seq =
+      V3Extensions.buildAuthorizationList(
+        KeyMintTag.KEY_SIZE to 256,
+        KeyMintTag.KEY_SIZE to ByteArray(0),
+      )
+    assertThrows(ExtensionParsingException::class.java) { AuthorizationList.from(seq) }
+  }
+
+  @Test
+  fun authorizationList_fromAsn1_multipleDuplicateTagsWithIdenticalValues_success() {
+    val seq =
+      V3Extensions.buildAuthorizationList(
+        KeyMintTag.ALGORITHM to 1,
+        KeyMintTag.ALGORITHM to 1,
+        KeyMintTag.ALGORITHM to 1,
+      )
+    val authList = AuthorizationList.from(seq)
+    assertThat(authList.algorithms).isEqualTo(1.toBigInteger())
+  }
+
+  @Test
+  fun authorizationList_fromAsn1_threeDuplicateTagsOneDifferent_throws() {
+    val seq =
+      V3Extensions.buildAuthorizationList(
+        KeyMintTag.ALGORITHM to 1,
+        KeyMintTag.ALGORITHM to 1,
+        KeyMintTag.ALGORITHM to 2,
+      )
+    assertThrows(ExtensionParsingException::class.java) { AuthorizationList.from(seq) }
+  }
+
+  @Test
+  fun authorizationList_fromAsn1_repeatedTagWithDifferentValues_success() {
+    val seq =
+      V3Extensions.buildAuthorizationList(KeyMintTag.BLOCK_MODE to 1, KeyMintTag.BLOCK_MODE to 2)
+    val authList = AuthorizationList.from(seq)
+    assertThat(authList).isNotNull()
+  }
 }
