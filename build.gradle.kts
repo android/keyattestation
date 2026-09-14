@@ -17,6 +17,7 @@
 plugins {
   id("com.adarshr.test-logger") version "4.0.0"
   id("org.jetbrains.kotlin.jvm") version "2.2.0"
+  `maven-publish`
 }
 
 repositories {
@@ -45,7 +46,10 @@ dependencies {
   testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
 }
 
-java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+java {
+  toolchain { languageVersion = JavaLanguageVersion.of(21) }
+  withSourcesJar()
+}
 
 tasks {
   test {
@@ -58,20 +62,19 @@ tasks {
 
 val generatedSourcesDir = layout.buildDirectory.dir("generated")
 
-val googleTrustAnchors by
-  tasks.registering {
-    val jsonFile = file("roots.json")
-    val json = jsonFile.readText()
-    val generatedFile = generatedSourcesDir.get().file("main/kotlin/GoogleTrustAnchors.kt")
+val googleTrustAnchors by tasks.registering {
+  val jsonFile = file("roots.json")
+  val json = jsonFile.readText()
+  val generatedFile = generatedSourcesDir.get().file("main/kotlin/GoogleTrustAnchors.kt")
 
-    inputs.files(jsonFile)
-    outputs.file(generatedFile)
+  inputs.files(jsonFile)
+  outputs.file(generatedFile)
 
-    doLast {
-      generatedFile
-        .getAsFile()
-        .writeText(
-          """
+  doLast {
+    generatedFile
+      .getAsFile()
+      .writeText(
+        """
         package com.android.keyattestation.verifier
 
         import com.android.keyattestation.verifier.asX509Certificate
@@ -92,16 +95,42 @@ val googleTrustAnchors by
           }
         }
         """
-        )
-    }
+      )
   }
+}
 
-val generateSources by
-  tasks.registering {
-    outputs.dir(generatedSourcesDir)
-    dependsOn(tasks.named("googleTrustAnchors"))
-  }
+val generateSources by tasks.registering {
+  outputs.dir(generatedSourcesDir)
+  dependsOn(tasks.named("googleTrustAnchors"))
+}
 
 sourceSets { main { kotlin.srcDir(generateSources) } }
 
 tasks.named("compileKotlin").configure { dependsOn("generateSources") }
+
+publishing {
+  publications {
+    create<MavenPublication>("keyattestation") {
+      from(components["java"])
+      groupId = "com.android.keyattestation"
+      artifactId = "keyattestation"
+      version =
+        (findProperty("keyAttestationReleaseVersion") as? String)?.removePrefix("v")
+          ?: "0.1-SNAPSHOT"
+    }
+  }
+
+  repositories {
+    maven {
+      name = "localDir"
+      val repoDir =
+        findProperty("KeyAttestationMavenRepo") as? String
+          ?: rootProject.layout.buildDirectory
+            .dir("keyattestation_m2repo")
+            .get()
+            .asFile
+            .absolutePath
+      url = uri(repoDir)
+    }
+  }
+}
