@@ -288,47 +288,47 @@ enum class Origin(val value: Long) {
  *   https://cs.android.com/android/platform/superproject/main/+/main:hardware/interfaces/security/keymint/aidl/android/hardware/security/keymint/Tag.aidl
  */
 @RequiresApi(24)
-enum class KeyMintTag(val value: Int) {
-  PURPOSE(1),
-  ALGORITHM(2),
-  KEY_SIZE(3),
-  BLOCK_MODE(4),
-  DIGEST(5),
-  PADDING(6),
-  EC_CURVE(10),
-  ML_DSA_VARIANT(11),
-  RSA_PUBLIC_EXPONENT(200),
-  RSA_OAEP_MGF_DIGEST(203),
-  ACTIVE_DATE_TIME(400),
-  ORIGINATION_EXPIRE_DATE_TIME(401),
-  USAGE_EXPIRE_DATE_TIME(402),
-  USAGE_COUNT_LIMIT(405),
-  NO_AUTH_REQUIRED(503),
-  USER_AUTH_TYPE(504),
-  AUTH_TIMEOUT(505),
-  ALLOW_WHILE_ON_BODY(506),
-  TRUSTED_USER_PRESENCE_REQUIRED(507),
-  TRUSTED_CONFIRMATION_REQUIRED(508),
-  UNLOCKED_DEVICE_REQUIRED(509),
-  CREATION_DATE_TIME(701),
-  ORIGIN(702),
-  ROLLBACK_RESISTANT(703),
-  ROOT_OF_TRUST(704),
-  OS_VERSION(705),
-  OS_PATCH_LEVEL(706),
-  ATTESTATION_APPLICATION_ID(709),
-  ATTESTATION_ID_BRAND(710),
-  ATTESTATION_ID_DEVICE(711),
-  ATTESTATION_ID_PRODUCT(712),
-  ATTESTATION_ID_SERIAL(713),
-  ATTESTATION_ID_IMEI(714),
-  ATTESTATION_ID_MEID(715),
-  ATTESTATION_ID_MANUFACTURER(716),
-  ATTESTATION_ID_MODEL(717),
-  VENDOR_PATCH_LEVEL(718),
-  BOOT_PATCH_LEVEL(719),
-  ATTESTATION_ID_SECOND_IMEI(723),
-  MODULE_HASH(724);
+enum class KeyMintTag(val value: Int, val frequency: Frequency) {
+  PURPOSE(1, Frequency.REPEATED),
+  ALGORITHM(2, Frequency.ONCE),
+  KEY_SIZE(3, Frequency.ONCE),
+  BLOCK_MODE(4, Frequency.REPEATED),
+  DIGEST(5, Frequency.REPEATED),
+  PADDING(6, Frequency.REPEATED),
+  EC_CURVE(10, Frequency.ONCE),
+  ML_DSA_VARIANT(11, Frequency.ONCE),
+  RSA_PUBLIC_EXPONENT(200, Frequency.ONCE),
+  RSA_OAEP_MGF_DIGEST(203, Frequency.REPEATED),
+  ACTIVE_DATE_TIME(400, Frequency.ONCE),
+  ORIGINATION_EXPIRE_DATE_TIME(401, Frequency.ONCE),
+  USAGE_EXPIRE_DATE_TIME(402, Frequency.ONCE),
+  USAGE_COUNT_LIMIT(405, Frequency.ONCE),
+  NO_AUTH_REQUIRED(503, Frequency.ONCE),
+  USER_AUTH_TYPE(504, Frequency.ONCE),
+  AUTH_TIMEOUT(505, Frequency.ONCE),
+  ALLOW_WHILE_ON_BODY(506, Frequency.ONCE),
+  TRUSTED_USER_PRESENCE_REQUIRED(507, Frequency.ONCE),
+  TRUSTED_CONFIRMATION_REQUIRED(508, Frequency.ONCE),
+  UNLOCKED_DEVICE_REQUIRED(509, Frequency.ONCE),
+  CREATION_DATE_TIME(701, Frequency.ONCE),
+  ORIGIN(702, Frequency.ONCE),
+  ROLLBACK_RESISTANT(703, Frequency.ONCE),
+  ROOT_OF_TRUST(704, Frequency.ONCE),
+  OS_VERSION(705, Frequency.ONCE),
+  OS_PATCH_LEVEL(706, Frequency.ONCE),
+  ATTESTATION_APPLICATION_ID(709, Frequency.ONCE),
+  ATTESTATION_ID_BRAND(710, Frequency.ONCE),
+  ATTESTATION_ID_DEVICE(711, Frequency.ONCE),
+  ATTESTATION_ID_PRODUCT(712, Frequency.ONCE),
+  ATTESTATION_ID_SERIAL(713, Frequency.ONCE),
+  ATTESTATION_ID_IMEI(714, Frequency.ONCE),
+  ATTESTATION_ID_MEID(715, Frequency.ONCE),
+  ATTESTATION_ID_MANUFACTURER(716, Frequency.ONCE),
+  ATTESTATION_ID_MODEL(717, Frequency.ONCE),
+  VENDOR_PATCH_LEVEL(718, Frequency.ONCE),
+  BOOT_PATCH_LEVEL(719, Frequency.ONCE),
+  ATTESTATION_ID_SECOND_IMEI(723, Frequency.ONCE),
+  MODULE_HASH(724, Frequency.ONCE);
 
   // The following tags are intentionally unsupported:
   // 7 (callerNonce): Used in symmetric ciphers only
@@ -337,6 +337,11 @@ enum class KeyMintTag(val value: Int) {
   // 305 (earlyBootOnly): Not usable by 3p apps
   // 502 (userSecureId): Not usable by 3p apps (framework API is hidden)
   // 720 (deviceUniqueAttestation): Not widely used.
+
+  enum class Frequency {
+    ONCE,
+    REPEATED,
+  }
 
   companion object {
     fun from(value: Int) =
@@ -515,11 +520,22 @@ data class AuthorizationList(
       logFn: (String) -> Unit = { _ -> },
       inputLimits: InputLimits = InputLimits(),
     ): AuthorizationList {
-      val objects = seq.associate {
-        require(it is ASN1TaggedObject) {
-          "Must be an ASN1TaggedObject, was ${it::class.simpleName}"
+      val objects = mutableMapOf<KeyMintTag, ASN1Encodable>()
+      for (element in seq) {
+        require(element is ASN1TaggedObject) {
+          "Must be an ASN1TaggedObject, was ${element::class.simpleName}"
         }
-        KeyMintTag.from(it.tagNo) to it.explicitBaseObject
+        val tag = KeyMintTag.from(element.tagNo)
+        val value = element.explicitBaseObject
+        val existingValue = objects[tag]
+        if (tag.frequency == KeyMintTag.Frequency.ONCE && existingValue != null) {
+          if (
+            !existingValue.toASN1Primitive().encoded.contentEquals(value.toASN1Primitive().encoded)
+          ) {
+            throw ExtensionParsingException("Duplicate tag $tag with different values")
+          }
+        }
+        objects[tag] = value
       }
 
       /**

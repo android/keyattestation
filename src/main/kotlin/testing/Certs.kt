@@ -629,4 +629,23 @@ object V3Extensions {
         add(DERSet(signatures.map { DEROctetString(it.toByteArray()) }.toTypedArray()))
       }
       .let { DERSequence(it.toTypedArray()) }
+
+  fun buildAuthorizationList(vararg tags: Pair<KeyMintTag, Any>): ASN1Sequence =
+    DERSequence(
+      tags
+        .map { (tag, value) ->
+          val encodable: ASN1Encodable =
+            when (value) {
+              is Int -> ASN1Integer(value.toLong())
+              is Long -> ASN1Integer(value)
+              is BigInteger -> ASN1Integer(value)
+              is ByteArray -> DEROctetString(value)
+              is String -> DEROctetString(value.toByteArray(Charsets.UTF_8))
+              is ASN1Encodable -> value
+              else -> throw IllegalArgumentException("Unsupported value type: ${value::class}")
+            }
+          encodable.toTaggedObject(tag)
+        }
+        .toTypedArray()
+    )
 }
