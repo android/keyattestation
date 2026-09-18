@@ -43,6 +43,7 @@ import com.google.testing.junit.testparameterinjector.TestParameters
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider.Context
+import java.math.BigInteger
 import java.security.cert.PKIXReason
 import java.security.cert.TrustAnchor
 import java.time.Instant
@@ -98,11 +99,13 @@ class VerifierTest {
           { prodAnchors + SOFTWARE_ROOTS.map { TrustAnchor(it, null) } },
           { setOf<String>() },
           { timestamp },
-          ConstraintConfig(
-            allowSoftwareRoot = true,
-            securityLevel = IgnoredConstraint,
-            rootOfTrust = IgnoredConstraint,
-          ),
+          json.softwareEnforced.attestationApplicationId,
+          constraintConfig {
+            allowSoftwareRoot = true
+            securityLevel { IgnoredConstraint }
+            rootOfTrust { IgnoredConstraint }
+            attestationApplicationId { AttestationApplicationIdConstraint.STRICT }
+          },
         )
       val chain = readCertList("${subpath}.pem")
       val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
@@ -174,6 +177,26 @@ class VerifierTest {
   }
 
   @Test
+  fun verify_attestationApplicationIdConstraintFails_returnsConstraintViolation() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        AttestationApplicationId(
+          packages = setOf(AttestationPackageInfo("com.wrong.package", BigInteger.ONE)),
+          signatures = emptySet(),
+        ),
+        constraintConfig { attestationApplicationId { AttestationApplicationIdConstraint.STRICT } },
+      )
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
+
+    val result = assertIs<ConstraintViolation>(verifier.verify(chain))
+
+    assertThat(result.constraintLabel).isEqualTo("Attestation application ID")
+  }
+
+  @Test
   fun verifyAsync_unexpectedRootKey_returnsPathValidationFailure() = runBlocking {
     val result =
       assertIs<VerificationResult.PathValidationFailure>(
@@ -230,7 +253,8 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        constraintConfig { additionalConstraint { SecurityLevelConstraint.MATCHES_CERTIFICATE } },
+        constraintConfig =
+          constraintConfig { additionalConstraint { SecurityLevelConstraint.MATCHES_CERTIFICATE } },
       )
     val result =
       assertIs<ConstraintViolation>(
@@ -250,7 +274,8 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        constraintConfig { additionalConstraint { SecurityLevelConstraint.MATCHES_CERTIFICATE } },
+        constraintConfig =
+          constraintConfig { additionalConstraint { SecurityLevelConstraint.MATCHES_CERTIFICATE } },
       )
     val result =
       assertIs<ConstraintViolation>(
@@ -271,7 +296,7 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        constraintConfig { securityLevel { IgnoredConstraint } },
+        constraintConfig = constraintConfig { securityLevel { IgnoredConstraint } },
       )
     val result =
       assertIs<VerificationResult.Success>(verifier.verify(CertLists.mismatchedSecurityLevels))
@@ -285,7 +310,8 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        constraintConfig { additionalConstraint { ProvisioningMethodConstraint.REMOTE } },
+        constraintConfig =
+          constraintConfig { additionalConstraint { ProvisioningMethodConstraint.REMOTE } },
       )
     val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.validFactoryProvisioned))
     assertThat(result.constraintLabel).isEqualTo("Provisioning method")
@@ -302,7 +328,8 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } },
+        constraintConfig =
+          constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } },
       )
     assertIs<VerificationResult.Success>(verifier.verify(CertLists.validFactoryProvisioned))
   }
@@ -314,7 +341,8 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } },
+        constraintConfig =
+          constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } },
       )
     val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.validRemotelyProvisioned))
     assertThat(result.constraintLabel).isEqualTo("Provisioning method")
@@ -331,7 +359,8 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        constraintConfig { additionalConstraint { ProvisioningMethodConstraint.REMOTE } },
+        constraintConfig =
+          constraintConfig { additionalConstraint { ProvisioningMethodConstraint.REMOTE } },
       )
     assertIs<VerificationResult.Success>(verifier.verify(CertLists.validRemotelyProvisioned))
   }
@@ -343,11 +372,12 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        constraintConfig {
-          keyOrigin {
-            AttributeConstraint.STRICT("Test", Origin.IMPORTED) { it.hardwareEnforced.origin }
-          }
-        },
+        constraintConfig =
+          constraintConfig {
+            keyOrigin {
+              AttributeConstraint.STRICT("Test", Origin.IMPORTED) { it.hardwareEnforced.origin }
+            }
+          },
       )
     assertIs<VerificationResult.Success>(verifier.verify(CertLists.importedOrigin))
   }
@@ -359,7 +389,7 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        constraintConfig { rootOfTrust { IgnoredConstraint } },
+        constraintConfig = constraintConfig { rootOfTrust { IgnoredConstraint } },
       )
     assertIs<VerificationResult.Success>(verifier.verify(CertLists.missingRootOfTrust))
   }
@@ -371,10 +401,11 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        constraintConfig {
-          additionalConstraint { TagOrderConstraint.STRICT }
-          additionalConstraint { IgnoredConstraint }
-        },
+        constraintConfig =
+          constraintConfig {
+            additionalConstraint { TagOrderConstraint.STRICT }
+            additionalConstraint { IgnoredConstraint }
+          },
       )
     val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.unorderedTags))
     assertThat(result.constraintLabel).isEqualTo("Tag order")
@@ -390,7 +421,7 @@ class VerifierTest {
           this,
           CertLists.wrongTrustAnchor,
           ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
-          logHook,
+          log = logHook,
         )
         .await()
     )
