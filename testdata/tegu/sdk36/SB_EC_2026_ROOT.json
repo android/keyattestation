@@ -12,8 +12,7 @@
         { "name": "com.google.android.attestation", "version": "0" }
       ],
       "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
-    },
-    "areTagsOrdered": true
+    }
   },
   "hardwareEnforced": {
     "purposes": ["2", "3"],
@@ -32,7 +31,6 @@
     "osVersion": "160000",
     "osPatchLevel": "202602",
     "vendorPatchLevel": "20260205",
-    "bootPatchLevel": "20260205",
-    "areTagsOrdered": true
+    "bootPatchLevel": "20260205"
   }
 }

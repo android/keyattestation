@@ -24,6 +24,7 @@ import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
 import com.android.keyattestation.verifier.testing.TestUtils.getTestCases
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.android.keyattestation.verifier.testing.V3Extensions
+import com.android.keyattestation.verifier.testing.toJson
 import com.android.keyattestation.verifier.testing.toKeyDescription
 import com.google.common.truth.Truth.assertThat
 
@@ -198,6 +199,23 @@ class ExtensionTest {
         hardwareEnforced = authorizationList,
       )
     assertThat(KeyDescription.parseFrom(keyDescription.encodeToAsn1())).isEqualTo(keyDescription)
+  }
+
+  @Test
+  fun keyDescriptionToJson_ignoresAreTagsOrdered() {
+    val authorizationList = AuthorizationList(areTagsOrdered = true)
+    val keyDescription =
+      KeyDescription(
+        attestationVersion = 1.toBigInteger(),
+        attestationSecurityLevel = SecurityLevel.SOFTWARE,
+        keyMintVersion = 1.toBigInteger(),
+        keyMintSecurityLevel = SecurityLevel.SOFTWARE,
+        attestationChallenge = ByteString.empty(),
+        uniqueId = ByteString.empty(),
+        softwareEnforced = authorizationList,
+        hardwareEnforced = authorizationList,
+      )
+    assertThat(keyDescription.toJson()).doesNotContain("areTagsOrdered")
   }
 
   @Test

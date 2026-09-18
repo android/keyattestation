@@ -14,8 +14,7 @@
       ],
       "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
     },
-    "moduleHash": "al4AdvgYUvh6qnkfO7Wmn25Qtfs9I+pp4bbUBMm7N+4=",
-    "areTagsOrdered": true
+    "moduleHash": "al4AdvgYUvh6qnkfO7Wmn25Qtfs9I+pp4bbUBMm7N+4="
   },
   "hardwareEnforced": {
     "purposes": ["2", "3"],
@@ -39,7 +38,6 @@
     "attestationIdManufacturer": "Google",
     "attestationIdModel": "Pixel 9a",
     "vendorPatchLevel": "20260805",
-    "bootPatchLevel": "20260805",
-    "areTagsOrdered": true
+    "bootPatchLevel": "20260805"
   }
 }

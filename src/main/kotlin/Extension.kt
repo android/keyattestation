@@ -397,7 +397,7 @@ data class AuthorizationList(
   val bootPatchLevel: PatchLevel? = null,
   val attestationIdSecondImei: String? = null,
   val moduleHash: ByteString? = null,
-  @get:JvmName("areTagsOrdered") internal val areTagsOrdered: Boolean = true,
+  @Transient @get:JvmName("areTagsOrdered") internal val areTagsOrdered: Boolean = true,
 ) {
   /**
    * Converts the representation of an [AuthorizationList] to an ASN.1 sequence.

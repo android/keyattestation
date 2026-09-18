@@ -14,8 +14,7 @@
       ],
       "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
     },
-    "moduleHash": "9LgYqeXS71yyjWDapgmLq8vfI/9ugHeO+C1+Qe9Ill4=",
-    "areTagsOrdered": true
+    "moduleHash": "9LgYqeXS71yyjWDapgmLq8vfI/9ugHeO+C1+Qe9Ill4="
   },
   "hardwareEnforced": {
     "purposes": ["2", "3"],
@@ -34,9 +33,8 @@
     "osVersion": "160000",
     "osPatchLevel": "202602",
     "vendorPatchLevel": "20260205",
-    "bootPatchLevel": "20260205",
+    "bootPatchLevel": "20260205"
     // Not all device fields are populated, as a pre-production test
     // device was used. This device was not fully provisioned.
-    "areTagsOrdered": true
   }
 }

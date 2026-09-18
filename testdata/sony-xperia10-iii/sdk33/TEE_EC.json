@@ -10,8 +10,7 @@
     "attestationApplicationId": {
       "packages": [{ "name": "com.android.vending", "version": "85162330" }],
       "signatures": ["8P1sW0EPJcslw7UzRsiXL64w+O50Ed+RBICtay1g24M="]
-    },
-    "areTagsOrdered": true
+    }
   },
   "hardwareEnforced": {
     "purposes": ["2"],
@@ -35,7 +34,6 @@
     "attestationIdManufacturer": "Sony",
     "attestationIdModel": "SO-52B",
     "vendorPatchLevel": "20230701",
-    "bootPatchLevel": "20230701",
-    "areTagsOrdered": true
+    "bootPatchLevel": "20230701"
   }
 }

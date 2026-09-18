@@ -8,9 +8,7 @@
   "softwareEnforced": {
     "creationDateTime": "1777384250243",
     "attestationApplicationId": {
-      "packages": [
-        {"name":"android.keystore.cts", "version":"37" }
-      ],
+      "packages": [{ "name": "android.keystore.cts", "version": "37" }],
       "signatures": ["bOzFDjSuMb+1Z4mG1tbTc2xXHe0vJFlSd5Ph8FTrDJs="]
     },
     "moduleHash": "FaidWkxztCor58kSH+BtPV6/tFSP0MSgkePA7fFzTfw="
