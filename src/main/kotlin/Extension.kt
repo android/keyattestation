@@ -567,7 +567,7 @@ data class AuthorizationList(
         creationDateTime = converter.parseInt(KeyMintTag.CREATION_DATE_TIME),
         origin = converter.parse(KeyMintTag.ORIGIN) { it.toOrigin() },
         rollbackResistant = if (objects.containsKey(KeyMintTag.ROLLBACK_RESISTANT)) true else null,
-        rootOfTrust = converter.parse(KeyMintTag.ROOT_OF_TRUST) { it.toRootOfTrust() },
+        rootOfTrust = converter.parse(KeyMintTag.ROOT_OF_TRUST) { it.toRootOfTrust(logFn) },
         osVersion = converter.parseInt(KeyMintTag.OS_VERSION),
         osPatchLevel = converter.parsePatchLevel(KeyMintTag.OS_PATCH_LEVEL, "OS"),
         attestationApplicationId =
@@ -737,12 +737,12 @@ data class RootOfTrust(
       .let { DERSequence(it.toTypedArray()) }
 
   internal companion object {
-    fun from(rootOfTrust: ASN1Sequence): RootOfTrust {
+    fun from(rootOfTrust: ASN1Sequence, logFn: (String) -> Unit = { _ -> }): RootOfTrust {
       require(rootOfTrust.size() == 3 || rootOfTrust.size() == 4)
       val verifiedBootState = rootOfTrust.getObjectAt(2).toEnumerated()
       return RootOfTrust(
         verifiedBootKey = rootOfTrust.getObjectAt(0).toByteString(),
-        deviceLocked = rootOfTrust.getObjectAt(1).toBoolean(),
+        deviceLocked = rootOfTrust.getObjectAt(1).toBoolean(logFn),
         VerifiedBootState.from(verifiedBootState),
         verifiedBootHash =
           if (rootOfTrust.size() > 3) rootOfTrust.getObjectAt(3).toByteString() else null,
@@ -796,9 +796,12 @@ private fun ASN1Encodable.toAuthorizationList(
 }
 
 @RequiresApi(24)
-private fun ASN1Encodable.toBoolean(): Boolean {
+private fun ASN1Encodable.toBoolean(logFn: (String) -> Unit = { _ -> }): Boolean {
   if (this !is ASN1Boolean) {
     throw ExtensionParsingException("Must be an ASN1Boolean, was ${this::class.simpleName}")
+  }
+  if (this !== ASN1Boolean.TRUE && this !== ASN1Boolean.FALSE) {
+    logFn("Non-DER encoded boolean in RootOfTrust.deviceLocked: ${this.encoded.last()}")
   }
   return this.isTrue
 }
@@ -837,11 +840,11 @@ private fun ASN1Encodable.toPatchLevel(
 ): PatchLevel? = PatchLevel.from(this, partitionName, logFn)
 
 @RequiresApi(24)
-private fun ASN1Encodable.toRootOfTrust(): RootOfTrust {
+private fun ASN1Encodable.toRootOfTrust(logFn: (String) -> Unit = { _ -> }): RootOfTrust {
   if (this !is ASN1Sequence) {
     throw ExtensionParsingException("Object must be an ASN1Sequence, was ${this::class.simpleName}")
   }
-  return RootOfTrust.from(this)
+  return RootOfTrust.from(this, logFn)
 }
 
 @RequiresApi(24)

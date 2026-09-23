@@ -101,15 +101,19 @@ class ExtensionTest {
   }
 
   @Test
-  fun parseFrom_malformedRotDeviceLocked_successfullyParsed() {
+  fun parseFrom_malformedRotDeviceLocked_successfullyParsedAndLogs() {
+    val logHook = FakeLogHook()
     val keyDescription =
       KeyDescription.parseFrom(
         testData
           .resolve("invalid/malformed_rot_device_locked.pem")
           .inputStream()
-          .asX509Certificate()
+          .asX509Certificate(),
+        logFn = logHook.fakeVerifyRequestLog::logInfoMessage,
       )
     assertThat(keyDescription?.hardwareEnforced?.rootOfTrust?.deviceLocked).isTrue()
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages)
+      .contains("Non-DER encoded boolean in RootOfTrust.deviceLocked: 1")
   }
 
   @Test

@@ -423,6 +423,17 @@ class VerifierTest {
   }
 
   @Test
+  fun verifyAsync_malformedDeviceLocked_logsInfo(): Unit = runBlocking {
+    val logHook = FakeLogHook()
+    val chain = readCertList("invalid/malformed_rot_device_locked.pem")
+    val result =
+      assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain, log = logHook).await())
+    assertThat(result.deviceLocked).isTrue()
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages)
+      .contains("Non-DER encoded boolean in RootOfTrust.deviceLocked: 1")
+  }
+
+  @Test
   fun verifyAsync_longDelay_successfullyAwaitsChallengeCheck(): Unit = runBlocking {
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
 
