@@ -19,8 +19,6 @@ package com.android.keyattestation.verifier
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
-import com.google.protobuf.kotlin.toByteStringUtf8
-import java.math.BigInteger
 import kotlin.test.assertIs
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -31,37 +29,21 @@ import org.junit.runners.JUnit4
 class ConstraintConfigTest {
 
   private companion object {
-    const val TEST_PACKAGE_NAME = "com.example.app"
-    val TEST_PACKAGE_VERSION = BigInteger.valueOf(10)
-    val TEST_PACKAGE_INFO = AttestationPackageInfo(TEST_PACKAGE_NAME, TEST_PACKAGE_VERSION)
-    val TEST_SIGNATURE = ByteString.copyFromUtf8("test-signature")
-    val TEST_APP_ID =
-      AttestationApplicationId(
-        packages = setOf(TEST_PACKAGE_INFO),
-        signatures = setOf(TEST_SIGNATURE),
-      )
-    val UNKNOWN_PACKAGE = AttestationPackageInfo("UnknownPackage", BigInteger.ONE)
-    val MAX_OS_VERSION = BigInteger.valueOf(140000)
-
     val authorizationList =
-      AuthorizationList(
-        purposes = setOf(1.toBigInteger()),
-        algorithms = 1.toBigInteger(),
-        osVersion = MAX_OS_VERSION,
-      )
+      AuthorizationList(purposes = setOf(1.toBigInteger()), algorithms = 1.toBigInteger())
 
     fun createTestKeyDescription(
       attestationSecurityLevel: SecurityLevel,
       keyMintSecurityLevel: SecurityLevel,
     ) =
       KeyDescription(
-        attestationVersion = 400.toBigInteger(),
+        attestationVersion = 1.toBigInteger(),
         attestationSecurityLevel = attestationSecurityLevel,
-        keyMintVersion = 400.toBigInteger(),
+        keyMintVersion = 1.toBigInteger(),
         keyMintSecurityLevel = keyMintSecurityLevel,
         attestationChallenge = ByteString.empty(),
         uniqueId = ByteString.empty(),
-        softwareEnforced = AuthorizationList(attestationApplicationId = TEST_APP_ID),
+        softwareEnforced = authorizationList,
         hardwareEnforced = authorizationList,
       )
   }
@@ -450,193 +432,6 @@ class ConstraintConfigTest {
   fun constraintConfig_provisioningMethod_configuredViaAdditionalConstraint() {
     val config = constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } }
     assertThat(config.additionalConstraints).contains(ProvisioningMethodConstraint.FACTORY)
-    assertThat(config.getGenericConstraints()).contains(ProvisioningMethodConstraint.FACTORY)
-  }
-
-  @Test
-  fun attestationApplicationId_strict_matchingAppId_returnsSatisfied() {
-    assertIs<Constraint.Satisfied>(
-      AttestationApplicationIdConstraint.STRICT.check(
-        TEST_APP_ID,
-        keyDescriptionWithTeeSecurityLevels,
-      )
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_strict_higherVersion_returnsSatisfied() {
-    assertIs<Constraint.Satisfied>(
-      AttestationApplicationIdConstraint.STRICT.check(
-        AttestationApplicationId(
-          setOf(AttestationPackageInfo(TEST_PACKAGE_NAME, TEST_PACKAGE_VERSION - BigInteger.ONE)),
-          setOf(TEST_SIGNATURE),
-        ),
-        keyDescriptionWithTeeSecurityLevels,
-      )
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_strict_noSignatureRequirements_returnsSatisfied() {
-    assertIs<Constraint.Satisfied>(
-      AttestationApplicationIdConstraint.STRICT.check(
-        AttestationApplicationId(packages = setOf(TEST_PACKAGE_INFO), signatures = emptySet()),
-        keyDescriptionWithTeeSecurityLevels,
-      )
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_strict_lowerVersion_returnsViolated() {
-    assertIs<Constraint.Violated>(
-      AttestationApplicationIdConstraint.STRICT.check(
-        AttestationApplicationId(
-          setOf(AttestationPackageInfo(TEST_PACKAGE_NAME, TEST_PACKAGE_VERSION + BigInteger.ONE)),
-          setOf(TEST_SIGNATURE),
-        ),
-        keyDescriptionWithTeeSecurityLevels,
-      )
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_strict_mismatchedPackageName_returnsViolated() {
-    assertIs<Constraint.Violated>(
-      AttestationApplicationIdConstraint.STRICT.check(
-        AttestationApplicationId(
-          setOf(
-            AttestationPackageInfo(name = "different.package.name", version = TEST_PACKAGE_VERSION)
-          ),
-          emptySet(),
-        ),
-        keyDescriptionWithTeeSecurityLevels,
-      )
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_strict_mismatchedSignature_returnsViolated() {
-    assertIs<Constraint.Violated>(
-      AttestationApplicationIdConstraint.STRICT.check(
-        AttestationApplicationId(
-          setOf(AttestationPackageInfo(TEST_PACKAGE_NAME, TEST_PACKAGE_VERSION)),
-          setOf("other-signature".toByteStringUtf8()),
-        ),
-        keyDescriptionWithTeeSecurityLevels,
-      )
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_lenient_matchingAppId_returnsSatisfiedRegardlessOfOsVersion() {
-    assertIs<Constraint.Satisfied>(
-      AttestationApplicationIdConstraint.ALLOW_UNKNOWN_PACKAGE(MAX_OS_VERSION)
-        .check(TEST_APP_ID, keyDescriptionWithTeeSecurityLevels)
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_lenient_mismatchedAppId_withUnknownPackage_andLowerOrEqualOsVersion_returnsSatisfied() {
-    val actualAppId =
-      AttestationApplicationId(packages = setOf(UNKNOWN_PACKAGE), signatures = setOf())
-
-    val kdEqualOs =
-      keyDescriptionWithTeeSecurityLevels.copy(
-        softwareEnforced = authorizationList.copy(attestationApplicationId = actualAppId),
-        hardwareEnforced = authorizationList.copy(osVersion = MAX_OS_VERSION),
-      )
-    assertIs<Constraint.Satisfied>(
-      AttestationApplicationIdConstraint.ALLOW_UNKNOWN_PACKAGE(MAX_OS_VERSION)
-        .check(TEST_APP_ID, kdEqualOs)
-    )
-
-    val kdLowerOs =
-      keyDescriptionWithTeeSecurityLevels.copy(
-        softwareEnforced = authorizationList.copy(attestationApplicationId = actualAppId),
-        hardwareEnforced = authorizationList.copy(osVersion = BigInteger.valueOf(130000)),
-      )
-    assertIs<Constraint.Satisfied>(
-      AttestationApplicationIdConstraint.ALLOW_UNKNOWN_PACKAGE(MAX_OS_VERSION)
-        .check(TEST_APP_ID, kdLowerOs)
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_lenient_mismatchedAppId_withUnknownPackage_andHigherOsVersion_returnsViolated() {
-    val actualAppId =
-      AttestationApplicationId(packages = setOf(UNKNOWN_PACKAGE), signatures = setOf())
-    val kd =
-      keyDescriptionWithTeeSecurityLevels.copy(
-        softwareEnforced = authorizationList.copy(attestationApplicationId = actualAppId),
-        hardwareEnforced = authorizationList.copy(osVersion = BigInteger.valueOf(150000)),
-      )
-
-    assertIs<Constraint.Violated>(
-      AttestationApplicationIdConstraint.ALLOW_UNKNOWN_PACKAGE(MAX_OS_VERSION)
-        .check(TEST_APP_ID, kd)
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_lenient_mismatchedAppId_withoutUnknownPackage_andLowerOsVersion_returnsViolated() {
-    assertIs<Constraint.Violated>(
-      AttestationApplicationIdConstraint.ALLOW_UNKNOWN_PACKAGE(MAX_OS_VERSION)
-        .check(
-          AttestationApplicationId(
-            packages = setOf(AttestationPackageInfo("com.other.app", BigInteger.valueOf(10))),
-            signatures = setOf(TEST_SIGNATURE),
-          ),
-          keyDescriptionWithTeeSecurityLevels,
-        )
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_lenient_mismatchedAppId_withUnknownPackageWrongVersion_returnsViolated() {
-    val actualAppId =
-      AttestationApplicationId(
-        packages = setOf(AttestationPackageInfo("UnknownPackage", BigInteger.valueOf(2))),
-        signatures = setOf(),
-      )
-    val kd =
-      keyDescriptionWithTeeSecurityLevels.copy(
-        softwareEnforced = authorizationList.copy(attestationApplicationId = actualAppId),
-        hardwareEnforced = authorizationList.copy(osVersion = BigInteger.valueOf(130000)),
-      )
-
-    assertIs<Constraint.Violated>(
-      AttestationApplicationIdConstraint.ALLOW_UNKNOWN_PACKAGE(MAX_OS_VERSION)
-        .check(TEST_APP_ID, kd)
-    )
-  }
-
-  @Test
-  fun attestationApplicationId_none_alwaysReturnsSatisfied() {
-    assertIs<Constraint.Satisfied>(
-      AttestationApplicationIdConstraint.NONE.check(
-        TEST_APP_ID,
-        keyDescriptionWithTeeSecurityLevels,
-      )
-    )
-  }
-
-  @Test
-  fun attestationApplicationIdConstraint_withViolation_returnsCorrectMessage() {
-    val expectedAppId =
-      AttestationApplicationId(
-        packages = setOf(AttestationPackageInfo("com.other.app", BigInteger.valueOf(10))),
-        signatures = setOf(TEST_SIGNATURE),
-      )
-    val constraint = AttestationApplicationIdConstraint.STRICT
-
-    val violation =
-      assertIs<Constraint.Violated>(
-        constraint.check(expectedAppId, keyDescriptionWithTeeSecurityLevels)
-      )
-    assertThat(violation.failureMessage)
-      .isEqualTo(
-        "Attestation application ID violates constraint: attestationApplicationId=$TEST_APP_ID, config=$constraint"
-      )
-    assertThat(constraint.label).isEqualTo("Attestation application ID")
+    assertThat(config.getConstraints()).contains(ProvisioningMethodConstraint.FACTORY)
   }
 }

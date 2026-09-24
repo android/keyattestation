@@ -151,8 +151,6 @@ constructor(
   private val trustAnchorsSource: () -> Set<TrustAnchor>,
   private val revokedSerialsSource: () -> Set<String>,
   private val instantSource: InstantSource,
-  // TODO(google-internal bug): Make required, though still allow null value.
-  private val expectedAttestationApplicationId: AttestationApplicationId? = null,
   private val constraintConfig: ConstraintConfig = ConstraintConfig(),
 ) {
   init {
@@ -183,16 +181,13 @@ constructor(
   fun verify(
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
-    additionalAttestationApplicationId: AttestationApplicationId? = null,
     log: LogHook? = null,
   ): VerificationResult {
     val requestLog = log?.createRequestLog()
     val result =
       try {
         val certPath = KeyAttestationCertPath(chain)
-        runBlocking {
-          internalVerify(certPath, challengeChecker, additionalAttestationApplicationId, requestLog)
-        }
+        runBlocking { internalVerify(certPath, challengeChecker, requestLog) }
       } catch (e: CertificateException) {
         requestLog?.logInputChain(chain.map { it.getEncoded().toByteString() })
         VerificationResult.ChainParsingFailure(e)
@@ -208,8 +203,6 @@ constructor(
    * @param chain The attestation certificate chain to verify.
    * @param coroutineScope The coroutine scope from which to run the verification.
    * @param challengeChecker The challenge checker to use for additional challenge validation.
-   * @param additionalAttestationApplicationId An additional attestation application ID to use for
-   *   constraint checking.
    * @param log The log hook to use for logging.
    * @return A [ListenableFuture] containing the [VerificationResult].
    */
@@ -218,7 +211,6 @@ constructor(
     coroutineScope: CoroutineScope,
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
-    additionalAttestationApplicationId: AttestationApplicationId? = null,
     log: LogHook? = null,
   ): ListenableFuture<VerificationResult> {
     val immutableChain = ImmutableList.copyOf(chain)
@@ -227,7 +219,7 @@ constructor(
       val result =
         try {
           val certPath = KeyAttestationCertPath(immutableChain)
-          internalVerify(certPath, challengeChecker, additionalAttestationApplicationId, requestLog)
+          internalVerify(certPath, challengeChecker, requestLog)
         } catch (e: CertificateException) {
           requestLog?.logInputChain(immutableChain.map { it.getEncoded().toByteString() })
           VerificationResult.ChainParsingFailure(e)
@@ -241,7 +233,6 @@ constructor(
   private suspend fun internalVerify(
     certPath: KeyAttestationCertPath,
     challengeChecker: ChallengeChecker? = null,
-    additionalAttestationApplicationId: AttestationApplicationId? = null,
     log: VerifyRequestLog? = null,
   ): VerificationResult {
     log?.logInputChain(certPath.certificatesWithAnchor.map { it.getEncoded().toByteString() })
@@ -314,28 +305,13 @@ constructor(
       }
     }
 
-    for (constraint in constraintConfig.getGenericConstraints()) {
+    for (constraint in constraintConfig.getConstraints()) {
       val result = constraint.check(keyDescription, certPath)
       when (result) {
         is Constraint.Satisfied -> {}
         is Constraint.Violated -> {
           return VerificationResult.ConstraintViolation(constraint.label, result.failureMessage)
         }
-      }
-    }
-
-    val attestationApplicationIdCheckResult =
-      constraintConfig.attestationApplicationId.check(
-        combine(expectedAttestationApplicationId, additionalAttestationApplicationId),
-        keyDescription,
-      )
-    when (attestationApplicationIdCheckResult) {
-      is Constraint.Satisfied -> {}
-      is Constraint.Violated -> {
-        return VerificationResult.ConstraintViolation(
-          constraintConfig.attestationApplicationId.label,
-          attestationApplicationIdCheckResult.failureMessage,
-        )
       }
     }
 
@@ -356,16 +332,4 @@ constructor(
       DeviceIdentity.parseFrom(keyDescription),
     )
   }
-}
-
-private fun combine(
-  stored: AttestationApplicationId?,
-  additional: AttestationApplicationId?,
-): AttestationApplicationId? {
-  if (stored == null) return additional
-  if (additional == null) return stored
-  return AttestationApplicationId(
-    stored.packages + additional.packages,
-    stored.signatures + additional.signatures,
-  )
 }
