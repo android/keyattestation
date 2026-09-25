@@ -21,6 +21,7 @@ import com.android.keyattestation.verifier.provider.ProvisioningMethod
 import com.google.common.collect.ImmutableList
 import com.google.errorprone.annotations.Immutable
 import com.google.errorprone.annotations.ThreadSafe
+import java.math.BigInteger
 
 private typealias AttributeMapper = (KeyDescription) -> Any?
 
@@ -50,13 +51,23 @@ class ConstraintConfig
 @JvmOverloads
 constructor(
   val allowSoftwareRoot: Boolean = false,
+  val attestationApplicationId: AttestationApplicationIdConstraint =
+    AttestationApplicationIdConstraint.ALLOW_UNKNOWN_PACKAGE(
+      AttestationApplicationIdConstraint.DEFAULT_MAX_OS_VERSION
+    ),
   val keyOrigin: Constraint? = null,
   val securityLevel: Constraint? = null,
   val rootOfTrust: Constraint? = null,
   val additionalConstraints: ImmutableList<Constraint> = ImmutableList.of(),
   val inputLimits: InputLimits = InputLimits(),
 ) {
-  fun getConstraints() =
+  /**
+   * Returns the list of constraints for this [ConstraintConfig] which can be checked using only the
+   * [KeyDescription] and [KeyAttestationCertPath].
+   *
+   * @return The list of generic constraints.
+   */
+  fun getGenericConstraints(): ImmutableList<Constraint> =
     ImmutableList.builder<Constraint>()
       .add(
         keyOrigin
@@ -81,6 +92,10 @@ constructor(
  */
 class ConstraintConfigBuilder() {
   var allowSoftwareRoot: Boolean = false
+  var attestationApplicationId: AttestationApplicationIdConstraint =
+    AttestationApplicationIdConstraint.ALLOW_UNKNOWN_PACKAGE(
+      AttestationApplicationIdConstraint.DEFAULT_MAX_OS_VERSION
+    )
   var keyOrigin: Constraint? = null
   var securityLevel: Constraint? = null
   var rootOfTrust: Constraint? = null
@@ -99,6 +114,10 @@ class ConstraintConfigBuilder() {
     this.rootOfTrust = constraint()
   }
 
+  fun attestationApplicationId(constraint: () -> AttestationApplicationIdConstraint) {
+    this.attestationApplicationId = constraint()
+  }
+
   fun additionalConstraint(constraint: () -> Constraint) {
     additionalConstraints.add(constraint())
   }
@@ -110,6 +129,7 @@ class ConstraintConfigBuilder() {
   fun build(): ConstraintConfig =
     ConstraintConfig(
       allowSoftwareRoot,
+      attestationApplicationId,
       keyOrigin,
       securityLevel,
       rootOfTrust,
@@ -346,4 +366,89 @@ sealed class ProvisioningMethodConstraint(val provisioningMethod: ProvisioningMe
   /** Checks that the certificate chain is remotely provisioned (RKP). */
   @Immutable
   data object REMOTE : ProvisioningMethodConstraint(ProvisioningMethod.REMOTELY_PROVISIONED)
+}
+
+/**
+ * Configuration for validating the attestation application ID in an Android attestation
+ * certificate.
+ */
+@Immutable
+sealed class AttestationApplicationIdConstraint(
+  val isSatisfied: (AttestationApplicationId?, AttestationApplicationId?, BigInteger?) -> Boolean
+) : Constraint {
+  companion object {
+    const val LABEL = "Attestation application ID"
+    val DEFAULT_MAX_OS_VERSION = BigInteger.valueOf(35)
+
+    fun hasUnknownPackage(id: AttestationApplicationId?): Boolean =
+      id != null && id.packages.any { it.name == "UnknownPackage" && it.version == BigInteger.ONE }
+  }
+
+  override val label = LABEL
+
+  /**
+   * This should never be called.
+   *
+   * [AttestationApplicationIdConstraint] should be checked outside of the genericConstraints list,
+   * using [check(KeyDescription, AttestationApplicationId)].
+   */
+  override fun check(description: KeyDescription, certPath: KeyAttestationCertPath) =
+    Constraint.Violated(
+      "This should never be called this way, please use the check method that takes an AttestationApplicationId."
+    )
+
+  fun check(
+    expectedAttestationApplicationId: AttestationApplicationId?,
+    description: KeyDescription,
+  ): Constraint.Result =
+    if (
+      isSatisfied(
+        expectedAttestationApplicationId,
+        description.softwareEnforced.attestationApplicationId,
+        description.hardwareEnforced.osVersion,
+      )
+    ) {
+      Constraint.Satisfied
+    } else {
+      Constraint.Violated(getFailureMessage(description.softwareEnforced.attestationApplicationId))
+    }
+
+  open fun getFailureMessage(attestationApplicationId: AttestationApplicationId?): String =
+    "$LABEL violates constraint: attestationApplicationId=$attestationApplicationId, config=$this"
+
+  /**
+   * Checks that the attestation application ID matches the expected value.
+   *
+   * This is the strictest form of attestation application ID check. There is no leniency for the OS
+   * version so it may fail on older devices.
+   *
+   * @param expectedId The expected value of the attestation application ID.
+   */
+  @Immutable
+  data object STRICT :
+    AttestationApplicationIdConstraint({ expectedId, actualId, _ ->
+      expectedId?.isSatisfiedBy(actualId) ?: true
+    })
+
+  /**
+   * Checks that the attestation application ID matches the expected value or that the OS version is
+   * at or below the maximum OS version.
+   *
+   * This is a lenient form of attestation application ID check. It allows for older devices to pass
+   * the check if they have an unknown package name.
+   *
+   * @param expectedId The expected value of the attestation application ID.
+   * @param maxOsVersion The maximum OS version that the device can be on to pass the check.
+   */
+  @Immutable
+  data class ALLOW_UNKNOWN_PACKAGE(val maxOsVersion: BigInteger) :
+    AttestationApplicationIdConstraint({ expectedId, actualId, osVersion ->
+      expectedId?.isSatisfiedBy(actualId) ?: true ||
+        (osVersion != null && osVersion <= maxOsVersion && hasUnknownPackage(actualId))
+    })
+
+  /**
+   * Does not check the attestation application ID. This should only be used for testing purposes.
+   */
+  @Immutable data object NONE : AttestationApplicationIdConstraint({ _, _, _ -> true })
 }
