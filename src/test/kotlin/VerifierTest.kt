@@ -218,6 +218,12 @@ class VerifierTest {
   }
 
   @Test
+  fun unparseableExtension_extensionParsingFailure() {
+    val result = assertIs<ExtensionParsingFailure>(verifier.verify(CertLists.unparseableExtension))
+    assertThat(result.cause.reason).isNull()
+  }
+
+  @Test
   fun targetMissingAttestationExtension_givesTargetMissingAttestationExtensionReason() {
     val result = assertIs<PathValidationFailure>(verifier.verify(CertLists.missingExtension))
     assertThat(result.cause.reason)
@@ -413,7 +419,7 @@ class VerifierTest {
   }
 
   @Test
-  fun verifyAsync_failure_inputChainLogged() = runBlocking {
+  fun verifyAsync_failure_inputChainLogged(): Unit = runBlocking {
     val logHook = FakeLogHook()
     assertIs<VerificationResult.PathValidationFailure>(
       verifier
@@ -430,7 +436,7 @@ class VerifierTest {
   }
 
   @Test
-  fun verifyAsync_success_keyDescriptionLogged() = runBlocking {
+  fun verifyAsync_success_keyDescriptionLogged(): Unit = runBlocking {
     val logHook = FakeLogHook()
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
     assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain, log = logHook).await())
@@ -439,7 +445,7 @@ class VerifierTest {
   }
 
   @Test
-  fun verifyAsync_malformedPatchLevel_logsInfo() = runBlocking {
+  fun verifyAsync_malformedPatchLevel_logsInfo(): Unit = runBlocking {
     val verifierWithTestRoot =
       Verifier(
         { setOf(TrustAnchor(Certs.root, null)) },
@@ -462,6 +468,21 @@ class VerifierTest {
     assertThat(result.deviceLocked).isTrue()
     assertThat(logHook.fakeVerifyRequestLog.infoMessages)
       .contains("Non-DER encoded boolean in RootOfTrust.deviceLocked: 1")
+  }
+
+  @Test
+  fun verifyAsync_invalidKeySize_logsInfo(): Unit = runBlocking {
+    val verifierWithTestRoot =
+      Verifier(
+        { setOf(TrustAnchor(Certs.root, null)) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+      )
+    val logHook = FakeLogHook()
+    assertIs<VerificationResult.Success>(
+      verifierWithTestRoot.verifyAsync(this, CertLists.invalidKeySize, log = logHook).await()
+    )
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages).isNotEmpty()
   }
 
   @Test

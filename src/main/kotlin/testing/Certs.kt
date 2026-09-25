@@ -229,6 +229,19 @@ object CertLists {
     )
   }
 
+  /* A chain that has a malformed key size (OCTET STRING instead of INTEGER). */
+  val invalidKeySize by lazy {
+    listOf(
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.KEY_SIZE.value,
+        DEROctetString("not an int".toByteArray()),
+      ),
+      certFactory.factoryAttestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
   /* A chain where the key tags are out of order. */
   val unorderedTags by lazy {
     listOf(
