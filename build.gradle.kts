@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+import org.gradle.api.tasks.compile.JavaCompile
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
   id("com.adarshr.test-logger") version "4.0.0"
   id("org.jetbrains.kotlin.jvm") version "2.2.0"
@@ -51,7 +54,16 @@ java {
   withSourcesJar()
 }
 
+kotlin {
+  compilerOptions {
+    jvmTarget = JvmTarget.JVM_11
+    freeCompilerArgs.add("-Xjdk-release=11")
+  }
+}
+
 tasks {
+  withType<JavaCompile>().configureEach { options.release.set(11) }
+
   test {
     useJUnitPlatform()
     testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
