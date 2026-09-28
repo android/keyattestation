@@ -39,6 +39,10 @@ jobs:
         env:
           REF_NAME: ${{ github.ref_name }}
         run: ./gradlew -PkeyAttestationReleaseVersion="$REF_NAME" publishAllPublicationsToLocalDirRepository
+      - name: Test Maven repo
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: ./gradlew -p testapp -PkeyAttestationReleaseVersion="$REF_NAME" test
 
       - name: Upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
