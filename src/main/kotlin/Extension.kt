@@ -102,7 +102,7 @@ data class ProvisioningInfoMap(
 ) {
   fun cborEncode(): ByteArray {
     val map = CborModelMap()
-    map.put(UnsignedInteger(1L), certificatesIssued.asDataItem())
+    map.put(UnsignedInteger(CERTIFICATES_ISSUED_TAG), certificatesIssued.asDataItem())
     return cborEncode(map)
   }
 
@@ -113,6 +113,7 @@ data class ProvisioningInfoMap(
      * https://developer.android.com/privacy-and-security/security-key-attestation#provisioning_attestation_ext_schema
      */
     @JvmField val OID = ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.30")
+    internal const val CERTIFICATES_ISSUED_TAG = 1L
 
     @JvmStatic
     @JvmOverloads
@@ -132,7 +133,7 @@ data class ProvisioningInfoMap(
     private fun from(seq: CborModelMap): ProvisioningInfoMap {
       require(seq.keys.size >= 1)
       return ProvisioningInfoMap(
-        certificatesIssued = seq.get(UnsignedInteger(1L)).asInteger(),
+        certificatesIssued = seq.get(UnsignedInteger(CERTIFICATES_ISSUED_TAG)).asInteger(),
       )
     }
   }
