@@ -25,7 +25,7 @@ import java.security.cert.X509Certificate
 private val certificateFactory = CertificateFactory.getInstance("X.509")
 
 /** Returns an [X509Certificate] from a [String]. */
-fun String.asX509Certificate() = this.byteInputStream().asX509Certificate()
+fun String.asX509Certificate(): X509Certificate = this.byteInputStream().asX509Certificate()
 
 @Throws(CertificateException::class)
 fun InputStream.asX509Certificate() =
@@ -37,7 +37,8 @@ fun InputStream.asX509Certificate() =
  * @return the DER-encoded OCTET string containing the KeyDescription sequence or null if the
  *   extension is not present in the certificate.
  */
-@RequiresApi(24) fun X509Certificate.keyDescription() = KeyDescription.parseFrom(this)
+@RequiresApi(24)
+fun X509Certificate.keyDescription(): KeyDescription? = KeyDescription.parseFrom(this)
 
 /**
  * Returns the Android Key Attestation extension for provisioning info.
@@ -45,5 +46,6 @@ fun InputStream.asX509Certificate() =
  * @return the DER-encoded OCTET string containing the ProvisioningInfo sequence or null if the
  *   extension is not present in the certificate.
  */
-fun X509Certificate.provisioningInfo(inputLimits: InputLimits = InputLimits()) =
-  ProvisioningInfoMap.parseFrom(this, inputLimits)
+fun X509Certificate.provisioningInfo(
+  inputLimits: InputLimits = InputLimits()
+): ProvisioningInfoMap? = ProvisioningInfoMap.parseFrom(this, inputLimits)
