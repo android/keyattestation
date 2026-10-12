@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.testing
 
+import co.nstant.`in`.cbor.CborBuilder
 import com.android.keyattestation.verifier.AttestationPackageInfo
 import com.android.keyattestation.verifier.AuthorizationList
 import com.android.keyattestation.verifier.KeyDescription
@@ -25,6 +26,7 @@ import com.android.keyattestation.verifier.ProvisioningInfoMap
 import com.android.keyattestation.verifier.RootOfTrust
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.VerifiedBootState
+import com.android.keyattestation.verifier.cborEncode
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteStringUtf8
@@ -406,6 +408,58 @@ object CertLists {
     )
   }
 
+  val maxCertificatesIssued by lazy {
+    val rkpAttestationCert =
+      certFactory.generateRkpAttestationCert(
+        securityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+        serialNumber = TEST_ATTESTATION_SERIAL_NUMBER,
+        extraExtension =
+          Extension(
+            ProvisioningInfoMap.OID,
+            /* critical= */ false,
+            ProvisioningInfoMap(
+                certificatesIssued = Int.MAX_VALUE,
+              )
+              .cborEncode(),
+          ),
+      )
+    listOf(
+      certFactory.generateLeafCert(issuer = rkpAttestationCert.subject),
+      rkpAttestationCert,
+      certFactory.rkpIntermediate,
+      Certs.remoteIntermediate,
+      certFactory.root,
+    )
+  }
+
+  val outOfBoundsCertificatesIssued by lazy {
+    val rkpAttestationCert =
+      certFactory.generateRkpAttestationCert(
+        securityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+        serialNumber = TEST_ATTESTATION_SERIAL_NUMBER,
+        extraExtension =
+          Extension(
+            ProvisioningInfoMap.OID,
+            /* critical= */ false,
+            cborEncode(
+              CborBuilder()
+                .addMap()
+                .put(ProvisioningInfoMap.CERTIFICATES_ISSUED_TAG, Int.MAX_VALUE.toLong() + 1)
+                .end()
+                .build()
+                .single()
+            ),
+          ),
+      )
+    listOf(
+      certFactory.generateLeafCert(issuer = rkpAttestationCert.subject),
+      rkpAttestationCert,
+      certFactory.rkpIntermediate,
+      Certs.remoteIntermediate,
+      certFactory.root,
+    )
+  }
+
   /* Different revoked serial numbers for testing. */
   @JvmField val REVOKED_SERIAL_NUMBER = 42.toBigInteger()
   @JvmField val REVOKED_SERIAL_NUMBER_BIG = 8000000000000.toBigInteger()
@@ -469,6 +523,14 @@ object Chains {
   @JvmStatic
   val validRemotelyProvisioned by lazy {
     KeyAttestationCertPath(CertLists.validRemotelyProvisioned)
+  }
+
+  @JvmStatic
+  val maxCertificatesIssued by lazy { KeyAttestationCertPath(CertLists.maxCertificatesIssued) }
+
+  @JvmStatic
+  val outOfBoundsCertificatesIssued by lazy {
+    KeyAttestationCertPath(CertLists.outOfBoundsCertificatesIssued)
   }
 
   @JvmStatic val wrongTrustAnchor by lazy { KeyAttestationCertPath(CertLists.wrongTrustAnchor) }
