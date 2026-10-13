@@ -1,7 +1,14 @@
 # Release Notes
 
-## v0.1
-A test release.
+## Pre v1 releases
+
+### Before v0.4
+
+Test releases, may have minor issues.
+
+### v0.4
+
+Test release.
 
 It is a working version of the library at a given point in time, before any
 BETA/1.0 release.
