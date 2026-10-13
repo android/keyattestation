@@ -372,6 +372,20 @@ class VerifierTest {
   }
 
   @Test
+  fun verify_maxCertificatesIssued_succeedsWithMaxDeviceInformation() {
+    val result =
+      assertIs<VerificationResult.Success>(verifier.verify(CertLists.maxCertificatesIssued))
+    assertThat(result.deviceInformation?.certificatesIssued).isEqualTo(Int.MAX_VALUE)
+  }
+
+  @Test
+  fun verify_outOfBoundsCertificatesIssued_succeedsWithNullDeviceInformation() {
+    val result =
+      assertIs<VerificationResult.Success>(verifier.verify(CertLists.outOfBoundsCertificatesIssued))
+    assertThat(result.deviceInformation).isNull()
+  }
+
+  @Test
   fun importedOrigins_customConfig_succeeds() {
     val verifier =
       Verifier(
