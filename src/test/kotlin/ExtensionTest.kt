@@ -68,6 +68,27 @@ class ExtensionTest {
   }
 
   @Test
+  fun parseFrom_maxCertificatesIssuedFromAttestationCert_success() {
+    val expectedProvisioningInfo =
+      ProvisioningInfoMap(
+        certificatesIssued = Int.MAX_VALUE,
+      )
+    val provisioningInfo =
+      ProvisioningInfoMap.parseFrom(Chains.maxCertificatesIssued.attestationCert(), InputLimits())
+    assertThat(provisioningInfo).isEqualTo(expectedProvisioningInfo)
+  }
+
+  @Test
+  fun parseFrom_outOfBoundsCertificatesIssuedFromAttestationCert_throws() {
+    assertThrows(IllegalArgumentException::class.java) {
+      ProvisioningInfoMap.parseFrom(
+        Chains.outOfBoundsCertificatesIssued.attestationCert(),
+        InputLimits(),
+      )
+    }
+  }
+
+  @Test
   @TestParameters(valuesProvider = TestCaseProvider::class)
   fun parseFrom_success(model: String, sdk: Int) {
     val path = testData.resolve("${model}/sdk${sdk}")
