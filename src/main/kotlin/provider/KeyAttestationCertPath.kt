@@ -76,7 +76,7 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
    *
    * @return the serial numbers of the certificates in the certificate chain.
    */
-  fun serialNumbers() = certificatesWithAnchor.map { it.serialNumber.toString(16) }
+  fun serialNumbers(): List<String> = certificatesWithAnchor.map { it.serialNumber.toString(16) }
 
   /**
    * Returns the signing algorithms of the certificates in the certificate chain.
@@ -85,12 +85,12 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
    *
    * @return the signing algorithms of the certificates in the certificate chain.
    */
-  fun signingAlgorithms() =
+  fun signingAlgorithms(): Set<String> =
     certificatesWithAnchor
       .zipWithNext { cert, issuer -> "${cert.sigAlgName}KeySize${issuer.publicKey.keySize()}" }
       .toSet()
 
-  fun provisioningMethod() =
+  fun provisioningMethod(): ProvisioningMethod =
     when {
       isFactoryProvisioned() -> ProvisioningMethod.FACTORY_PROVISIONED
       isRemoteProvisioned() -> ProvisioningMethod.REMOTELY_PROVISIONED
@@ -102,7 +102,7 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
    *
    * This should match the attestation security level in the key description.
    */
-  fun securityLevel() =
+  fun securityLevel(): SecurityLevel? =
     when (provisioningMethod()) {
       ProvisioningMethod.UNKNOWN -> null
       ProvisioningMethod.REMOTELY_PROVISIONED ->
@@ -129,8 +129,9 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
   /**
    * Returns the leaf certificate from the certificate chain.
    *
-   * It is expected that the leaf certificate will always be the first certificate in the chain. See
-   * "Chain extension attack prevention" from go/how-to-validate-key-attestations for details.
+   * It is expected that the leaf certificate will always be the first certificate in the chain. The
+   * key attestation extension in this certificate may be falsified, only trust it if the chain has
+   * already been verified using the [KeyAttestationCertPathValidator].
    *
    * @return the leaf certificate from the chain if present, or null otherwise.
    */

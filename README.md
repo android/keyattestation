@@ -4,6 +4,9 @@ A Kotlin library for verifying Android key attestation certificate chains.
 
 ## Usage
 
+**Important:** Verification should happen on a trusted device. Not the device
+producing the attestation.
+
 ```kotlin
 // Create a verifier with default, Google-rooted trust anchors, revocation
 // info, and time source.
@@ -11,9 +14,7 @@ val verifier = Verifier(
   GoogleTrustAnchors,                  // Trust anchors source
   ::getGoogleRevocationStatusFromWeb,  // Revoked serials source
   { Instant.now() },                   // Time source
-  ConstraintConfig(attestationApplicationId =
-      AttestationApplicationIdConstraint.ALLOW_UNKNOWN_PACKAGE(expectedAppId)),
-
+  attestationApplicationId = expectedAppId,
 )
 
 // Verify an attestation certificate chain
@@ -118,6 +119,16 @@ The package list should be the names of all applications you expect to verify
 against and their minimum accepted version numbers. You can get the signature
 digests to put in in `signatures` from the Play Console as the app certificate
 digests.
+
+### Possible further checks
+
+It may be necessary to do further checks on the verified key attestation
+information in the `VerificationResult.Success` depending on how you are using
+the attestation.
+
+If you're verifying the integrity of the device that produced the attestation,
+you should check that the `verifiedBootState` is `VerifiedBootState.VERIFIED`
+and that `deviceLocked` is `true`.
 
 ## Building
 
