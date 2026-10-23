@@ -48,9 +48,6 @@ import javax.security.auth.x500.X500Principal
  * 5280 and thus cannot be validated using [sun.security.provider.certpath.PKIXCertPathValidator].
  * This provider implements a more permissive [CertPathValidatorSpi] implementation that is able to
  * validate these chains.
- *
- * See go/how-to-validate-key-attestations for details for how to verify Android Key Attestation
- * certificate chains.
  */
 class KeyAttestationCertPathValidator : CertPathValidatorSpi() {
   @RequiresApi(24)
