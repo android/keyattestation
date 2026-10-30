@@ -123,6 +123,7 @@ internal class KeyAttestationCertFactory(
     serialNumber: BigInteger,
     notBefore: Date = fakeCalendar.lastWeek(),
     notAfter: Date = fakeCalendar.nextWeek(),
+    certificatesIssued: Int = 1,
   ) =
     generateAttestationCert(
       signingKey = rkpKey.private,
@@ -136,7 +137,7 @@ internal class KeyAttestationCertFactory(
           ProvisioningInfoMap.OID,
           /* critical= */ false,
           ProvisioningInfoMap(
-              certificatesIssued = 1,
+              certificatesIssued = certificatesIssued,
             )
             .cborEncode(),
         ),

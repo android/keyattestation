@@ -372,6 +372,40 @@ class VerifierTest {
   }
 
   @Test
+  fun verify_maxCertificatesIssued_succeedsWithMaxDeviceInformation() {
+    val result =
+      assertIs<VerificationResult.Success>(verifier.verify(CertLists.maxCertificatesIssued))
+    assertThat(result.deviceInformation?.certificatesIssued).isEqualTo(Int.MAX_VALUE)
+  }
+
+  @Test
+  fun verify_outOfBoundsCertificatesIssued_succeedsWithMaxDeviceInformationAndLogs() {
+    val logHook = FakeLogHook()
+    val result =
+      assertIs<VerificationResult.Success>(
+        verifier.verify(
+          readCertList("invalid/out_of_bounds_certificates_issued.pem"),
+          log = logHook,
+        )
+      )
+    assertThat(result.deviceInformation?.certificatesIssued).isEqualTo(Int.MAX_VALUE)
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages)
+      .contains("certificatesIssued value (${Int.MAX_VALUE.toLong() + 1}) exceeds Int.MAX_VALUE")
+  }
+
+  @Test
+  fun verify_negativeCertificatesIssued_succeedsWithZeroDeviceInformationAndLogs() {
+    val logHook = FakeLogHook()
+    val result =
+      assertIs<VerificationResult.Success>(
+        verifier.verify(readCertList("invalid/negative_certificates_issued.pem"), log = logHook)
+      )
+    assertThat(result.deviceInformation?.certificatesIssued).isEqualTo(0)
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages)
+      .contains("certificatesIssued value (${Int.MIN_VALUE.toLong() - 1}) is negative")
+  }
+
+  @Test
   fun importedOrigins_customConfig_succeeds() {
     val verifier =
       Verifier(

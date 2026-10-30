@@ -406,6 +406,22 @@ object CertLists {
     )
   }
 
+  val maxCertificatesIssued by lazy {
+    val rkpAttestationCert =
+      certFactory.generateRkpAttestationCert(
+        securityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
+        serialNumber = TEST_ATTESTATION_SERIAL_NUMBER,
+        certificatesIssued = Int.MAX_VALUE,
+      )
+    listOf(
+      certFactory.generateLeafCert(issuer = rkpAttestationCert.subject),
+      rkpAttestationCert,
+      certFactory.rkpIntermediate,
+      Certs.remoteIntermediate,
+      certFactory.root,
+    )
+  }
+
   /* Different revoked serial numbers for testing. */
   @JvmField val REVOKED_SERIAL_NUMBER = 42.toBigInteger()
   @JvmField val REVOKED_SERIAL_NUMBER_BIG = 8000000000000.toBigInteger()
@@ -470,6 +486,9 @@ object Chains {
   val validRemotelyProvisioned by lazy {
     KeyAttestationCertPath(CertLists.validRemotelyProvisioned)
   }
+
+  @JvmStatic
+  val maxCertificatesIssued by lazy { KeyAttestationCertPath(CertLists.maxCertificatesIssued) }
 
   @JvmStatic val wrongTrustAnchor by lazy { KeyAttestationCertPath(CertLists.wrongTrustAnchor) }
 

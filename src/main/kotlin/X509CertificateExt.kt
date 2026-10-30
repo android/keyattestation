@@ -47,5 +47,6 @@ fun X509Certificate.keyDescription(): KeyDescription? = KeyDescription.parseFrom
  *   extension is not present in the certificate.
  */
 fun X509Certificate.provisioningInfo(
-  inputLimits: InputLimits = InputLimits()
-): ProvisioningInfoMap? = ProvisioningInfoMap.parseFrom(this, inputLimits)
+  inputLimits: InputLimits = InputLimits(),
+  logFn: (String) -> Unit = {},
+): ProvisioningInfoMap? = ProvisioningInfoMap.parseFrom(this, inputLimits, logFn)

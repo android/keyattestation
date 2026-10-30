@@ -256,7 +256,9 @@ constructor(
     val deviceInformation =
       if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
         try {
-          certPath.attestationCert().provisioningInfo(constraintConfig.inputLimits)
+          certPath
+            .attestationCert()
+            .provisioningInfo(constraintConfig.inputLimits, { msg -> log?.logInfoMessage(msg) })
         } catch (e: Exception) {
           log?.logInfoMessage("Failed to parse provisioning info map: ${e.message}")
           null

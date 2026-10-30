@@ -68,6 +68,45 @@ class ExtensionTest {
   }
 
   @Test
+  fun parseFrom_maxCertificatesIssuedFromAttestationCert_success() {
+    val expectedProvisioningInfo =
+      ProvisioningInfoMap(
+        certificatesIssued = Int.MAX_VALUE,
+      )
+    val provisioningInfo =
+      ProvisioningInfoMap.parseFrom(Chains.maxCertificatesIssued.attestationCert(), InputLimits())
+    assertThat(provisioningInfo).isEqualTo(expectedProvisioningInfo)
+  }
+
+  @Test
+  fun parseFrom_outOfBoundsCertificatesIssuedFromAttestationCert_mapsToMaxAndLogs() {
+    val logHook = FakeLogHook()
+    val provisioningInfo =
+      ProvisioningInfoMap.parseFrom(
+        readCertPath("invalid/out_of_bounds_certificates_issued.pem").attestationCert(),
+        InputLimits(),
+        logFn = logHook.fakeVerifyRequestLog::logInfoMessage,
+      )
+    assertThat(provisioningInfo?.certificatesIssued).isEqualTo(Int.MAX_VALUE)
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages)
+      .contains("certificatesIssued value (${Int.MAX_VALUE.toLong() + 1}) exceeds Int.MAX_VALUE")
+  }
+
+  @Test
+  fun parseFrom_negativeCertificatesIssuedFromAttestationCert_mapsToZeroAndLogs() {
+    val logHook = FakeLogHook()
+    val provisioningInfo =
+      ProvisioningInfoMap.parseFrom(
+        readCertPath("invalid/negative_certificates_issued.pem").attestationCert(),
+        InputLimits(),
+        logFn = logHook.fakeVerifyRequestLog::logInfoMessage,
+      )
+    assertThat(provisioningInfo?.certificatesIssued).isEqualTo(0)
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages)
+      .contains("certificatesIssued value (${Int.MIN_VALUE.toLong() - 1}) is negative")
+  }
+
+  @Test
   @TestParameters(valuesProvider = TestCaseProvider::class)
   fun parseFrom_success(model: String, sdk: Int) {
     val path = testData.resolve("${model}/sdk${sdk}")

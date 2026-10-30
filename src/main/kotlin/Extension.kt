@@ -102,7 +102,7 @@ data class ProvisioningInfoMap(
 ) {
   fun cborEncode(): ByteArray {
     val map = CborModelMap()
-    map.put(UnsignedInteger(1L), certificatesIssued.asDataItem())
+    map.put(UnsignedInteger(CERTIFICATES_ISSUED_TAG), certificatesIssued.asDataItem())
     return cborEncode(map)
   }
 
@@ -113,26 +113,49 @@ data class ProvisioningInfoMap(
      * https://developer.android.com/privacy-and-security/security-key-attestation#provisioning_attestation_ext_schema
      */
     @JvmField val OID = ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.30")
+    private const val CERTIFICATES_ISSUED_TAG = 1L
 
     @JvmStatic
     @JvmOverloads
-    fun parseFrom(cert: X509Certificate, inputLimits: InputLimits = InputLimits()) =
-      cert.getExtensionValue(OID.id)?.let { parseFrom(it, inputLimits) }
+    fun parseFrom(
+      cert: X509Certificate,
+      inputLimits: InputLimits = InputLimits(),
+      logFn: (String) -> Unit = {},
+    ): ProvisioningInfoMap? =
+      cert.getExtensionValue(OID.id)?.let { parseFrom(it, inputLimits, logFn) }
 
     @JvmStatic
     @JvmOverloads
-    fun parseFrom(bytes: ByteArray?, inputLimits: InputLimits = InputLimits()) =
+    fun parseFrom(
+      bytes: ByteArray?,
+      inputLimits: InputLimits = InputLimits(),
+      logFn: (String) -> Unit = {},
+    ): ProvisioningInfoMap =
       try {
         val cborBytes = ASN1OctetString.getInstance(bytes).octets
-        from(cborDecode(cborBytes, inputLimits).asMap())
+        from(cborDecode(cborBytes, inputLimits).asMap(), logFn)
       } catch (e: CborException) {
         throw IllegalArgumentException(e)
       }
 
-    private fun from(seq: CborModelMap): ProvisioningInfoMap {
+    private fun from(seq: CborModelMap, logFn: (String) -> Unit = {}): ProvisioningInfoMap {
       require(seq.keys.size >= 1)
+      val certificatesIssued =
+        seq.get(UnsignedInteger(CERTIFICATES_ISSUED_TAG)).asBigInteger().let { value ->
+          when {
+            value < BigInteger.ZERO -> {
+              logFn("certificatesIssued value ($value) is negative")
+              0
+            }
+            value > Int.MAX_VALUE.toBigInteger() -> {
+              logFn("certificatesIssued value ($value) exceeds Int.MAX_VALUE")
+              Int.MAX_VALUE
+            }
+            else -> value.toInt()
+          }
+        }
       return ProvisioningInfoMap(
-        certificatesIssued = seq.get(UnsignedInteger(1L)).asInteger(),
+        certificatesIssued = certificatesIssued,
       )
     }
   }
@@ -955,19 +978,16 @@ private fun BigInteger.toLongExact(): Long {
   throw CborException("BigInteger out of long range")
 }
 
-fun DataItem.asInteger(): Int =
+fun DataItem.asBigInteger(): BigInteger =
   when (this) {
-    is UnsignedInteger -> value.toIntExact()
-    is NegativeInteger -> value.toIntExact()
+    is UnsignedInteger -> value
+    is NegativeInteger -> value
     else -> throw CborException("Expected a number, got $majorType")
   }
 
-fun DataItem.asLong(): Long =
-  when (this) {
-    is UnsignedInteger -> value.toLongExact()
-    is NegativeInteger -> value.toLongExact()
-    else -> throw CborException("Expected a number, got $majorType")
-  }
+fun DataItem.asInteger(): Int = asBigInteger().toIntExact()
+
+fun DataItem.asLong(): Long = asBigInteger().toLongExact()
 
 fun Int.asDataItem() =
   when {
