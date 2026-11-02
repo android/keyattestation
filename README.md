@@ -167,6 +167,11 @@ to build the revoked serial list into the binary.
 See [here](https://developer.android.com/privacy-and-security/security-key-attestation#certificate_status)
 for more information about the format of the data.
 
+## Test Application
+
+A sample Android application is located under the `app/` directory, which you
+can build and install locally to verify device attestation functionality.
+
 ## License
 
 This project is licensed under the Apache License 2.0 - see the
