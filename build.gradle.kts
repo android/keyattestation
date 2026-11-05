@@ -34,7 +34,7 @@ dependencies {
   api("com.google.errorprone:error_prone_annotations:2.41.0")
   api("com.google.protobuf:protobuf-javalite:4.28.3")
   implementation("com.google.protobuf:protobuf-kotlin-lite:4.28.3")
-  api("org.bouncycastle:bcpkix-jdk18on:1.78.1")
+  api("org.bouncycastle:bcpkix-jdk18on:1.85")
   api("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
   api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2")
