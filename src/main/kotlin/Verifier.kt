@@ -16,7 +16,7 @@
 
 package com.android.keyattestation.verifier
 
-import androidx.annotation.RequiresApi
+import com.android.keyattestation.verifier.SoftwareRoot.isSoftwareRoot
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
 import com.android.keyattestation.verifier.provider.KeyAttestationProvider
 import com.android.keyattestation.verifier.provider.ProvisioningMethod
@@ -48,6 +48,7 @@ sealed interface VerificationResult {
     val challenge: ByteString,
     val securityLevel: SecurityLevel,
     val verifiedBootState: VerifiedBootState,
+    val deviceLocked: Boolean,
     val deviceInformation: ProvisioningInfoMap?,
     val attestedDeviceIds: DeviceIdentity,
   ) : VerificationResult
@@ -60,7 +61,7 @@ sealed interface VerificationResult {
 
   data class ExtensionParsingFailure(val cause: ExtensionParsingException) : VerificationResult
 
-  data class ExtensionConstraintViolation(val cause: String, val reason: KeyAttestationReason) :
+  data class ConstraintViolation(val constraintLabel: String, val cause: String) :
     VerificationResult
 
   data object SoftwareAttestationUnsupported : VerificationResult
@@ -82,14 +83,14 @@ interface VerifyRequestLog {
    *
    * @param inputChain The certificate chain which is being verified.
    */
-  fun logInputChain(inputChain: List<ByteString>)
+  fun logInputChain(inputChain: List<ByteString>) {}
 
   /**
    * Logs the result of the verification. Called for each call to [verify].
    *
    * @param result The result of the verification.
    */
-  fun logResult(result: VerificationResult)
+  fun logResult(result: VerificationResult) {}
 
   /**
    * Logs the key description of the leaf certificate. Called if [verify] reaches the point where
@@ -97,7 +98,7 @@ interface VerifyRequestLog {
    *
    * @param keyDescription The key description of the leaf certificate.
    */
-  fun logKeyDescription(keyDescription: KeyDescription)
+  fun logKeyDescription(keyDescription: KeyDescription) {}
 
   /**
    * Logs the provisioning info map extension of the attestation certificate. Called if [verify]
@@ -106,7 +107,7 @@ interface VerifyRequestLog {
    *
    * @param provisioningInfoMap The provisioning info map extension of the leaf certificate.
    */
-  fun logProvisioningInfoMap(provisioningInfoMap: ProvisioningInfoMap)
+  fun logProvisioningInfoMap(provisioningInfoMap: ProvisioningInfoMap) {}
 
   /**
    * Logs the serial numbers of the intermediate certificates in the certificate chain. Called if
@@ -115,17 +116,25 @@ interface VerifyRequestLog {
    * @param certSerialNumbers The serial numbers of the intermediate certificates in the certificate
    *   chain.
    */
-  fun logCertSerialNumbers(certSerialNumbers: List<String>)
+  fun logCertSerialNumbers(certSerialNumbers: List<String>) {}
+
+  /**
+   * Logs the certificate signing algorithms of the intermediate certificates in the certificate
+   * chain. Called if [verify] reaches the point where the certificate chain is validated.
+   *
+   * @param certSigningAlgorithms The certificate signing algorithms in the chain.
+   */
+  fun logCertSigningAlgorithms(certSigningAlgorithms: Set<String>) {}
 
   /**
    * Logs an info level message. May be called throughout the verification process.
    *
    * @param infoMessage The info level message to log.
    */
-  fun logInfoMessage(infoMessage: String)
+  fun logInfoMessage(infoMessage: String) {}
 
   /* Flushes any buffered logs. Called just before [verify] returns. */
-  fun flush()
+  fun flush() {}
 }
 
 /**
@@ -142,15 +151,19 @@ constructor(
   private val trustAnchorsSource: () -> Set<TrustAnchor>,
   private val revokedSerialsSource: () -> Set<String>,
   private val instantSource: InstantSource,
-  private val extensionConstraintConfig: ExtensionConstraintConfig = ExtensionConstraintConfig(),
+  // TODO(google-internal bug): Make required, though still allow null value.
+  private val expectedAttestationApplicationId: AttestationApplicationId? = null,
+  private val constraintConfig: ConstraintConfig = ConstraintConfig(),
 ) {
   init {
     Security.addProvider(KeyAttestationProvider())
-    for (anchor in trustAnchorsSource()) {
-      if (anchor.trustedCert?.isSoftwareRoot() == true) {
-        throw IllegalArgumentException(
-          "Software attestation root cannot be used as a trust anchor."
-        )
+    if (!constraintConfig.allowSoftwareRoot) {
+      for (anchor in trustAnchorsSource()) {
+        if (anchor.trustedCert?.isSoftwareRoot() == true) {
+          throw IllegalArgumentException(
+            "Software attestation root cannot be used as a trust anchor."
+          )
+        }
       }
     }
   }
@@ -167,17 +180,19 @@ constructor(
    * @return [VerificationResult]
    */
   @JvmOverloads
-  @RequiresApi(24)
   fun verify(
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
+    additionalAttestationApplicationId: AttestationApplicationId? = null,
     log: LogHook? = null,
   ): VerificationResult {
     val requestLog = log?.createRequestLog()
     val result =
       try {
         val certPath = KeyAttestationCertPath(chain)
-        runBlocking { internalVerify(certPath, challengeChecker, requestLog) }
+        runBlocking {
+          internalVerify(certPath, challengeChecker, additionalAttestationApplicationId, requestLog)
+        }
       } catch (e: CertificateException) {
         requestLog?.logInputChain(chain.map { it.getEncoded().toByteString() })
         VerificationResult.ChainParsingFailure(e)
@@ -187,13 +202,14 @@ constructor(
     return result
   }
 
-  @RequiresApi(24)
   /**
    * Verifies an Android Key Attestation certificate chain asynchronously.
    *
    * @param chain The attestation certificate chain to verify.
-   * @param coroutineScope The coroutine scope to from which to run the verification.
+   * @param coroutineScope The coroutine scope from which to run the verification.
    * @param challengeChecker The challenge checker to use for additional challenge validation.
+   * @param additionalAttestationApplicationId An additional attestation application ID to use for
+   *   constraint checking.
    * @param log The log hook to use for logging.
    * @return A [ListenableFuture] containing the [VerificationResult].
    */
@@ -202,6 +218,7 @@ constructor(
     coroutineScope: CoroutineScope,
     chain: List<X509Certificate>,
     challengeChecker: ChallengeChecker? = null,
+    additionalAttestationApplicationId: AttestationApplicationId? = null,
     log: LogHook? = null,
   ): ListenableFuture<VerificationResult> {
     val immutableChain = ImmutableList.copyOf(chain)
@@ -210,7 +227,7 @@ constructor(
       val result =
         try {
           val certPath = KeyAttestationCertPath(immutableChain)
-          internalVerify(certPath, challengeChecker, requestLog)
+          internalVerify(certPath, challengeChecker, additionalAttestationApplicationId, requestLog)
         } catch (e: CertificateException) {
           requestLog?.logInputChain(immutableChain.map { it.getEncoded().toByteString() })
           VerificationResult.ChainParsingFailure(e)
@@ -221,10 +238,10 @@ constructor(
     }
   }
 
-  @RequiresApi(24)
   private suspend fun internalVerify(
     certPath: KeyAttestationCertPath,
     challengeChecker: ChallengeChecker? = null,
+    additionalAttestationApplicationId: AttestationApplicationId? = null,
     log: VerifyRequestLog? = null,
   ): VerificationResult {
     log?.logInputChain(certPath.certificatesWithAnchor.map { it.getEncoded().toByteString() })
@@ -239,7 +256,7 @@ constructor(
     val deviceInformation =
       if (certPath.provisioningMethod() == ProvisioningMethod.REMOTELY_PROVISIONED) {
         try {
-          certPath.attestationCert().provisioningInfo()
+          certPath.attestationCert().provisioningInfo(constraintConfig.inputLimits)
         } catch (e: Exception) {
           log?.logInfoMessage("Failed to parse provisioning info map: ${e.message}")
           null
@@ -266,12 +283,18 @@ constructor(
         return VerificationResult.PathValidationFailure(e)
       }
 
+    log?.logCertSigningAlgorithms(certPath.signingAlgorithms())
+
     val keyDescription =
       try {
         checkNotNull(
-          KeyDescription.parseFrom(certPath.leafCert(), { msg -> log?.logInfoMessage(msg) })
+          KeyDescription.parseFrom(
+            certPath.leafCert(),
+            { msg -> log?.logInfoMessage(msg) },
+            inputLimits = constraintConfig.inputLimits,
+          )
         ) {
-          // Should never happen since the extension's presence is checked by by validate().
+          // Should never happen since the extension's presence is checked by validate().
           "Key attestation extension not found"
         }
       } catch (e: ExtensionParsingException) {
@@ -291,47 +314,58 @@ constructor(
       }
     }
 
-    val origin = keyDescription.hardwareEnforced.origin
-    if (!extensionConstraintConfig.keyOrigin.isSatisfiedBy(origin)) {
-      return VerificationResult.ExtensionConstraintViolation(
-        "Origin violates constraint: value=${origin}, config=${extensionConstraintConfig.keyOrigin}",
-        KeyAttestationReason.KEY_ORIGIN_CONSTRAINT_VIOLATION,
+    for (constraint in constraintConfig.getGenericConstraints()) {
+      val result = constraint.check(keyDescription, certPath)
+      when (result) {
+        is Constraint.Satisfied -> {}
+        is Constraint.Violated -> {
+          return VerificationResult.ConstraintViolation(constraint.label, result.failureMessage)
+        }
+      }
+    }
+
+    val attestationApplicationIdCheckResult =
+      constraintConfig.attestationApplicationId.check(
+        combine(expectedAttestationApplicationId, additionalAttestationApplicationId),
+        keyDescription,
       )
+    when (attestationApplicationIdCheckResult) {
+      is Constraint.Satisfied -> {}
+      is Constraint.Violated -> {
+        return VerificationResult.ConstraintViolation(
+          constraintConfig.attestationApplicationId.label,
+          attestationApplicationIdCheckResult.failureMessage,
+        )
+      }
     }
 
     val securityLevel =
-      if (extensionConstraintConfig.securityLevel.isSatisfiedBy(keyDescription)) {
-        minOf(keyDescription.attestationSecurityLevel, keyDescription.keyMintSecurityLevel)
-      } else {
-        return VerificationResult.ExtensionConstraintViolation(
-          "Security level violates constraint: value=${keyDescription.attestationSecurityLevel}, config=${extensionConstraintConfig.securityLevel}",
-          KeyAttestationReason.SECURITY_LEVEL_CONSTRAINT_VIOLATION,
-        )
-      }
+      minOf(keyDescription.attestationSecurityLevel, keyDescription.keyMintSecurityLevel)
 
     val rootOfTrust = keyDescription.hardwareEnforced.rootOfTrust
-    if (!extensionConstraintConfig.rootOfTrust.isSatisfiedBy(rootOfTrust)) {
-      return VerificationResult.ExtensionConstraintViolation(
-        "Root of trust violates constraint: value=${rootOfTrust}, config=${extensionConstraintConfig.rootOfTrust}",
-        KeyAttestationReason.ROOT_OF_TRUST_CONSTRAINT_VIOLATION,
-      )
-    }
     val verifiedBootState = rootOfTrust?.verifiedBootState ?: VerifiedBootState.UNVERIFIED
-
-    if (!extensionConstraintConfig.authorizationListTagOrder.isSatisfiedBy(keyDescription)) {
-      return VerificationResult.ExtensionConstraintViolation(
-        "Authorization list ordering violates constraint: config=${extensionConstraintConfig.authorizationListTagOrder}",
-        KeyAttestationReason.AUTHORIZATION_LIST_ORDERING_CONSTRAINT_VIOLATION,
-      )
-    }
+    val deviceLocked = rootOfTrust?.deviceLocked ?: false
 
     return VerificationResult.Success(
       pathValidationResult.publicKey,
       keyDescription.attestationChallenge,
       securityLevel,
       verifiedBootState,
+      deviceLocked,
       deviceInformation,
       DeviceIdentity.parseFrom(keyDescription),
     )
   }
+}
+
+private fun combine(
+  stored: AttestationApplicationId?,
+  additional: AttestationApplicationId?,
+): AttestationApplicationId? {
+  if (stored == null) return additional
+  if (additional == null) return stored
+  return AttestationApplicationId(
+    stored.packages + additional.packages,
+    stored.signatures + additional.signatures,
+  )
 }

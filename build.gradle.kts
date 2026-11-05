@@ -17,7 +17,9 @@
 plugins {
   id("com.adarshr.test-logger") version "4.0.0"
   id("org.jetbrains.kotlin.jvm") version "2.2.0"
-  id("com.gradleup.shadow") version  "9.3.2"
+  id("com.gradleup.shadow") version "9.3.2"
+  `java-library`
+  `maven-publish`
 }
 
 repositories {
@@ -29,14 +31,14 @@ dependencies {
   implementation("androidx.annotation:annotation:1.9.1")
   implementation("co.nstant.in:cbor:0.9")
   implementation("com.google.code.gson:gson:2.11.0")
-  implementation("com.google.errorprone:error_prone_annotations:2.41.0")
-  implementation("com.google.protobuf:protobuf-javalite:4.28.3")
+  api("com.google.errorprone:error_prone_annotations:2.41.0")
+  api("com.google.protobuf:protobuf-javalite:4.28.3")
   implementation("com.google.protobuf:protobuf-kotlin-lite:4.28.3")
-  implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
-  implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
-  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+  api("org.bouncycastle:bcpkix-jdk18on:1.78.1")
+  api("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
+  api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2")
-  implementation("com.google.guava:guava:33.5.0-jre")
+  api("com.google.guava:guava:33.5.0-jre")
 
   testImplementation(kotlin("test"))
   testImplementation("com.google.testparameterinjector:test-parameter-injector:1.18")
@@ -46,7 +48,10 @@ dependencies {
   testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
 }
 
-java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+java {
+  toolchain { languageVersion = JavaLanguageVersion.of(21) }
+  withSourcesJar()
+}
 
 tasks {
   test {
@@ -59,20 +64,19 @@ tasks {
 
 val generatedSourcesDir = layout.buildDirectory.dir("generated")
 
-val googleTrustAnchors by
-  tasks.registering {
-    val jsonFile = file("roots.json")
-    val json = jsonFile.readText()
-    val generatedFile = generatedSourcesDir.get().file("main/kotlin/GoogleTrustAnchors.kt")
+val googleTrustAnchors by tasks.registering {
+  val jsonFile = file("roots.json")
+  val json = jsonFile.readText()
+  val generatedFile = generatedSourcesDir.get().file("main/kotlin/GoogleTrustAnchors.kt")
 
-    inputs.files(jsonFile)
-    outputs.file(generatedFile)
+  inputs.files(jsonFile)
+  outputs.file(generatedFile)
 
-    doLast {
-      generatedFile
-        .getAsFile()
-        .writeText(
-          """
+  doLast {
+    generatedFile
+      .getAsFile()
+      .writeText(
+        """
         package com.android.keyattestation.verifier
 
         import com.android.keyattestation.verifier.asX509Certificate
@@ -93,16 +97,49 @@ val googleTrustAnchors by
           }
         }
         """
-        )
-    }
+      )
   }
+}
 
-val generateSources by
-  tasks.registering {
-    outputs.dir(generatedSourcesDir)
-    dependsOn(tasks.named("googleTrustAnchors"))
-  }
+val generateSources by tasks.registering {
+  outputs.dir(generatedSourcesDir)
+  dependsOn(tasks.named("googleTrustAnchors"))
+}
 
 sourceSets { main { kotlin.srcDir(generateSources) } }
 
 tasks.named("compileKotlin").configure { dependsOn("generateSources") }
+
+publishing {
+  publications {
+    create<MavenPublication>("keyattestation") {
+      from(components["java"])
+      groupId = "com.android.keyattestation"
+      artifactId = "keyattestation"
+      version =
+        (findProperty("keyAttestationReleaseVersion") as? String)?.removePrefix("v")
+          ?: "0.1-SNAPSHOT"
+      pom {
+        licenses {
+          license {
+            name.set("The Apache Software License, Version 2.0")
+            url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+          }
+        }
+      }
+    }
+  }
+  repositories {
+    maven {
+      name = "localDir"
+      val repoDir =
+        findProperty("KeyAttestationMavenRepo") as? String
+          ?: rootProject.layout.buildDirectory
+            .dir("keyattestation_m2repo")
+            .get()
+            .asFile
+            .absolutePath
+      url = uri(repoDir)
+    }
+  }
+}

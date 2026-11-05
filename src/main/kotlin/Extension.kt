@@ -38,6 +38,7 @@ import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.security.cert.X509Certificate
+import java.time.Instant
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -58,10 +59,42 @@ import org.bouncycastle.asn1.DERSet
 import org.bouncycastle.asn1.DERTaggedObject
 import org.bouncycastle.asn1.x509.Extension
 
+/**
+ * Limits on input sizes when parsing extensions from attestation certificates.
+ *
+ * @param maxPackages Maximum number of package infos allowed in an [AttestationApplicationId].
+ * @param maxSignatures Maximum number of signatures allowed in an [AttestationApplicationId].
+ *   Default matches the value in ApkSigner in AOSP (APK v3 only allows 1 signature, so 10 is for
+ *   legacy APKs).
+ * @param maxCborPreallocationSize Maximum of any pre-allocated CBOR parser buffers. These buffers
+ *   are an optimization only. If the input data is larger than this value, the parser will allocate
+ *   larger buffers as needed while parsing the input.
+ */
 @Immutable
+data class InputLimits
+@JvmOverloads
+constructor(
+  val maxPackages: Int = 32,
+  val maxSignatures: Int = 10,
+  val maxCborPreallocationSize: Int = 4096,
+) {
+  init {
+    require(maxPackages > 0) { "maxPackages must be > 0, was $maxPackages" }
+    require(maxSignatures > 0) { "maxSignatures must be > 0, was $maxSignatures" }
+    require(maxCborPreallocationSize > 0) {
+      "maxCborPreallocationSize must be > 0, was $maxCborPreallocationSize"
+    }
+  }
+}
+
 @RequiresApi(24)
-data class ExtensionParsingException(val msg: String, val reason: KeyAttestationReason? = null) :
-  Exception(msg)
+data class ExtensionParsingException
+@JvmOverloads
+constructor(
+  override val message: String,
+  val reason: KeyAttestationReason? = null,
+  override val cause: Throwable? = null,
+) : Exception(message, cause)
 
 @Immutable
 data class ProvisioningInfoMap(
@@ -82,13 +115,16 @@ data class ProvisioningInfoMap(
     @JvmField val OID = ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.30")
 
     @JvmStatic
-    fun parseFrom(cert: X509Certificate) = cert.getExtensionValue(OID.id)?.let { parseFrom(it) }
+    @JvmOverloads
+    fun parseFrom(cert: X509Certificate, inputLimits: InputLimits = InputLimits()) =
+      cert.getExtensionValue(OID.id)?.let { parseFrom(it, inputLimits) }
 
     @JvmStatic
-    fun parseFrom(bytes: ByteArray?) =
+    @JvmOverloads
+    fun parseFrom(bytes: ByteArray?, inputLimits: InputLimits = InputLimits()) =
       try {
         val cborBytes = ASN1OctetString.getInstance(bytes).octets
-        from(cborDecode(cborBytes).asMap())
+        from(cborDecode(cborBytes, inputLimits).asMap())
       } catch (e: CborException) {
         throw IllegalArgumentException(e)
       }
@@ -171,25 +207,37 @@ data class KeyDescription(
     @JvmStatic
     @JvmOverloads
     @Throws(ExtensionParsingException::class)
-    fun parseFrom(cert: X509Certificate, logFn: (String) -> Unit = {}) =
+    fun parseFrom(
+      cert: X509Certificate,
+      logFn: (String) -> Unit = {},
+      inputLimits: InputLimits = InputLimits(),
+    ) =
       cert
         .getExtensionValue(OID.id)
         ?.let { ASN1OctetString.getInstance(it).octets }
-        ?.let { parseFrom(it, logFn) }
+        ?.let { parseFrom(it, logFn, inputLimits) }
 
     @JvmStatic
     @JvmOverloads
     @Throws(ExtensionParsingException::class)
-    fun parseFrom(bytes: ByteArray, logFn: (String) -> Unit = {}) =
+    fun parseFrom(
+      bytes: ByteArray,
+      logFn: (String) -> Unit = {},
+      inputLimits: InputLimits = InputLimits(),
+    ) =
       try {
-        from(ASN1Sequence.getInstance(bytes), logFn)
+        from(ASN1Sequence.getInstance(bytes), logFn, inputLimits)
       } catch (e: NullPointerException) {
         // Workaround for a NPE in BouncyCastle.
         // https://github.com/bcgit/bc-java/blob/228211ecb973fe87fdd0fc4ab16ba0446ec1a29c/core/src/main/java/org/bouncycastle/asn1/ASN1UniversalType.java#L24
         throw IllegalArgumentException(e)
       }
 
-    private fun from(seq: ASN1Sequence, logFn: (String) -> Unit = {}): KeyDescription {
+    private fun from(
+      seq: ASN1Sequence,
+      logFn: (String) -> Unit = {},
+      inputLimits: InputLimits = InputLimits(),
+    ): KeyDescription {
       require(seq.size() == 8)
       return KeyDescription(
         attestationVersion = seq.getObjectAt(0).toInt(),
@@ -198,8 +246,8 @@ data class KeyDescription(
         keyMintSecurityLevel = seq.getObjectAt(3).toSecurityLevel(),
         attestationChallenge = seq.getObjectAt(4).toByteString(),
         uniqueId = seq.getObjectAt(5).toByteString(),
-        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(logFn),
-        hardwareEnforced = seq.getObjectAt(7).toAuthorizationList(logFn),
+        softwareEnforced = seq.getObjectAt(6).toAuthorizationList(logFn, inputLimits),
+        hardwareEnforced = seq.getObjectAt(7).toAuthorizationList(logFn, inputLimits),
       )
     }
   }
@@ -249,16 +297,19 @@ enum class KeyMintTag(val value: Int) {
   DIGEST(5),
   PADDING(6),
   EC_CURVE(10),
+  ML_DSA_VARIANT(11),
   RSA_PUBLIC_EXPONENT(200),
   RSA_OAEP_MGF_DIGEST(203),
   ACTIVE_DATE_TIME(400),
   ORIGINATION_EXPIRE_DATE_TIME(401),
   USAGE_EXPIRE_DATE_TIME(402),
+  USAGE_COUNT_LIMIT(405),
   NO_AUTH_REQUIRED(503),
   USER_AUTH_TYPE(504),
   AUTH_TIMEOUT(505),
   ALLOW_WHILE_ON_BODY(506),
   TRUSTED_USER_PRESENCE_REQUIRED(507),
+  TRUSTED_CONFIRMATION_REQUIRED(508),
   UNLOCKED_DEVICE_REQUIRED(509),
   CREATION_DATE_TIME(701),
   ORIGIN(702),
@@ -279,6 +330,14 @@ enum class KeyMintTag(val value: Int) {
   BOOT_PATCH_LEVEL(719),
   ATTESTATION_ID_SECOND_IMEI(723),
   MODULE_HASH(724);
+
+  // The following tags are intentionally unsupported:
+  // 7 (callerNonce): Used in symmetric ciphers only
+  // 8 (minMacLength): Used in symmetric ciphers only
+  // 303 (rollbackResistance): Not usable by 3p apps (framework API is hidden)
+  // 305 (earlyBootOnly): Not usable by 3p apps
+  // 502 (userSecureId): Not usable by 3p apps (framework API is hidden)
+  // 720 (deviceUniqueAttestation): Not widely used.
 
   companion object {
     fun from(value: Int) =
@@ -306,15 +365,18 @@ data class AuthorizationList(
   @SuppressWarnings("Immutable") val digests: Set<BigInteger>? = null,
   @SuppressWarnings("Immutable") val paddings: Set<BigInteger>? = null,
   val ecCurve: BigInteger? = null,
+  val mlDsaVariant: BigInteger? = null,
   val rsaPublicExponent: BigInteger? = null,
   @SuppressWarnings("Immutable") val rsaOaepMgfDigests: Set<BigInteger>? = null,
   val activeDateTime: BigInteger? = null,
   val originationExpireDateTime: BigInteger? = null,
   val usageExpireDateTime: BigInteger? = null,
+  val usageCountLimit: BigInteger? = null,
   val noAuthRequired: Boolean? = null,
   val userAuthType: BigInteger? = null,
   val authTimeout: BigInteger? = null,
   val trustedUserPresenceRequired: Boolean? = null,
+  val trustedConfirmationRequired: Boolean? = null,
   val unlockedDeviceRequired: Boolean? = null,
   val creationDateTime: BigInteger? = null,
   val origin: Origin? = null,
@@ -335,7 +397,7 @@ data class AuthorizationList(
   val bootPatchLevel: PatchLevel? = null,
   val attestationIdSecondImei: String? = null,
   val moduleHash: ByteString? = null,
-  @get:JvmName("areTagsOrdered") internal val areTagsOrdered: Boolean = true,
+  @Transient @get:JvmName("areTagsOrdered") internal val areTagsOrdered: Boolean = true,
 ) {
   /**
    * Converts the representation of an [AuthorizationList] to an ASN.1 sequence.
@@ -351,6 +413,7 @@ data class AuthorizationList(
         digests?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.DIGEST)) }
         paddings?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.PADDING)) }
         ecCurve?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.EC_CURVE)) }
+        mlDsaVariant?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ML_DSA_VARIANT)) }
         rsaPublicExponent?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.RSA_PUBLIC_EXPONENT)) }
         rsaOaepMgfDigests?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.RSA_OAEP_MGF_DIGEST)) }
         activeDateTime?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.ACTIVE_DATE_TIME)) }
@@ -360,6 +423,7 @@ data class AuthorizationList(
         usageExpireDateTime?.toAsn1()?.let {
           add(it.toTaggedObject(KeyMintTag.USAGE_EXPIRE_DATE_TIME))
         }
+        usageCountLimit?.toAsn1()?.let { add(it.toTaggedObject(KeyMintTag.USAGE_COUNT_LIMIT)) }
         if (noAuthRequired != null) {
           check(noAuthRequired) { "noAuthRequired must be null or true" }
           add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.NO_AUTH_REQUIRED))
@@ -369,6 +433,10 @@ data class AuthorizationList(
         if (trustedUserPresenceRequired != null) {
           check(trustedUserPresenceRequired) { "trustedUserPresenceRequired must be null or true" }
           add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.TRUSTED_USER_PRESENCE_REQUIRED))
+        }
+        if (trustedConfirmationRequired != null) {
+          check(trustedConfirmationRequired) { "trustedConfirmationRequired must be null or true" }
+          add(DERNull.INSTANCE.toTaggedObject(KeyMintTag.TRUSTED_CONFIRMATION_REQUIRED))
         }
         if (unlockedDeviceRequired != null) {
           check(unlockedDeviceRequired) { "unlockedDeviceRequired must be null or true" }
@@ -443,14 +511,17 @@ data class AuthorizationList(
         parse(tag) { it.toPatchLevel(partition, logFn) }
     }
 
-    fun from(seq: ASN1Sequence, logFn: (String) -> Unit = { _ -> }): AuthorizationList {
-      val objects =
-        seq.associate {
-          require(it is ASN1TaggedObject) {
-            "Must be an ASN1TaggedObject, was ${it::class.simpleName}"
-          }
-          KeyMintTag.from(it.tagNo) to it.explicitBaseObject
+    fun from(
+      seq: ASN1Sequence,
+      logFn: (String) -> Unit = { _ -> },
+      inputLimits: InputLimits = InputLimits(),
+    ): AuthorizationList {
+      val objects = seq.associate {
+        require(it is ASN1TaggedObject) {
+          "Must be an ASN1TaggedObject, was ${it::class.simpleName}"
         }
+        KeyMintTag.from(it.tagNo) to it.explicitBaseObject
+      }
 
       /**
        * X.680 section 8.6
@@ -477,27 +548,31 @@ data class AuthorizationList(
         digests = converter.parseIntSet(KeyMintTag.DIGEST),
         paddings = converter.parseIntSet(KeyMintTag.PADDING),
         ecCurve = converter.parseInt(KeyMintTag.EC_CURVE),
+        mlDsaVariant = converter.parseInt(KeyMintTag.ML_DSA_VARIANT),
         rsaPublicExponent = converter.parseInt(KeyMintTag.RSA_PUBLIC_EXPONENT),
         rsaOaepMgfDigests = converter.parseIntSet(KeyMintTag.RSA_OAEP_MGF_DIGEST),
         activeDateTime = converter.parseInt(KeyMintTag.ACTIVE_DATE_TIME),
         originationExpireDateTime = converter.parseInt(KeyMintTag.ORIGINATION_EXPIRE_DATE_TIME),
         usageExpireDateTime = converter.parseInt(KeyMintTag.USAGE_EXPIRE_DATE_TIME),
+        usageCountLimit = converter.parseInt(KeyMintTag.USAGE_COUNT_LIMIT),
         noAuthRequired = if (objects.containsKey(KeyMintTag.NO_AUTH_REQUIRED)) true else null,
         userAuthType = converter.parseInt(KeyMintTag.USER_AUTH_TYPE),
         authTimeout = converter.parseInt(KeyMintTag.AUTH_TIMEOUT),
         trustedUserPresenceRequired =
           if (objects.containsKey(KeyMintTag.TRUSTED_USER_PRESENCE_REQUIRED)) true else null,
+        trustedConfirmationRequired =
+          if (objects.containsKey(KeyMintTag.TRUSTED_CONFIRMATION_REQUIRED)) true else null,
         unlockedDeviceRequired =
           if (objects.containsKey(KeyMintTag.UNLOCKED_DEVICE_REQUIRED)) true else null,
         creationDateTime = converter.parseInt(KeyMintTag.CREATION_DATE_TIME),
         origin = converter.parse(KeyMintTag.ORIGIN) { it.toOrigin() },
         rollbackResistant = if (objects.containsKey(KeyMintTag.ROLLBACK_RESISTANT)) true else null,
-        rootOfTrust = converter.parse(KeyMintTag.ROOT_OF_TRUST) { it.toRootOfTrust() },
+        rootOfTrust = converter.parse(KeyMintTag.ROOT_OF_TRUST) { it.toRootOfTrust(logFn) },
         osVersion = converter.parseInt(KeyMintTag.OS_VERSION),
         osPatchLevel = converter.parsePatchLevel(KeyMintTag.OS_PATCH_LEVEL, "OS"),
         attestationApplicationId =
           converter.parse(KeyMintTag.ATTESTATION_APPLICATION_ID) {
-            it.toAttestationApplicationId()
+            it.toAttestationApplicationId(inputLimits)
           },
         attestationIdBrand = converter.parseStr(KeyMintTag.ATTESTATION_ID_BRAND),
         attestationIdDevice = converter.parseStr(KeyMintTag.ATTESTATION_ID_DEVICE),
@@ -533,7 +608,9 @@ data class PatchLevel(val yearMonth: YearMonth, val version: Int? = null) {
       partitionName: String = "",
       logFn: (String) -> Unit = { _ -> },
     ): PatchLevel? {
-      check(patchLevel is ASN1Integer) { "Must be an ASN1Integer, was ${this::class.simpleName}" }
+      check(patchLevel is ASN1Integer) {
+        "Must be an ASN1Integer, was ${patchLevel::class.simpleName}"
+      }
       return from(patchLevel.value.toString(), partitionName, logFn)
     }
 
@@ -580,11 +657,46 @@ data class AttestationApplicationId(
       }
       .let { DERSequence(it.toTypedArray()) }
 
-  internal companion object {
-    fun from(seq: ASN1Sequence): AttestationApplicationId {
+  /**
+   * Checks if the AttestationApplicationId is satisfied by the [candidate]
+   * AttestationApplicationId.
+   *
+   * @param candidate The actual AttestationApplicationId.
+   * @return True if the candidate satisfies the AttestationApplicationId, false otherwise.
+   */
+  fun isSatisfiedBy(candidate: AttestationApplicationId?): Boolean {
+    if (candidate == null) return false
+
+    if (packages.isNotEmpty()) {
+      if (packages.none { it.isSatisfiedBy(candidate.packages) }) return false
+    }
+
+    if (signatures.isNotEmpty()) {
+      if (signatures.none { it in candidate.signatures }) return false
+    }
+    return true
+  }
+
+  companion object {
+    internal fun from(
+      seq: ASN1Sequence,
+      inputLimits: InputLimits = InputLimits(),
+    ): AttestationApplicationId {
       require(seq.size() == 2)
-      val attestationPackageInfos = (seq.getObjectAt(0).toSet<ASN1Sequence>())
-      val signatureDigests = seq.getObjectAt(1).toSet<ASN1OctetString>()
+      val packagesSet = seq.getObjectAt(0)
+      if (packagesSet is ASN1Set && packagesSet.size() > inputLimits.maxPackages) {
+        throw ExtensionParsingException(
+          "AttestationApplicationId contains too many packages (${packagesSet.size()} > ${inputLimits.maxPackages})"
+        )
+      }
+      val signaturesSet = seq.getObjectAt(1)
+      if (signaturesSet is ASN1Set && signaturesSet.size() > inputLimits.maxSignatures) {
+        throw ExtensionParsingException(
+          "AttestationApplicationId contains too many signatures (${signaturesSet.size()} > ${inputLimits.maxSignatures})"
+        )
+      }
+      val attestationPackageInfos = (packagesSet.toSet<ASN1Sequence>())
+      val signatureDigests = (signaturesSet.toSet<ASN1OctetString>())
       return AttestationApplicationId(
         attestationPackageInfos.map { AttestationPackageInfo.from(it) }.toSet(),
         signatureDigests.map { it.toByteString() }.toSet(),
@@ -608,6 +720,10 @@ data class AttestationPackageInfo(val name: String, val version: BigInteger) {
         add(version.toAsn1())
       }
       .let { DERSequence(it.toTypedArray()) }
+
+  internal fun isSatisfiedBy(candidate: Set<AttestationPackageInfo>) = candidate.any {
+    it.name == name && it.version >= version
+  }
 
   internal companion object {
     fun from(attestationPackageInfo: ASN1Sequence): AttestationPackageInfo {
@@ -645,12 +761,12 @@ data class RootOfTrust(
       .let { DERSequence(it.toTypedArray()) }
 
   internal companion object {
-    fun from(rootOfTrust: ASN1Sequence): RootOfTrust {
+    fun from(rootOfTrust: ASN1Sequence, logFn: (String) -> Unit = { _ -> }): RootOfTrust {
       require(rootOfTrust.size() == 3 || rootOfTrust.size() == 4)
       val verifiedBootState = rootOfTrust.getObjectAt(2).toEnumerated()
       return RootOfTrust(
         verifiedBootKey = rootOfTrust.getObjectAt(0).toByteString(),
-        deviceLocked = rootOfTrust.getObjectAt(1).toBoolean(),
+        deviceLocked = rootOfTrust.getObjectAt(1).toBoolean(logFn),
         VerifiedBootState.from(verifiedBootState),
         verifiedBootHash =
           if (rootOfTrust.size() > 3) rootOfTrust.getObjectAt(3).toByteString() else null,
@@ -681,27 +797,35 @@ enum class VerifiedBootState(val value: Int) {
 }
 
 @RequiresApi(24)
-private fun ASN1Encodable.toAttestationApplicationId(): AttestationApplicationId {
+private fun ASN1Encodable.toAttestationApplicationId(
+  inputLimits: InputLimits = InputLimits()
+): AttestationApplicationId {
   if (this !is ASN1OctetString) {
     throw ExtensionParsingException(
       "Object must be an ASN1OctetString, was ${this::class.simpleName}"
     )
   }
-  return AttestationApplicationId.from(ASN1Sequence.getInstance(this.octets))
+  return AttestationApplicationId.from(ASN1Sequence.getInstance(this.octets), inputLimits)
 }
 
 @RequiresApi(24)
-private fun ASN1Encodable.toAuthorizationList(logFn: (String) -> Unit): AuthorizationList {
+private fun ASN1Encodable.toAuthorizationList(
+  logFn: (String) -> Unit,
+  inputLimits: InputLimits = InputLimits(),
+): AuthorizationList {
   if (this !is ASN1Sequence) {
     throw ExtensionParsingException("Object must be an ASN1Sequence, was ${this::class.simpleName}")
   }
-  return AuthorizationList.from(this, logFn)
+  return AuthorizationList.from(this, logFn, inputLimits)
 }
 
 @RequiresApi(24)
-private fun ASN1Encodable.toBoolean(): Boolean {
+private fun ASN1Encodable.toBoolean(logFn: (String) -> Unit = { _ -> }): Boolean {
   if (this !is ASN1Boolean) {
     throw ExtensionParsingException("Must be an ASN1Boolean, was ${this::class.simpleName}")
+  }
+  if (this !== ASN1Boolean.TRUE && this !== ASN1Boolean.FALSE) {
+    logFn("Non-DER encoded boolean in RootOfTrust.deviceLocked: ${this.encoded.last()}")
   }
   return this.isTrue
 }
@@ -740,11 +864,11 @@ private fun ASN1Encodable.toPatchLevel(
 ): PatchLevel? = PatchLevel.from(this, partitionName, logFn)
 
 @RequiresApi(24)
-private fun ASN1Encodable.toRootOfTrust(): RootOfTrust {
+private fun ASN1Encodable.toRootOfTrust(logFn: (String) -> Unit = { _ -> }): RootOfTrust {
   if (this !is ASN1Sequence) {
     throw ExtensionParsingException("Object must be an ASN1Sequence, was ${this::class.simpleName}")
   }
-  return RootOfTrust.from(this)
+  return RootOfTrust.from(this, logFn)
 }
 
 @RequiresApi(24)
@@ -765,7 +889,7 @@ private inline fun <reified T> ASN1Encodable.toSet(): Set<T> {
   return this.map {
       if (it !is T) {
         throw ExtensionParsingException(
-          "Object must be a ${T::class.simpleName}, was ${this::class.simpleName}"
+          "Object must be a ${T::class.simpleName}, was ${it::class.simpleName}"
         )
       }
       it
@@ -775,11 +899,15 @@ private inline fun <reified T> ASN1Encodable.toSet(): Set<T> {
 
 @RequiresApi(24)
 private fun ASN1Encodable.toStr() =
-  UTF_8.newDecoder()
-    .onMalformedInput(CodingErrorAction.REPORT)
-    .onUnmappableCharacter(CodingErrorAction.REPORT)
-    .decode(this.toByteBuffer())
-    .toString()
+  try {
+    UTF_8.newDecoder()
+      .onMalformedInput(CodingErrorAction.REPORT)
+      .onUnmappableCharacter(CodingErrorAction.REPORT)
+      .decode(this.toByteBuffer())
+      .toString()
+  } catch (e: CharacterCodingException) {
+    throw ExtensionParsingException("error decoding ASN.1: ${e.message}", cause = e)
+  }
 
 private fun ASN1Encodable.toTaggedObject(tag: KeyMintTag) = DERTaggedObject(tag.value, this)
 
@@ -793,9 +921,11 @@ private fun Set<BigInteger>.toAsn1() = DERSet(this.map { it.toAsn1() }.toTypedAr
 
 private fun String.toAsn1() = DEROctetString(this.toByteArray(UTF_8))
 
-fun cborDecode(data: ByteArray): DataItem {
+fun cborDecode(data: ByteArray, inputLimits: InputLimits): DataItem {
   val bais = ByteArrayInputStream(data)
-  val dataItems = CborDecoder(bais).decode()
+  val decoder = CborDecoder(bais)
+  decoder.setMaxPreallocationSize(inputLimits.maxCborPreallocationSize)
+  val dataItems = decoder.decode()
   if (dataItems.size != 1) {
     throw CborException(
       "Byte stream cannot be decoded properly. Expected 1 item, found ${dataItems.size}"
@@ -811,15 +941,33 @@ fun cborEncode(dataItem: DataItem): ByteArray {
   return baos.toByteArray()
 }
 
-fun DataItem.asInteger(): Int {
-  if (this.majorType == MajorType.UNSIGNED_INTEGER) {
-    return (this as UnsignedInteger).value.toInt()
+private fun BigInteger.toIntExact(): Int {
+  if (bitLength() < Integer.SIZE) {
+    return toInt()
   }
-  if (this.majorType == MajorType.NEGATIVE_INTEGER) {
-    return (this as NegativeInteger).value.toInt()
-  }
-  throw CborException("Expected a number, got ${this.majorType}")
+  throw CborException("BigInteger out of int range")
 }
+
+private fun BigInteger.toLongExact(): Long {
+  if (bitLength() < java.lang.Long.SIZE) {
+    return toLong()
+  }
+  throw CborException("BigInteger out of long range")
+}
+
+fun DataItem.asInteger(): Int =
+  when (this) {
+    is UnsignedInteger -> value.toIntExact()
+    is NegativeInteger -> value.toIntExact()
+    else -> throw CborException("Expected a number, got $majorType")
+  }
+
+fun DataItem.asLong(): Long =
+  when (this) {
+    is UnsignedInteger -> value.toLongExact()
+    is NegativeInteger -> value.toLongExact()
+    else -> throw CborException("Expected a number, got $majorType")
+  }
 
 fun Int.asDataItem() =
   when {

@@ -1,0 +1,33 @@
+{
+  "attestationVersion": "2",
+  "attestationSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "keyMintVersion": "3",
+  "keyMintSecurityLevel": "TRUSTED_ENVIRONMENT",
+  "attestationChallenge": "OTEyODk1ZTAtM2UxOS00MzI3LWEwZmItOTFlMmYzZjQ2Y2Ri",
+  "uniqueId": "",
+  "softwareEnforced": {
+    "creationDateTime": "1787857347615",
+    "attestationApplicationId": {
+      "packages": [
+        { "name": "com.google.android.attestation", "version": "0" }
+      ],
+      "signatures": ["EDk47kU35Z6O55L2VFBPuDRvxrNG0LvEQV/DOfz8jsE="]
+    }
+  },
+  "hardwareEnforced": {
+    "purposes": ["2", "3"],
+    "algorithms": "3",
+    "keySize": "256",
+    "digests": ["5"],
+    "ecCurve": "1",
+    "noAuthRequired": true,
+    "origin": "GENERATED",
+    "rootOfTrust": {
+      "verifiedBootKey": "nBLP3ATHRYTXh6w9I3chMsGFJLx6so3sQhm4/FtCX3A=",
+      "deviceLocked": false,
+      "verifiedBootState": "UNVERIFIED"
+    },
+    "osVersion": "80100",
+    "osPatchLevel": "201807"
+  }
+}

@@ -30,6 +30,10 @@ class FakeCalendar(val today: LocalDate = LocalDate.of(2024, 10, 20)) {
 
   fun nextWeek(): Date = today.plusDays(7).toDate()
 
+  internal fun longAgo(): Date = today.minusYears(5).toDate()
+
+  internal fun farInTheFuture(): Date = today.plusYears(5).toDate()
+
   private fun Instant.toDate() = Date.from(this)
 
   private fun LocalDate.toDate() = this.atStartOfDay(ZoneId.of("UTC")).toInstant().toDate()

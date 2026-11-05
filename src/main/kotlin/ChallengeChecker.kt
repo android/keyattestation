@@ -31,7 +31,7 @@ interface ChallengeChecker {
   /**
    * Checks the given [challenge] for validity.
    *
-   * @return A ListenableFuture containing True if the challenge is valid, else false.
+   * @return A ListenableFuture containing true if the challenge is valid, else false.
    */
   fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean>
 }

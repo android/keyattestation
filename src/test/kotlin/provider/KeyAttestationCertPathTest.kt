@@ -102,12 +102,26 @@ class KeyAttestationCertPathTest {
   }
 
   @Test
+  fun signingAlgorithms_returnsExpectedSigningAlgorithms() {
+    assertThat(readCertPath("blueline/sdk28/TEE_EC_NONE.pem").signingAlgorithms())
+      .containsExactly(
+        "SHA256withECDSAKeySize256",
+        "SHA256withECDSAKeySize384",
+        "SHA256withRSAKeySize4096",
+      )
+  }
+
+  @Test
   fun provisioningMethod_returnsExpectedType(@TestParameter testCase: ProvisioningMethodTestCase) {
     val certPath = readCertPath("${testCase.path}.pem")
     assertThat(certPath.provisioningMethod()).isEqualTo(testCase.expected)
   }
 
   enum class ProvisioningMethodTestCase(val path: String, val expected: ProvisioningMethod) {
+    FACTORY_PROVISIONED_OLD_STYLE(
+      "sony-xperia10-iii/sdk33/TEE_EC",
+      ProvisioningMethod.FACTORY_PROVISIONED,
+    ),
     FACTORY_PROVISIONED("blueline/sdk28/TEE_EC_NONE", ProvisioningMethod.FACTORY_PROVISIONED),
     REMOTELY_PROVISIONED("caiman/sdk36/TEE_EC_RKP", ProvisioningMethod.REMOTELY_PROVISIONED),
     UNKNOWN("marlin/sdk29/TEE_EC_NONE", ProvisioningMethod.UNKNOWN),
@@ -119,11 +133,11 @@ class KeyAttestationCertPathTest {
     assertThat(certPath.securityLevel()).isEqualTo(testCase.expected)
   }
 
-  enum class SecurityLevelTestCase(val path: String, val expected: SecurityLevel) {
-    FACTORY_PROVISIONED("blueline/sdk28/TEE_EC_NONE", SecurityLevel.TRUSTED_ENVIRONMENT),
+  enum class SecurityLevelTestCase(val path: String, val expected: SecurityLevel?) {
+    FACTORY_PROVISIONED("blueline/sdk28/TEE_EC_NONE", null),
     STRONG_BOX_FACTORY_PROVISIONED("blueline/sdk28/SB_RSA_NONE", SecurityLevel.STRONG_BOX),
     REMOTELY_PROVISIONED("caiman/sdk36/TEE_EC_RKP", SecurityLevel.TRUSTED_ENVIRONMENT),
     STRONG_BOX_REMOTELY_PROVISIONED("caiman/sdk36/SB_EC_RKP", SecurityLevel.STRONG_BOX),
-    SOFTWARE("marlin/sdk29/TEE_EC_NONE", SecurityLevel.SOFTWARE),
+    SOFTWARE("marlin/sdk29/TEE_EC_NONE", null),
   }
 }

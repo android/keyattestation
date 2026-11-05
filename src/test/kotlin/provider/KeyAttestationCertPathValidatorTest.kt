@@ -18,10 +18,12 @@ package com.android.keyattestation.verifier.provider
 
 import com.android.keyattestation.verifier.KeyAttestationReason
 import com.android.keyattestation.verifier.testing.CertLists
+import com.android.keyattestation.verifier.testing.Certs.notSelfIssuedAnchor
 import com.android.keyattestation.verifier.testing.Certs.rootAnchor as testAnchor
 import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeCalendar
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
+import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.google.common.truth.Truth.assertThat
 import java.security.InvalidAlgorithmParameterException
 import java.security.Security
@@ -34,6 +36,8 @@ import java.security.cert.PKIXCertPathChecker
 import java.security.cert.PKIXCertPathValidatorResult
 import java.security.cert.PKIXParameters
 import java.security.cert.PKIXReason
+import java.security.cert.TrustAnchor
+import java.time.LocalDate
 import kotlin.test.assertFailsWith
 import org.junit.BeforeClass
 import org.junit.Test
@@ -84,14 +88,14 @@ class KeyAttestationCertPathValidatorTest {
     val exception =
       assertFailsWith<CertPathValidatorException> {
         certPathValidator.validate(
-          Chains.validFactoryProvisioned,
+          Chains.validRemotelyProvisioned,
           PKIXParameters(setOf(testAnchor)),
         )
       }
     val pkixException =
       assertFailsWith<CertPathValidatorException> {
         pkixCertPathValidator.validate(
-          Chains.validFactoryProvisioned,
+          Chains.validRemotelyProvisioned,
           PKIXParameters(setOf(testAnchor)),
         )
       }
@@ -165,6 +169,19 @@ class KeyAttestationCertPathValidatorTest {
   }
 
   @Test
+  fun notSelfIssuedTrustAnchor_succeeds() {
+    val params =
+      PKIXParameters(setOf(notSelfIssuedAnchor)).apply { date = FakeCalendar.DEFAULT.today() }
+    val result =
+      certPathValidator.validate(Chains.validFactoryProvisioned, params)
+        as PKIXCertPathValidatorResult
+    assertThat(result.trustAnchor).isEqualTo(notSelfIssuedAnchor)
+    assertThat(result.policyTree).isNull()
+    assertThat(result.publicKey)
+      .isEqualTo(Chains.validFactoryProvisioned.certificates.first().publicKey)
+  }
+
+  @Test
   fun wrongIssuer_throwsCertPathValidatorException() {
     val certPath = Chains.wrongIssuer
     val exception =
@@ -205,13 +222,51 @@ class KeyAttestationCertPathValidatorTest {
   }
 
   @Test
-  fun expired_throwsCertPathValidatorException() {
-    val certPath = Chains.expired
+  fun expiredFactory_succeeds() {
+    certPathValidator.validate(Chains.expiredFactoryProvisioned, testParams)
+  }
+
+  @Test
+  fun expiredRkp_throwsCertPathValidatorException() {
+    val certPath = Chains.expiredRemotelyProvisioned
     val exception =
       assertFailsWith<CertPathValidatorException> {
         certPathValidator.validate(certPath, testParams)
       }
     assertThat(exception.reason).isEqualTo(BasicReason.EXPIRED)
+  }
+
+  @Test
+  fun bluelineSdk28_factoryProvisioned_expiryIgnored() {
+    val certPath = readCertPath("blueline/sdk28/TEE_EC_NONE.pem")
+    val root = certPath.certificatesWithAnchor.last()
+    val params =
+      PKIXParameters(setOf(TrustAnchor(root, null))).apply {
+        date = FakeCalendar(LocalDate.of(2030, 1, 1)).today()
+      }
+    certPathValidator.validate(certPath, params)
+  }
+
+  @Test
+  fun caimanSdk36_remoteProvisioned_expiryHonored() {
+    val certPath = readCertPath("caiman/sdk36/TEE_EC_RKP.pem")
+    val root = certPath.certificatesWithAnchor.last()
+    val params =
+      PKIXParameters(setOf(TrustAnchor(root, null))).apply {
+        date = FakeCalendar(LocalDate.of(2030, 1, 1)).today()
+      }
+    val exception =
+      assertFailsWith<CertPathValidatorException> { certPathValidator.validate(certPath, params) }
+    assertThat(exception.reason).isEqualTo(BasicReason.EXPIRED)
+  }
+
+  @Test
+  fun p256Sha384Intermediate_succeeds() {
+    val certPath = readCertPath("p256_sha384_intermediate.pem")
+    val root = certPath.certificatesWithAnchor.last()
+    val params =
+      PKIXParameters(setOf(TrustAnchor(root, null))).apply { date = FakeCalendar.DEFAULT.today() }
+    certPathValidator.validate(certPath, params)
   }
 
   @Test

@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier.testing
 
+import com.android.keyattestation.verifier.AttestationPackageInfo
 import com.android.keyattestation.verifier.AuthorizationList
 import com.android.keyattestation.verifier.KeyDescription
 import com.android.keyattestation.verifier.KeyMintTag
@@ -25,6 +26,7 @@ import com.android.keyattestation.verifier.RootOfTrust
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.VerifiedBootState
 import com.android.keyattestation.verifier.provider.KeyAttestationCertPath
+import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteStringUtf8
 import java.math.BigInteger
 import java.security.cert.TrustAnchor
@@ -33,8 +35,10 @@ import org.bouncycastle.asn1.ASN1EncodableVector
 import org.bouncycastle.asn1.ASN1Enumerated
 import org.bouncycastle.asn1.ASN1Integer
 import org.bouncycastle.asn1.ASN1ObjectIdentifier
+import org.bouncycastle.asn1.ASN1Sequence
 import org.bouncycastle.asn1.DEROctetString
 import org.bouncycastle.asn1.DERSequence
+import org.bouncycastle.asn1.DERSet
 import org.bouncycastle.asn1.DERTaggedObject
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x509.Extension
@@ -54,6 +58,16 @@ object Certs {
   val factoryIntermediate = certFactory.factoryIntermediate
   val remoteIntermediate = certFactory.remoteIntermediate
   val factoryAttestation = certFactory.factoryAttestation
+  val notSelfIssuedAnchor =
+    TrustAnchor(
+      certFactory.generateIntermediateCertificate(
+        publicKey = certFactory.rootKey.public,
+        signingKey = certFactory.rootKey.private,
+        subject = certFactory.root.subject,
+        issuer = certFactory.factoryIntermediate.subject,
+      ),
+      null,
+    )
 }
 
 /**
@@ -76,7 +90,7 @@ object CertLists {
       certFactory.generateLeafCert(
         certFactory.leafKey.public,
         certFactory.leafKey.private,
-        leafCert.subject,
+        issuer = leafCert.subject,
       ),
       leafCert,
       Certs.factoryAttestation,
@@ -100,6 +114,26 @@ object CertLists {
   val validStrongboxFactoryProvisioned by lazy {
     listOf(
       certFactory.generateLeafCert(extension = certFactory.STRONG_BOX_KEY_DESCRIPTION_EXT),
+      certFactory.generateAttestationCert(issuer = certFactory.strongBoxIntermediate.subject),
+      certFactory.strongBoxIntermediate,
+      Certs.root,
+    )
+  }
+
+  /* A chain with TEE in the last intermediate certificate but keymint attributes claiming StrongBox. */
+  val teeIntermediateWithStrongBoxKeyMintAttributes by lazy {
+    listOf(
+      certFactory.generateLeafCert(extension = certFactory.STRONG_BOX_KEY_DESCRIPTION_EXT),
+      Certs.factoryAttestation,
+      Certs.factoryIntermediate,
+      Certs.root,
+    )
+  }
+
+  /* A chain with StrongBox in the last intermediate certificate but keymint attributes claiming TEE. */
+  val strongBoxIntermediateWithTeeKeyMintAttributes by lazy {
+    listOf(
+      certFactory.generateLeafCert(),
       certFactory.generateAttestationCert(issuer = certFactory.strongBoxIntermediate.subject),
       certFactory.strongBoxIntermediate,
       Certs.root,
@@ -188,6 +222,19 @@ object CertLists {
       generateValidLeafCertWithAppendedTag(
         KeyMintTag.OS_PATCH_LEVEL.value,
         ASN1Integer(BigInteger.valueOf(0)),
+      ),
+      certFactory.factoryAttestation,
+      certFactory.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  /* A chain that has a malformed key size (OCTET STRING instead of INTEGER). */
+  val invalidKeySize by lazy {
+    listOf(
+      generateValidLeafCertWithAppendedTag(
+        KeyMintTag.KEY_SIZE.value,
+        DEROctetString("not an int".toByteArray()),
       ),
       certFactory.factoryAttestation,
       certFactory.factoryIntermediate,
@@ -366,7 +413,7 @@ object CertLists {
   val REVOKED_SERIAL_NUMBER_LONG_STRING = "c35747a084470c3135aeefe2b8d40cd6".toBigInteger(16)
   @JvmField val REVOKED_SERIAL_NUMBER_ODD_LENGTH = 1228286566665971148.toBigInteger()
 
-  /* A chain where the attesstation certificate has {@link REVOKED_SERIAL_NUMBER}. */
+  /* A chain where the attestation certificate has {@link REVOKED_SERIAL_NUMBER}. */
   @JvmStatic
   val revoked by lazy {
     listOf(
@@ -481,9 +528,9 @@ object Chains {
     )
   }
 
-  /* A chain where the attestation certificate has expired. */
+  /* A factory-provisioned chain where the attestation certificate has expired. */
   @JvmStatic
-  val expired by lazy {
+  val expiredFactoryProvisioned by lazy {
     KeyAttestationCertPath(
       certFactory.generateLeafCert(),
       certFactory.generateAttestationCert(
@@ -491,6 +538,24 @@ object Chains {
         notAfter = fakeCalendar.lastWeek(),
       ),
       Certs.factoryIntermediate,
+      certFactory.root,
+    )
+  }
+
+  /* A remotely-provisioned chain where the attestation certificate has expired. */
+  @JvmStatic
+  val expiredRemotelyProvisioned by lazy {
+    val rkpAttestationCert =
+      certFactory.generateRkpAttestationCert(
+        serialNumber = BigInteger.valueOf(0x1234567890),
+        notBefore = fakeCalendar.lastWeek(),
+        notAfter = fakeCalendar.lastWeek(),
+      )
+    KeyAttestationCertPath(
+      certFactory.generateLeafCert(issuer = rkpAttestationCert.subject),
+      rkpAttestationCert,
+      certFactory.rkpIntermediate,
+      Certs.remoteIntermediate,
       certFactory.root,
     )
   }
@@ -567,4 +632,14 @@ object V3Extensions {
         )
       )
       .encoded
+
+  fun buildAttestationApplicationIdExtension(
+    packages: Set<AttestationPackageInfo>,
+    signatures: Set<ByteString>,
+  ): ASN1Sequence =
+    buildList<ASN1Encodable> {
+        add(DERSet(packages.map { it.toAsn1() }.toTypedArray()))
+        add(DERSet(signatures.map { DEROctetString(it.toByteArray()) }.toTypedArray()))
+      }
+      .let { DERSequence(it.toTypedArray()) }
 }

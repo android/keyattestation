@@ -19,9 +19,15 @@ package com.android.keyattestation.verifier.provider
 import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.asX509Certificate
 import com.google.protobuf.ByteString
+import java.security.PublicKey
 import java.security.cert.CertPath
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
+import java.security.interfaces.DSAPublicKey
+import java.security.interfaces.ECPublicKey
+import java.security.interfaces.RSAPublicKey
+import java.util.Locale
+import javax.crypto.interfaces.DHPublicKey
 import javax.security.auth.x500.X500Principal
 
 /**
@@ -72,6 +78,18 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
    */
   fun serialNumbers() = certificatesWithAnchor.map { it.serialNumber.toString(16) }
 
+  /**
+   * Returns the signing algorithms of the certificates in the certificate chain.
+   *
+   * The format is "algNameKeySizeN".
+   *
+   * @return the signing algorithms of the certificates in the certificate chain.
+   */
+  fun signingAlgorithms() =
+    certificatesWithAnchor
+      .zipWithNext { cert, issuer -> "${cert.sigAlgName}KeySize${issuer.publicKey.keySize()}" }
+      .toSet()
+
   fun provisioningMethod() =
     when {
       isFactoryProvisioned() -> ProvisioningMethod.FACTORY_PROVISIONED
@@ -80,20 +98,33 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
     }
 
   /*
-   * The security level of the certitificate chain.
+   * The security level of the certificate chain.
    *
    * This should match the attestation security level in the key description.
    */
   fun securityLevel() =
     when (provisioningMethod()) {
-      ProvisioningMethod.FACTORY_PROVISIONED ->
-        parseDN(intermediateCert().subjectX500Principal.getName(X500Principal.RFC1779))[TITLE_OID]
-          .toSecurityLevel()
+      ProvisioningMethod.UNKNOWN -> null
       ProvisioningMethod.REMOTELY_PROVISIONED ->
         parseDN(attestationCert().subjectX500Principal.getName(X500Principal.RFC1779))["O"]
           .toSecurityLevel()
-      else -> SecurityLevel.SOFTWARE
+      ProvisioningMethod.FACTORY_PROVISIONED -> securityLevelFromFactoryChain()
     }
+
+  private fun securityLevelFromFactoryChain(): SecurityLevel? {
+    check(isFactoryProvisioned()) { "securityLevelFromFactoryChain() called on non-factory chain" }
+
+    // Only StrongBox factory chains are guaranteed to encode the security level. The logic here is
+    // based on the Compatibility Test Suite (CTS) verification logic for StrongBox certs:
+    // https://cs.android.com/android/platform/superproject/+/android-latest-release:cts/tests/tests/keystore/src/android/keystore/cts/KeyAttestationTest.java;drc=0ef830e0aa7c51200c1e4c7a24169fede350f1ba;l=2430
+    for (cert in arrayOf(attestationCert(), intermediateCert())) {
+      val name = cert.subjectX500Principal.getName(X500Principal.RFC1779)
+      if (name.lowercase(Locale.ROOT).contains("strongbox")) {
+        return SecurityLevel.STRONG_BOX
+      }
+    }
+    return null
+  }
 
   /**
    * Returns the leaf certificate from the certificate chain.
@@ -111,7 +142,7 @@ class KeyAttestationCertPath(certs: List<X509Certificate>) : CertPath("X.509") {
 
   private fun isFactoryProvisioned(): Boolean {
     val rdn = parseDN(this.intermediateCert().subjectX500Principal.getName(X500Principal.RFC1779))
-    return rdn.containsKey(SERIAL_NUMBER_OID) && rdn[TITLE_OID] in setOf("TEE", "StrongBox")
+    return rdn.containsKey(SERIAL_NUMBER_OID)
   }
 
   // TODO(google-internal bug): Update this to use fields in the RKP root.
@@ -151,6 +182,15 @@ private fun parseDN(dn: String): Map<String, String> {
   }
   return attributes
 }
+
+private fun PublicKey.keySize() =
+  when (this) {
+    is RSAPublicKey -> this.modulus.bitLength().toString()
+    is ECPublicKey -> this.params.curve.field.fieldSize.toString()
+    is DSAPublicKey -> this.y.bitLength().toString()
+    is DHPublicKey -> this.y.bitLength().toString()
+    else -> "unknown"
+  }
 
 private fun String?.toSecurityLevel() =
   when (this) {

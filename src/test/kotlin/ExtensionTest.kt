@@ -15,11 +15,16 @@
  */
 package com.android.keyattestation.verifier
 
+import co.nstant.`in`.cbor.CborException
+import co.nstant.`in`.cbor.model.NegativeInteger
+import co.nstant.`in`.cbor.model.UnsignedInteger
 import com.android.keyattestation.verifier.testing.Chains
 import com.android.keyattestation.verifier.testing.FakeLogHook
 import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
+import com.android.keyattestation.verifier.testing.TestUtils.getTestCases
 import com.android.keyattestation.verifier.testing.TestUtils.readCertPath
 import com.android.keyattestation.verifier.testing.V3Extensions
+import com.android.keyattestation.verifier.testing.toJson
 import com.android.keyattestation.verifier.testing.toKeyDescription
 import com.google.common.truth.Truth.assertThat
 
@@ -29,15 +34,17 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector
 import com.google.testing.junit.testparameterinjector.TestParameters
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider.Context
+import java.math.BigInteger
+import java.time.Instant
 import java.time.YearMonth
 import kotlin.io.path.Path
 import kotlin.io.path.inputStream
-import kotlin.io.path.isDirectory
 import kotlin.io.path.listDirectoryEntries
-import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.readText
 import kotlin.io.path.reader
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -53,7 +60,10 @@ class ExtensionTest {
         certificatesIssued = 1,
       )
     val provisioningInfo =
-      ProvisioningInfoMap.parseFrom(Chains.validRemotelyProvisioned.attestationCert())
+      ProvisioningInfoMap.parseFrom(
+        Chains.validRemotelyProvisioned.attestationCert(),
+        InputLimits(),
+      )
     assertThat(provisioningInfo).isEqualTo(expectedProvisioningInfo)
   }
 
@@ -72,32 +82,14 @@ class ExtensionTest {
   }
 
   class TestCaseProvider : TestParametersValuesProvider() {
-    override fun provideValues(context: Context): List<TestParametersValues> {
-      val root = Path("testdata")
-      val parameters =
-        root
-          .listDirectoryEntries()
-          .filter { it.isDirectory() }
-          .flatMap { modelDir ->
-            modelDir
-              .listDirectoryEntries("sdk*")
-              .filter { it.isDirectory() }
-              .mapNotNull { sdkDir ->
-                val sdkVersion = sdkDir.name.removePrefix("sdk").toIntOrNull()
-                if (sdkVersion == null) {
-                  null
-                } else {
-                  TestParametersValues.builder()
-                    .name("${modelDir.name}_sdk$sdkVersion")
-                    .addParameter("model", modelDir.name)
-                    .addParameter("sdk", sdkVersion)
-                    .build()
-                }
-              }
-          }
-      assertThat(parameters).isNotEmpty()
-      return parameters
-    }
+    override fun provideValues(context: Context): List<TestParametersValues> =
+      getTestCases().map { testCase ->
+        TestParametersValues.builder()
+          .name("${testCase.model}_sdk${testCase.sdk}")
+          .addParameter("model", testCase.model)
+          .addParameter("sdk", testCase.sdk)
+          .build()
+      }
   }
 
   @Test
@@ -109,15 +101,19 @@ class ExtensionTest {
   }
 
   @Test
-  fun parseFrom_malformedRotDeviceLocked_successfullyParsed() {
+  fun parseFrom_malformedRotDeviceLocked_successfullyParsedAndLogs() {
+    val logHook = FakeLogHook()
     val keyDescription =
       KeyDescription.parseFrom(
         testData
           .resolve("invalid/malformed_rot_device_locked.pem")
           .inputStream()
-          .asX509Certificate()
+          .asX509Certificate(),
+        logFn = logHook.fakeVerifyRequestLog::logInfoMessage,
       )
     assertThat(keyDescription?.hardwareEnforced?.rootOfTrust?.deviceLocked).isTrue()
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages)
+      .contains("Non-DER encoded boolean in RootOfTrust.deviceLocked: 1")
   }
 
   @Test
@@ -137,14 +133,17 @@ class ExtensionTest {
         digests = setOf(1.toBigInteger()),
         paddings = setOf(1.toBigInteger()),
         ecCurve = 3.toBigInteger(),
+        mlDsaVariant = 2.toBigInteger(),
         rsaPublicExponent = 4.toBigInteger(),
         activeDateTime = 5.toBigInteger(),
         originationExpireDateTime = 6.toBigInteger(),
         usageExpireDateTime = 7.toBigInteger(),
+        usageCountLimit = 8.toBigInteger(),
         noAuthRequired = true,
         userAuthType = 1.toBigInteger(),
         authTimeout = 9.toBigInteger(),
         trustedUserPresenceRequired = true,
+        trustedConfirmationRequired = true,
         creationDateTime = 10.toBigInteger(),
         origin = Origin.GENERATED,
         rollbackResistant = true,
@@ -207,6 +206,23 @@ class ExtensionTest {
   }
 
   @Test
+  fun keyDescriptionToJson_ignoresAreTagsOrdered() {
+    val authorizationList = AuthorizationList(areTagsOrdered = true)
+    val keyDescription =
+      KeyDescription(
+        attestationVersion = 1.toBigInteger(),
+        attestationSecurityLevel = SecurityLevel.SOFTWARE,
+        keyMintVersion = 1.toBigInteger(),
+        keyMintSecurityLevel = SecurityLevel.SOFTWARE,
+        attestationChallenge = ByteString.empty(),
+        uniqueId = ByteString.empty(),
+        softwareEnforced = authorizationList,
+        hardwareEnforced = authorizationList,
+      )
+    assertThat(keyDescription.toJson()).doesNotContain("areTagsOrdered")
+  }
+
+  @Test
   fun keyDescriptionParseFrom_malformedAuthorizationListExtension_successAndLogs() {
     val logHook = FakeLogHook()
     assertThat(
@@ -220,5 +236,85 @@ class ExtensionTest {
       .isNull()
     assertThat(logHook.fakeVerifyRequestLog.infoMessages)
       .contains("Exception when parsing key_size: Must be an ASN1Integer, was DEROctetString")
+  }
+
+  @Test
+  fun attestationApplicationId_maxPackages_success() {
+    val limits = InputLimits()
+    val packages =
+      (1..limits.maxPackages)
+        .map { AttestationPackageInfo("com.example.pkg$it", it.toBigInteger()) }
+        .toSet()
+    val id = AttestationApplicationId(packages = packages, signatures = setOf(ByteString.empty()))
+    assertThat(id.packages).hasSize(limits.maxPackages)
+  }
+
+  @Test
+  fun attestationApplicationId_fromAsn1_exceedsMaxPackages_throws() {
+    val limits = InputLimits(maxPackages = 1)
+    val packages =
+      (1..2).map { AttestationPackageInfo("com.example.pkg$it", it.toBigInteger()) }.toSet()
+    val seq =
+      V3Extensions.buildAttestationApplicationIdExtension(packages, setOf(ByteString.empty()))
+    assertThrows(ExtensionParsingException::class.java) {
+      AttestationApplicationId.from(seq, inputLimits = limits)
+    }
+  }
+
+  @Test
+  fun attestationApplicationId_fromAsn1_maxSignatures_success() {
+    val limits = InputLimits()
+    val packages = setOf(AttestationPackageInfo("com.example.pkg", 1.toBigInteger()))
+    val signatures =
+      (1..limits.maxSignatures).map { ByteString.copyFrom(byteArrayOf(it.toByte())) }.toSet()
+    val seq = V3Extensions.buildAttestationApplicationIdExtension(packages, signatures)
+    val id = AttestationApplicationId.from(seq, inputLimits = limits)
+    assertThat(id.signatures).hasSize(limits.maxSignatures)
+  }
+
+  @Test
+  fun attestationApplicationId_fromAsn1_exceedsMaxSignatures_throws() {
+    val limits = InputLimits(maxSignatures = 1)
+    val packages = setOf(AttestationPackageInfo("com.example.pkg", 1.toBigInteger()))
+    val signatures = (1..2).map { ByteString.copyFrom(byteArrayOf(it.toByte())) }.toSet()
+    val seq = V3Extensions.buildAttestationApplicationIdExtension(packages, signatures)
+    assertThrows(ExtensionParsingException::class.java) {
+      AttestationApplicationId.from(seq, inputLimits = limits)
+    }
+  }
+
+  @Test
+  fun asInteger_validValues_success() {
+    assertThat(UnsignedInteger(0).asInteger()).isEqualTo(0)
+    assertThat(UnsignedInteger(Int.MAX_VALUE.toLong()).asInteger()).isEqualTo(Int.MAX_VALUE)
+    assertThat(NegativeInteger(-1).asInteger()).isEqualTo(-1)
+    assertThat(NegativeInteger(Int.MIN_VALUE.toLong()).asInteger()).isEqualTo(Int.MIN_VALUE)
+  }
+
+  @Test
+  fun asInteger_outOfBounds_throws() {
+    val unsignedOutOfRange = UnsignedInteger(Int.MAX_VALUE.toLong() + 1)
+    assertThrows(CborException::class.java) { unsignedOutOfRange.asInteger() }
+
+    val negativeOutOfRange = NegativeInteger(Int.MIN_VALUE.toLong() - 1)
+    assertThrows(CborException::class.java) { negativeOutOfRange.asInteger() }
+  }
+
+  @Test
+  fun asLong_validValues_success() {
+    assertThat(UnsignedInteger(0).asLong()).isEqualTo(0L)
+    assertThat(UnsignedInteger(Long.MAX_VALUE).asLong()).isEqualTo(Long.MAX_VALUE)
+    assertThat(NegativeInteger(-1).asLong()).isEqualTo(-1L)
+    assertThat(NegativeInteger(Long.MIN_VALUE).asLong()).isEqualTo(Long.MIN_VALUE)
+  }
+
+  @Test
+  fun asLong_outOfBounds_throws() {
+    val unsignedOutOfRange = UnsignedInteger(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE))
+    assertThrows(CborException::class.java) { unsignedOutOfRange.asLong() }
+
+    val negativeOutOfRange =
+      NegativeInteger(BigInteger.valueOf(Long.MIN_VALUE).subtract(BigInteger.ONE))
+    assertThrows(CborException::class.java) { negativeOutOfRange.asLong() }
   }
 }

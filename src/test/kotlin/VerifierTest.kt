@@ -16,7 +16,9 @@
 
 package com.android.keyattestation.verifier
 
-import com.android.keyattestation.verifier.VerificationResult.ExtensionConstraintViolation
+import kotlin.io.path.Path
+import com.android.keyattestation.verifier.SoftwareRoot.SOFTWARE_ROOTS
+import com.android.keyattestation.verifier.VerificationResult.ConstraintViolation
 import com.android.keyattestation.verifier.VerificationResult.ExtensionParsingFailure
 import com.android.keyattestation.verifier.VerificationResult.PathValidationFailure
 import com.android.keyattestation.verifier.challengecheckers.ChallengeMatcher
@@ -24,6 +26,7 @@ import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.Certs
 import com.android.keyattestation.verifier.testing.FakeCalendar
 import com.android.keyattestation.verifier.testing.FakeLogHook
+import com.android.keyattestation.verifier.testing.TestUtils.TESTDATA_PATH
 import com.android.keyattestation.verifier.testing.TestUtils.falseChecker
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
 import com.android.keyattestation.verifier.testing.TestUtils.readCertList
@@ -32,17 +35,22 @@ import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
-import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
+import com.google.testing.junit.testparameterinjector.TestParameters
+import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider.Context
+import java.math.BigInteger
 import java.security.cert.PKIXReason
 import java.security.cert.TrustAnchor
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.nameWithoutExtension
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlinx.coroutines.guava.await
@@ -53,6 +61,8 @@ import org.junit.runner.RunWith
 /** Unit tests for [Verifier]. */
 @RunWith(TestParameterInjector::class)
 class VerifierTest {
+  private val testData = Path("testdata")
+
   private val verifier =
     Verifier(
       { prodAnchors + TrustAnchor(Certs.root, null) },
@@ -72,39 +82,56 @@ class VerifierTest {
     }
 
   @Test
-  fun verify_validChain_returnsSuccess(@TestParameter testCase: TestCase) {
-    val verifier = Verifier({ prodAnchors }, { setOf<String>() }, { testCase.timestamp })
-    val chain = readCertList("${testCase.path}.pem")
-    val json = readJson("${testCase.path}.json")
-    val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
-    assertThat(result.publicKey).isEqualTo(chain[0].publicKey)
-    assertThat(result.challenge).isEqualTo(json.attestationChallenge)
-    assertThat(result.securityLevel).isEqualTo(json.attestationSecurityLevel)
-    assertThat(result.verifiedBootState)
-      .isEqualTo(json.hardwareEnforced.rootOfTrust?.verifiedBootState)
+  @TestParameters(valuesProvider = TestCaseProvider::class)
+  fun verify_validChain_returnsSuccess(model: String, sdk: Int) {
+    val path = testData.resolve("${model}/sdk${sdk}")
+    val pemFiles = path.listDirectoryEntries("*.pem")
+    for (pemPath in pemFiles) {
+      val subpath = "${model}/sdk${sdk}/${pemPath.nameWithoutExtension}"
+      val json = readJson("${subpath}.json")
+      val creationDateTime =
+        json.softwareEnforced.creationDateTime ?: json.hardwareEnforced.creationDateTime
+      assertThat(creationDateTime).isNotNull()
+      val timestamp = Instant.ofEpochMilli(creationDateTime!!.toLong())
+
+      val verifier =
+        Verifier(
+          { prodAnchors + SOFTWARE_ROOTS.map { TrustAnchor(it, null) } },
+          { setOf<String>() },
+          { timestamp },
+          json.softwareEnforced.attestationApplicationId,
+          constraintConfig {
+            allowSoftwareRoot = true
+            securityLevel { IgnoredConstraint }
+            rootOfTrust { IgnoredConstraint }
+            attestationApplicationId { AttestationApplicationIdConstraint.STRICT }
+          },
+        )
+      val chain = readCertList("${subpath}.pem")
+      val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
+      assertThat(result.publicKey).isEqualTo(chain[0].publicKey)
+      assertThat(result.challenge).isEqualTo(json.attestationChallenge)
+      assertThat(result.securityLevel).isEqualTo(json.attestationSecurityLevel)
+      assertThat(result.verifiedBootState)
+        .isEqualTo(
+          json.hardwareEnforced.rootOfTrust?.verifiedBootState ?: VerifiedBootState.UNVERIFIED
+        )
+      assertThat(result.deviceLocked)
+        .isEqualTo(json.hardwareEnforced.rootOfTrust?.deviceLocked ?: false)
+    }
   }
 
-  enum class TestCase(val path: String, val timestamp: Instant) {
-    PIXEL_3_SDK28(
-      "blueline/sdk28/TEE_EC_NONE",
-      LocalDate.of(2024, 10, 1).atStartOfDay(ZoneOffset.UTC).toInstant(),
-    ),
-    PIXEL_8A_SDK34(
-      "akita/sdk34/TEE_EC_NONE",
-      LocalDate.of(2024, 10, 1).atStartOfDay(ZoneOffset.UTC).toInstant(),
-    ),
-    PIXEL_9PRO_SDK36(
-      "caiman/sdk36/TEE_EC_RKP",
-      LocalDate.of(2025, 9, 30).atStartOfDay(ZoneOffset.UTC).toInstant(),
-    ),
-    PIXEL_9A_SDK36(
-      "tegu/sdk36/TEE_EC_2026_ROOT",
-      LocalDate.of(2026, 2, 23).atStartOfDay(ZoneOffset.UTC).toInstant(),
-    ),
-    PIXEL_9A_SDK36_STRONGBOX(
-      "tegu/sdk36/SB_EC_2026_ROOT",
-      LocalDate.of(2026, 2, 24).atStartOfDay(ZoneOffset.UTC).toInstant(),
-    ),
+  class TestCaseProvider : TestParametersValuesProvider() {
+    override fun provideValues(context: Context): List<TestParametersValues> {
+      val testCases = com.android.keyattestation.verifier.testing.TestUtils.getTestCases()
+      return testCases.map { testCase ->
+        TestParametersValues.builder()
+          .name("${testCase.model}_sdk${testCase.sdk}")
+          .addParameter("model", testCase.model)
+          .addParameter("sdk", testCase.sdk)
+          .build()
+      }
+    }
   }
 
   @Test
@@ -150,6 +177,26 @@ class VerifierTest {
   }
 
   @Test
+  fun verify_attestationApplicationIdConstraintFails_returnsConstraintViolation() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        AttestationApplicationId(
+          packages = setOf(AttestationPackageInfo("com.wrong.package", BigInteger.ONE)),
+          signatures = emptySet(),
+        ),
+        constraintConfig { attestationApplicationId { AttestationApplicationIdConstraint.STRICT } },
+      )
+    val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
+
+    val result = assertIs<ConstraintViolation>(verifier.verify(chain))
+
+    assertThat(result.constraintLabel).isEqualTo("Attestation application ID")
+  }
+
+  @Test
   fun verifyAsync_unexpectedRootKey_returnsPathValidationFailure() = runBlocking {
     val result =
       assertIs<VerificationResult.PathValidationFailure>(
@@ -171,6 +218,12 @@ class VerifierTest {
   }
 
   @Test
+  fun unparseableExtension_extensionParsingFailure() {
+    val result = assertIs<ExtensionParsingFailure>(verifier.verify(CertLists.unparseableExtension))
+    assertThat(result.cause.reason).isNull()
+  }
+
+  @Test
   fun targetMissingAttestationExtension_givesTargetMissingAttestationExtensionReason() {
     val result = assertIs<PathValidationFailure>(verifier.verify(CertLists.missingExtension))
     assertThat(result.cause.reason)
@@ -179,22 +232,67 @@ class VerifierTest {
 
   @Test
   fun rootOfTrustMissing_givesRootOfTrustMissingReason() {
-    val result =
-      assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.missingRootOfTrust))
-    assertThat(result.reason).isEqualTo(KeyAttestationReason.ROOT_OF_TRUST_CONSTRAINT_VIOLATION)
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.missingRootOfTrust))
+    assertThat(result.constraintLabel).isEqualTo("Root of trust")
+    assertThat(result.cause).contains("Root of trust")
+    assertThat(result.cause).contains("Root of trust violates constraint")
   }
 
   @Test
   fun keyOriginNotGenerated_throwsCertPathValidatorException() {
-    val result = assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.importedOrigin))
-    assertThat(result.reason).isEqualTo(KeyAttestationReason.KEY_ORIGIN_CONSTRAINT_VIOLATION)
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.importedOrigin))
+    assertThat(result.constraintLabel).isEqualTo("Origin")
+    assertThat(result.cause).contains("Origin violates constraint")
   }
 
   @Test
   fun mismatchedSecurityLevels_throwsCertPathValidatorException() {
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.mismatchedSecurityLevels))
+    assertThat(result.constraintLabel).isEqualTo("Security level")
+    assertThat(result.cause).contains("Security level violates constraint")
+  }
+
+  @Test
+  fun teeIntermediateWithStrongBoxKeyMintAttributes_throwsConstraintViolation() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig =
+          constraintConfig { additionalConstraint { SecurityLevelConstraint.MATCHES_CERTIFICATE } },
+      )
     val result =
-      assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.mismatchedSecurityLevels))
-    assertThat(result.reason).isEqualTo(KeyAttestationReason.SECURITY_LEVEL_CONSTRAINT_VIOLATION)
+      assertIs<ConstraintViolation>(
+        verifier.verify(CertLists.teeIntermediateWithStrongBoxKeyMintAttributes)
+      )
+    assertThat(result.constraintLabel).isEqualTo("Security level")
+    assertThat(result.cause)
+      .contains(
+        "Security level of KeyMint (STRONG_BOX) does not match attestation certificate " + "(null)"
+      )
+  }
+
+  @Test
+  fun strongBoxIntermediateWithTeeKeyMintAttributes_throwsConstraintViolation() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig =
+          constraintConfig { additionalConstraint { SecurityLevelConstraint.MATCHES_CERTIFICATE } },
+      )
+    val result =
+      assertIs<ConstraintViolation>(
+        verifier.verify(CertLists.strongBoxIntermediateWithTeeKeyMintAttributes)
+      )
+    assertThat(result.constraintLabel).isEqualTo("Security level")
+    assertThat(result.cause)
+      .contains(
+        "Security level of KeyMint (TRUSTED_ENVIRONMENT) does not match attestation certificate " +
+          "(STRONG_BOX)"
+      )
   }
 
   @Test
@@ -204,11 +302,102 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        ExtensionConstraintConfig(securityLevel = ValidationLevel.NOT_NULL),
+        constraintConfig = constraintConfig { securityLevel { IgnoredConstraint } },
       )
     val result =
       assertIs<VerificationResult.Success>(verifier.verify(CertLists.mismatchedSecurityLevels))
     assertThat(result.securityLevel).isEqualTo(SecurityLevel.SOFTWARE)
+  }
+
+  @Test
+  fun factoryProvisionedChain_withRemoteConstraint_failsVerification() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig =
+          constraintConfig { additionalConstraint { ProvisioningMethodConstraint.REMOTE } },
+      )
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.validFactoryProvisioned))
+    assertThat(result.constraintLabel).isEqualTo("Provisioning method")
+    assertThat(result.cause)
+      .isEqualTo(
+        "Provisioning method violates constraint: provisioningMethod=FACTORY_PROVISIONED, config=REMOTE"
+      )
+  }
+
+  @Test
+  fun factoryProvisionedChain_withFactoryConstraint_succeedsVerification() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig =
+          constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } },
+      )
+    assertIs<VerificationResult.Success>(verifier.verify(CertLists.validFactoryProvisioned))
+  }
+
+  @Test
+  fun rkpProvisionedChain_withFactoryConstraint_failsVerification() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig =
+          constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } },
+      )
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.validRemotelyProvisioned))
+    assertThat(result.constraintLabel).isEqualTo("Provisioning method")
+    assertThat(result.cause)
+      .isEqualTo(
+        "Provisioning method violates constraint: provisioningMethod=REMOTELY_PROVISIONED, config=FACTORY"
+      )
+  }
+
+  @Test
+  fun rkpProvisionedChain_withRemoteConstraint_succeedsVerification() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig =
+          constraintConfig { additionalConstraint { ProvisioningMethodConstraint.REMOTE } },
+      )
+    assertIs<VerificationResult.Success>(verifier.verify(CertLists.validRemotelyProvisioned))
+  }
+
+  @Test
+  fun importedOrigins_customConfig_succeeds() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig =
+          constraintConfig {
+            keyOrigin {
+              AttributeConstraint.STRICT("Test", Origin.IMPORTED) { it.hardwareEnforced.origin }
+            }
+          },
+      )
+    assertIs<VerificationResult.Success>(verifier.verify(CertLists.importedOrigin))
+  }
+
+  @Test
+  fun softwareRootOfTrust_customConfig_succeeds() {
+    val verifier =
+      Verifier(
+        { prodAnchors + TrustAnchor(Certs.root, null) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+        constraintConfig = constraintConfig { rootOfTrust { IgnoredConstraint } },
+      )
+    assertIs<VerificationResult.Success>(verifier.verify(CertLists.missingRootOfTrust))
   }
 
   @Test
@@ -218,15 +407,19 @@ class VerifierTest {
         { prodAnchors + TrustAnchor(Certs.root, null) },
         { setOf<String>() },
         { FakeCalendar.DEFAULT.now() },
-        ExtensionConstraintConfig(authorizationListTagOrder = TagOrderValidationLevel.STRICT),
+        constraintConfig =
+          constraintConfig {
+            additionalConstraint { TagOrderConstraint.STRICT }
+            additionalConstraint { IgnoredConstraint }
+          },
       )
-    val result = assertIs<ExtensionConstraintViolation>(verifier.verify(CertLists.unorderedTags))
-    assertThat(result.reason)
-      .isEqualTo(KeyAttestationReason.AUTHORIZATION_LIST_ORDERING_CONSTRAINT_VIOLATION)
+    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.unorderedTags))
+    assertThat(result.constraintLabel).isEqualTo("Tag order")
+    assertThat(result.cause).contains("Authorization list tags must be in ascending order")
   }
 
   @Test
-  fun verifyAsync_failure_inputChainLogged() = runBlocking {
+  fun verifyAsync_failure_inputChainLogged(): Unit = runBlocking {
     val logHook = FakeLogHook()
     assertIs<VerificationResult.PathValidationFailure>(
       verifier
@@ -234,7 +427,7 @@ class VerifierTest {
           this,
           CertLists.wrongTrustAnchor,
           ChallengeMatcher(ByteString.copyFromUtf8("challenge")),
-          logHook,
+          log = logHook,
         )
         .await()
     )
@@ -243,7 +436,7 @@ class VerifierTest {
   }
 
   @Test
-  fun verifyAsync_success_keyDescriptionLogged() = runBlocking {
+  fun verifyAsync_success_keyDescriptionLogged(): Unit = runBlocking {
     val logHook = FakeLogHook()
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
     assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain, log = logHook).await())
@@ -252,7 +445,7 @@ class VerifierTest {
   }
 
   @Test
-  fun verifyAsync_malformedPatchLevel_logsInfo() = runBlocking {
+  fun verifyAsync_malformedPatchLevel_logsInfo(): Unit = runBlocking {
     val verifierWithTestRoot =
       Verifier(
         { setOf(TrustAnchor(Certs.root, null)) },
@@ -262,6 +455,32 @@ class VerifierTest {
     val logHook = FakeLogHook()
     assertIs<VerificationResult.Success>(
       verifierWithTestRoot.verifyAsync(this, CertLists.invalidBootPatchLevel, log = logHook).await()
+    )
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages).isNotEmpty()
+  }
+
+  @Test
+  fun verifyAsync_malformedDeviceLocked_logsInfo(): Unit = runBlocking {
+    val logHook = FakeLogHook()
+    val chain = readCertList("invalid/malformed_rot_device_locked.pem")
+    val result =
+      assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain, log = logHook).await())
+    assertThat(result.deviceLocked).isTrue()
+    assertThat(logHook.fakeVerifyRequestLog.infoMessages)
+      .contains("Non-DER encoded boolean in RootOfTrust.deviceLocked: 1")
+  }
+
+  @Test
+  fun verifyAsync_invalidKeySize_logsInfo(): Unit = runBlocking {
+    val verifierWithTestRoot =
+      Verifier(
+        { setOf(TrustAnchor(Certs.root, null)) },
+        { setOf<String>() },
+        { FakeCalendar.DEFAULT.now() },
+      )
+    val logHook = FakeLogHook()
+    assertIs<VerificationResult.Success>(
+      verifierWithTestRoot.verifyAsync(this, CertLists.invalidKeySize, log = logHook).await()
     )
     assertThat(logHook.fakeVerifyRequestLog.infoMessages).isNotEmpty()
   }
@@ -278,7 +497,11 @@ class VerifierTest {
   @Test
   fun init_softwareRootAsTrustAnchor_fails() {
     assertFailsWith<IllegalArgumentException> {
-      Verifier({ setOf(TrustAnchor(SOFTWARE_ROOT, null)) }, { setOf<String>() }, { Instant.now() })
+      Verifier(
+        { setOf(TrustAnchor(SOFTWARE_ROOTS.first(), null)) },
+        { setOf<String>() },
+        { Instant.now() },
+      )
     }
   }
 }

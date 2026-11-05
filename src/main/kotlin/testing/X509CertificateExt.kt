@@ -23,5 +23,5 @@ import org.bouncycastle.cert.jcajce.JcaX500NameUtil
 
 private fun X500Principal.asX500Name() = JcaX500NameUtil.getX500Name(this)
 
-internal val X509Certificate.subject: X500Name
+val X509Certificate.subject: X500Name
   get() = subjectX500Principal.asX500Name()

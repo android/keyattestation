@@ -45,7 +45,11 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
 import org.bouncycastle.operator.ContentSigner
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 
-internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCalendar.DEFAULT) {
+internal class KeyAttestationCertFactory(
+  val fakeCalendar: FakeCalendar = FakeCalendar.DEFAULT,
+  val hardcodedRootKey: KeyPair? = null,
+  val hardcodedRoot: X509Certificate? = null,
+) {
   private val ecKeyPairGenerator =
     KeyPairGenerator.getInstance("EC").apply {
       initialize(ECGenParameterSpec("secp256r1"), FakeSecureRandom())
@@ -60,13 +64,13 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
 
   internal fun generateRsaKeyPair() = rsaKeyPairGenerator.generateKeyPair()
 
-  val rootKey = ecKeyPairGenerator.generateKeyPair()
+  val rootKey = hardcodedRootKey ?: ecKeyPairGenerator.generateKeyPair()
   val intermediateKey = ecKeyPairGenerator.generateKeyPair()
   val rkpKey = ecKeyPairGenerator.generateKeyPair()
   val attestationKey = ecKeyPairGenerator.generateKeyPair()
   val leafKey: KeyPair = ecKeyPairGenerator.generateKeyPair()
 
-  val root: X509Certificate = generateRootCertificate()
+  val root: X509Certificate = hardcodedRoot ?: generateRootCertificate()
   val factoryIntermediate = generateIntermediateCertificate()
   val remoteIntermediate = generateIntermediateCertificate(subject = REMOTE_INTERMEDIATE_SUBJECT)
   val rkpIntermediate =
@@ -84,7 +88,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
 
   internal fun generateRootCertificate(
     keyPair: KeyPair = rootKey,
-    subject: X500Name = X500Name("SERIALNUMBER=badc0de"),
+    subject: X500Name = RKP_ROOT_SUBJECT,
   ) =
     generateCertificate(
       keyPair.public,
@@ -92,8 +96,8 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       subject = subject,
       issuer = subject,
       serialNumber = BigInteger.valueOf(0xca11cafe),
-      notBefore = fakeCalendar.lastWeek(),
-      notAfter = fakeCalendar.nextWeek(),
+      notBefore = fakeCalendar.longAgo(),
+      notAfter = fakeCalendar.farInTheFuture(),
       extensions = listOf(BASIC_CONSTRAINTS_EXT),
     )
 
@@ -117,12 +121,16 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
   internal fun generateRkpAttestationCert(
     securityLevel: SecurityLevel = SecurityLevel.TRUSTED_ENVIRONMENT,
     serialNumber: BigInteger,
+    notBefore: Date = fakeCalendar.lastWeek(),
+    notAfter: Date = fakeCalendar.nextWeek(),
   ) =
     generateAttestationCert(
       signingKey = rkpKey.private,
       subject = rkpAttestationName(securityLevel, serialNumber),
       issuer = rkpIntermediate.subject,
       serialNumber,
+      notBefore,
+      notAfter,
       extraExtension =
         Extension(
           ProvisioningInfoMap.OID,
@@ -254,6 +262,7 @@ internal class KeyAttestationCertFactory(val fakeCalendar: FakeCalendar = FakeCa
       )
     val RKP_INTERMEDIATE_SUBJECT = X500Name("O=Google LLC, CN=Droid CA3")
     val REMOTE_INTERMEDIATE_SUBJECT = X500Name("CN=Droid CA2, O=Google LLC")
+    val RKP_ROOT_SUBJECT = X500Name("CN=Test Key Attestation CA1, OU=Android, O=Google LLC, C=US")
   }
 }
 

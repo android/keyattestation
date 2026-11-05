@@ -45,7 +45,7 @@ import javax.security.auth.x500.X500Principal
  * A [CertPathValidatorSpi] for verifying Android Key Attestation certificate chains.
  *
  * Older Android devices produce Key Attestation certificate chains that do not fully conform to RFC
- * 5280 and thus cannot be validating using [sun.security.provider.certpath.PKIXCertPathValidator].
+ * 5280 and thus cannot be validated using [sun.security.provider.certpath.PKIXCertPathValidator].
  * This provider implements a more permissive [CertPathValidatorSpi] implementation that is able to
  * validate these chains.
  *
@@ -92,7 +92,7 @@ class KeyAttestationCertPathValidator : CertPathValidatorSpi() {
     sigProvider: String?,
   ): CertPathValidatorResult {
     val certList = certPath.toCertList()
-    val selector = X509CertSelector().apply { issuer = certList.first().issuerX500Principal }
+    val selector = X509CertSelector().apply { subject = certList.first().issuerX500Principal }
 
     var lastException: CertPathValidatorException? = null
     for (anchor in trustAnchors) {
@@ -303,6 +303,10 @@ private class BasicChecker(
         BasicReason.NOT_YET_VALID,
       )
     } catch (e: CertificateExpiredException) {
+      // Ignore validity on factory-provisioned certificate chains because it is not possible to
+      // safely rotate the keys.
+      if (certPath.provisioningMethod() == ProvisioningMethod.FACTORY_PROVISIONED) return
+
       throw CertPathValidatorException(
         "Validity check failed",
         e,
@@ -330,7 +334,7 @@ private class BasicChecker(
         // TODO(google-internal bug): Add support for ATTEST_KEY chains.
         if (cert.hasAttestationExtension()) {
           throw CertPathValidatorException(
-            "Only the target certificate should contain an attestation extension, attestation extenion found in ${step}",
+            "Only the target certificate should contain an attestation extension, attestation extension found in ${step}",
             /* cause = */ null,
             certPath,
             /* index = */ remainingCerts,

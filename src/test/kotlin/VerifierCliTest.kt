@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4
 @RunWith(JUnit4::class)
 class VerifierCliTest {
   companion object {
-    // For tests have no time dependency
+    // For tests which have no time dependency
     val INCONSEQUENTIAL_TIME = Instant.EPOCH
 
     private fun resolveTestData(path: String) =

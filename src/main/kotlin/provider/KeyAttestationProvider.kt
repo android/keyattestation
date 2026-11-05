@@ -20,7 +20,7 @@ import java.security.Provider
 import java.security.ProviderException
 
 /**
- * A JCA provider for verifying Android Key Attestation certificates chains.
+ * A JCA provider for verifying Android Key Attestation certificate chains.
  *
  * https://docs.oracle.com/en/java/javase/21/security/howtoimplaprovider.html
  */
@@ -33,7 +33,7 @@ class KeyAttestationProvider : Provider("KeyAttestation", 0.1, "Android Key Atte
         this,
         "CertPathValidator",
         "KeyAttestation",
-        "com.google.wireless.android.security.attestationverifier.provider.KeyAttestationCertPathValidator",
+        "com.android.keyattestation.verifier.provider.KeyAttestationCertPathValidator",
       )
     )
   }
