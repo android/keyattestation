@@ -36,7 +36,7 @@ class GoogleRevocationListTest {
       {
         "entries": {
           "abc": { "status": "REVOKED" },
-          "def": { "status": "OK" }
+          "def": { "status": "SUSPENDED" }
         }
       }
       """
@@ -47,7 +47,7 @@ class GoogleRevocationListTest {
         FakeHttpURLConnection(uri.toURL(), HttpURLConnection.HTTP_OK, json)
       }
 
-    assertThat(result).containsExactly("abc")
+    assertThat(result).containsExactly("abc", "def")
   }
 
   @Test
@@ -68,7 +68,7 @@ class GoogleRevocationListTest {
   }
 
   @Test
-  fun parseAttestationStatus_revokedAndOkEntries() {
+  fun parseAttestationStatus_revokedAndSuspendedEntries() {
     val json =
       """
       {
@@ -78,7 +78,7 @@ class GoogleRevocationListTest {
             "reason": "KEY_COMPROMISE"
           },
           "def": {
-            "status": "OK"
+            "status": "SUSPENDED"
           },
           "123": {
             "status": "REVOKED",
@@ -89,27 +89,7 @@ class GoogleRevocationListTest {
       """
         .trimIndent()
     val result = parseAttestationStatus(json.byteInputStream())
-    assertThat(result).containsExactly("abc", "123")
-  }
-
-  @Test
-  fun parseAttestationStatus_onlyOkEntries() {
-    val json =
-      """
-      {
-        "entries": {
-          "def": {
-            "status": "OK"
-          },
-          "456": {
-            "status": "OK"
-          }
-        }
-      }
-      """
-        .trimIndent()
-    val result = parseAttestationStatus(json.byteInputStream())
-    assertThat(result).isEmpty()
+    assertThat(result).containsExactly("abc", "def", "123")
   }
 
   @Test

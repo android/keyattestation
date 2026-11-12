@@ -80,9 +80,5 @@ internal data class StatusFile(val entries: Map<String, StatusEntry>)
  * @return A set of revoked serial numbers.
  */
 fun parseAttestationStatus(input: InputStream): Set<String> {
-  return Gson()
-    .fromJson(InputStreamReader(input), StatusFile::class.java)
-    .entries
-    .filterValues { it.status == "REVOKED" }
-    .keys
+  return Gson().fromJson(InputStreamReader(input), StatusFile::class.java).entries.keys
 }
