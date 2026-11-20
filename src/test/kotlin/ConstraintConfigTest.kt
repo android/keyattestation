@@ -639,4 +639,31 @@ class ConstraintConfigTest {
       )
     assertThat(constraint.label).isEqualTo("Attestation application ID")
   }
+
+  @Test
+  fun attestationApplicationId_strict_nullAppIdInKeyDescription_returnsViolated() {
+    val kd =
+      keyDescriptionWithTeeSecurityLevels.copy(
+        softwareEnforced = authorizationList.copy(attestationApplicationId = null)
+      )
+    val violation =
+      assertIs<Constraint.Violated>(
+        AttestationApplicationIdConstraint.STRICT.check(TEST_APP_ID, kd)
+      )
+    assertThat(violation.failureMessage).contains("attestationApplicationId=null")
+  }
+
+  @Test
+  fun attestationApplicationId_strict_emptyAppId_returnsViolated() {
+    val emptyAppId = AttestationApplicationId(emptySet(), emptySet())
+    val kd =
+      keyDescriptionWithTeeSecurityLevels.copy(
+        softwareEnforced = authorizationList.copy(attestationApplicationId = emptyAppId)
+      )
+    val violation =
+      assertIs<Constraint.Violated>(
+        AttestationApplicationIdConstraint.STRICT.check(TEST_APP_ID, kd)
+      )
+    assertThat(violation.failureMessage).contains("attestationApplicationId=$emptyAppId")
+  }
 }
