@@ -93,12 +93,6 @@ object TestUtils {
         Futures.immediateFuture(false)
     }
 
-  val trueChecker =
-    object : ChallengeChecker {
-      override fun checkChallenge(challenge: ByteString): ListenableFuture<Boolean> =
-        Futures.immediateFuture(true)
-    }
-
   private fun readFile(path: Path) = path.reader()
   private fun readFile(path: String) = readFile(Path(path))
 
