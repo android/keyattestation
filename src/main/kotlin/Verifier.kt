@@ -182,7 +182,7 @@ constructor(
   @JvmOverloads
   fun verify(
     chain: List<X509Certificate>,
-    challengeChecker: ChallengeChecker? = null,
+    challengeChecker: ChallengeChecker,
     additionalAttestationApplicationId: AttestationApplicationId? = null,
     log: LogHook? = null,
   ): VerificationResult {
@@ -217,7 +217,7 @@ constructor(
   fun verifyAsync(
     coroutineScope: CoroutineScope,
     chain: List<X509Certificate>,
-    challengeChecker: ChallengeChecker? = null,
+    challengeChecker: ChallengeChecker,
     additionalAttestationApplicationId: AttestationApplicationId? = null,
     log: LogHook? = null,
   ): ListenableFuture<VerificationResult> {
@@ -240,7 +240,7 @@ constructor(
 
   private suspend fun internalVerify(
     certPath: KeyAttestationCertPath,
-    challengeChecker: ChallengeChecker? = null,
+    challengeChecker: ChallengeChecker,
     additionalAttestationApplicationId: AttestationApplicationId? = null,
     log: VerifyRequestLog? = null,
   ): VerificationResult {
