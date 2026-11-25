@@ -16,6 +16,7 @@
 
 package com.android.keyattestation.verifier
 
+import com.android.keyattestation.verifier.challengecheckers.InsecureSkipChallengeChecker
 import java.io.File
 import java.io.PrintStream
 import java.security.cert.X509Certificate
@@ -66,7 +67,7 @@ class VerifierCli(private val output: PrintStream, private val instantSource: In
         instantSource,
       )
 
-    val result = verifier.verify(certs)
+    val result = verifier.verify(certs, InsecureSkipChallengeChecker)
 
     when (result) {
       is VerificationResult.Success -> {

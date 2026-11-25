@@ -22,6 +22,7 @@ import com.android.keyattestation.verifier.VerificationResult.ConstraintViolatio
 import com.android.keyattestation.verifier.VerificationResult.ExtensionParsingFailure
 import com.android.keyattestation.verifier.VerificationResult.PathValidationFailure
 import com.android.keyattestation.verifier.challengecheckers.ChallengeMatcher
+import com.android.keyattestation.verifier.challengecheckers.InsecureSkipChallengeChecker
 import com.android.keyattestation.verifier.testing.CertLists
 import com.android.keyattestation.verifier.testing.Certs
 import com.android.keyattestation.verifier.testing.FakeCalendar
@@ -31,7 +32,6 @@ import com.android.keyattestation.verifier.testing.TestUtils.falseChecker
 import com.android.keyattestation.verifier.testing.TestUtils.prodAnchors
 import com.android.keyattestation.verifier.testing.TestUtils.readCertList
 import com.android.keyattestation.verifier.testing.TestUtils.readJson
-import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -108,7 +108,8 @@ class VerifierTest {
           },
         )
       val chain = readCertList("${subpath}.pem")
-      val result = assertIs<VerificationResult.Success>(verifier.verify(chain))
+      val result =
+        assertIs<VerificationResult.Success>(verifier.verify(chain, InsecureSkipChallengeChecker))
       assertThat(result.publicKey).isEqualTo(chain[0].publicKey)
       assertThat(result.challenge).isEqualTo(json.attestationChallenge)
       assertThat(result.securityLevel).isEqualTo(json.attestationSecurityLevel)
@@ -138,13 +139,18 @@ class VerifierTest {
   fun verifyAsync_validChainUsingGeneratedTrustAnchors_returnsSuccess(): Unit = runBlocking {
     val verifier = Verifier(GoogleTrustAnchors, { setOf<String>() }, { Instant.now() })
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain).await())
+    assertIs<VerificationResult.Success>(
+      verifier.verifyAsync(this, chain, InsecureSkipChallengeChecker).await()
+    )
   }
 
   @Test
   fun verifyAsync_validChain_returnsDeviceIdentity() = runBlocking {
     val chain = readCertList("blueline/sdk28/TEE_RSA_BASE+IMEI.pem")
-    val result = assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain).await())
+    val result =
+      assertIs<VerificationResult.Success>(
+        verifier.verifyAsync(this, chain, InsecureSkipChallengeChecker).await()
+      )
     assertThat(result.attestedDeviceIds)
       .isEqualTo(
         DeviceIdentity(
@@ -164,7 +170,9 @@ class VerifierTest {
   fun verifyAsync_challengeCheckerReturnsTrue_returnsSuccess(): Unit = runBlocking {
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
 
-    assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain, trueChecker).await())
+    assertIs<VerificationResult.Success>(
+      verifier.verifyAsync(this, chain, InsecureSkipChallengeChecker).await()
+    )
   }
 
   @Test
@@ -191,7 +199,7 @@ class VerifierTest {
       )
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
 
-    val result = assertIs<ConstraintViolation>(verifier.verify(chain))
+    val result = assertIs<ConstraintViolation>(verifier.verify(chain, InsecureSkipChallengeChecker))
 
     assertThat(result.constraintLabel).isEqualTo("Attestation application ID")
   }
@@ -213,26 +221,38 @@ class VerifierTest {
 
   @Test
   fun unknownTag_unknownTagReason() {
-    val result = assertIs<ExtensionParsingFailure>(verifier.verify(CertLists.unknownTag))
+    val result =
+      assertIs<ExtensionParsingFailure>(
+        verifier.verify(CertLists.unknownTag, InsecureSkipChallengeChecker)
+      )
     assertThat(result.cause.reason).isEqualTo(KeyAttestationReason.UNKNOWN_TAG_NUMBER)
   }
 
   @Test
   fun unparseableExtension_extensionParsingFailure() {
-    val result = assertIs<ExtensionParsingFailure>(verifier.verify(CertLists.unparseableExtension))
+    val result =
+      assertIs<ExtensionParsingFailure>(
+        verifier.verify(CertLists.unparseableExtension, InsecureSkipChallengeChecker)
+      )
     assertThat(result.cause.reason).isNull()
   }
 
   @Test
   fun targetMissingAttestationExtension_givesTargetMissingAttestationExtensionReason() {
-    val result = assertIs<PathValidationFailure>(verifier.verify(CertLists.missingExtension))
+    val result =
+      assertIs<PathValidationFailure>(
+        verifier.verify(CertLists.missingExtension, InsecureSkipChallengeChecker)
+      )
     assertThat(result.cause.reason)
       .isEqualTo(KeyAttestationReason.TARGET_MISSING_ATTESTATION_EXTENSION)
   }
 
   @Test
   fun rootOfTrustMissing_givesRootOfTrustMissingReason() {
-    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.missingRootOfTrust))
+    val result =
+      assertIs<ConstraintViolation>(
+        verifier.verify(CertLists.missingRootOfTrust, InsecureSkipChallengeChecker)
+      )
     assertThat(result.constraintLabel).isEqualTo("Root of trust")
     assertThat(result.cause).contains("Root of trust")
     assertThat(result.cause).contains("Root of trust violates constraint")
@@ -240,14 +260,20 @@ class VerifierTest {
 
   @Test
   fun keyOriginNotGenerated_throwsCertPathValidatorException() {
-    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.importedOrigin))
+    val result =
+      assertIs<ConstraintViolation>(
+        verifier.verify(CertLists.importedOrigin, InsecureSkipChallengeChecker)
+      )
     assertThat(result.constraintLabel).isEqualTo("Origin")
     assertThat(result.cause).contains("Origin violates constraint")
   }
 
   @Test
   fun mismatchedSecurityLevels_throwsCertPathValidatorException() {
-    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.mismatchedSecurityLevels))
+    val result =
+      assertIs<ConstraintViolation>(
+        verifier.verify(CertLists.mismatchedSecurityLevels, InsecureSkipChallengeChecker)
+      )
     assertThat(result.constraintLabel).isEqualTo("Security level")
     assertThat(result.cause).contains("Security level violates constraint")
   }
@@ -264,7 +290,10 @@ class VerifierTest {
       )
     val result =
       assertIs<ConstraintViolation>(
-        verifier.verify(CertLists.teeIntermediateWithStrongBoxKeyMintAttributes)
+        verifier.verify(
+          CertLists.teeIntermediateWithStrongBoxKeyMintAttributes,
+          InsecureSkipChallengeChecker,
+        )
       )
     assertThat(result.constraintLabel).isEqualTo("Security level")
     assertThat(result.cause)
@@ -285,7 +314,10 @@ class VerifierTest {
       )
     val result =
       assertIs<ConstraintViolation>(
-        verifier.verify(CertLists.strongBoxIntermediateWithTeeKeyMintAttributes)
+        verifier.verify(
+          CertLists.strongBoxIntermediateWithTeeKeyMintAttributes,
+          InsecureSkipChallengeChecker,
+        )
       )
     assertThat(result.constraintLabel).isEqualTo("Security level")
     assertThat(result.cause)
@@ -305,7 +337,9 @@ class VerifierTest {
         constraintConfig = constraintConfig { securityLevel { IgnoredConstraint } },
       )
     val result =
-      assertIs<VerificationResult.Success>(verifier.verify(CertLists.mismatchedSecurityLevels))
+      assertIs<VerificationResult.Success>(
+        verifier.verify(CertLists.mismatchedSecurityLevels, InsecureSkipChallengeChecker)
+      )
     assertThat(result.securityLevel).isEqualTo(SecurityLevel.SOFTWARE)
   }
 
@@ -319,7 +353,10 @@ class VerifierTest {
         constraintConfig =
           constraintConfig { additionalConstraint { ProvisioningMethodConstraint.REMOTE } },
       )
-    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.validFactoryProvisioned))
+    val result =
+      assertIs<ConstraintViolation>(
+        verifier.verify(CertLists.validFactoryProvisioned, InsecureSkipChallengeChecker)
+      )
     assertThat(result.constraintLabel).isEqualTo("Provisioning method")
     assertThat(result.cause)
       .isEqualTo(
@@ -337,7 +374,9 @@ class VerifierTest {
         constraintConfig =
           constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } },
       )
-    assertIs<VerificationResult.Success>(verifier.verify(CertLists.validFactoryProvisioned))
+    assertIs<VerificationResult.Success>(
+      verifier.verify(CertLists.validFactoryProvisioned, InsecureSkipChallengeChecker)
+    )
   }
 
   @Test
@@ -350,7 +389,10 @@ class VerifierTest {
         constraintConfig =
           constraintConfig { additionalConstraint { ProvisioningMethodConstraint.FACTORY } },
       )
-    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.validRemotelyProvisioned))
+    val result =
+      assertIs<ConstraintViolation>(
+        verifier.verify(CertLists.validRemotelyProvisioned, InsecureSkipChallengeChecker)
+      )
     assertThat(result.constraintLabel).isEqualTo("Provisioning method")
     assertThat(result.cause)
       .isEqualTo(
@@ -368,13 +410,17 @@ class VerifierTest {
         constraintConfig =
           constraintConfig { additionalConstraint { ProvisioningMethodConstraint.REMOTE } },
       )
-    assertIs<VerificationResult.Success>(verifier.verify(CertLists.validRemotelyProvisioned))
+    assertIs<VerificationResult.Success>(
+      verifier.verify(CertLists.validRemotelyProvisioned, InsecureSkipChallengeChecker)
+    )
   }
 
   @Test
   fun verify_maxCertificatesIssued_succeedsWithMaxDeviceInformation() {
     val result =
-      assertIs<VerificationResult.Success>(verifier.verify(CertLists.maxCertificatesIssued))
+      assertIs<VerificationResult.Success>(
+        verifier.verify(CertLists.maxCertificatesIssued, InsecureSkipChallengeChecker)
+      )
     assertThat(result.deviceInformation?.certificatesIssued).isEqualTo(Int.MAX_VALUE)
   }
 
@@ -385,6 +431,7 @@ class VerifierTest {
       assertIs<VerificationResult.Success>(
         verifier.verify(
           readCertList("invalid/out_of_bounds_certificates_issued.pem"),
+          InsecureSkipChallengeChecker,
           log = logHook,
         )
       )
@@ -398,7 +445,11 @@ class VerifierTest {
     val logHook = FakeLogHook()
     val result =
       assertIs<VerificationResult.Success>(
-        verifier.verify(readCertList("invalid/negative_certificates_issued.pem"), log = logHook)
+        verifier.verify(
+          readCertList("invalid/negative_certificates_issued.pem"),
+          InsecureSkipChallengeChecker,
+          log = logHook,
+        )
       )
     assertThat(result.deviceInformation?.certificatesIssued).isEqualTo(0)
     assertThat(logHook.fakeVerifyRequestLog.infoMessages)
@@ -419,7 +470,9 @@ class VerifierTest {
             }
           },
       )
-    assertIs<VerificationResult.Success>(verifier.verify(CertLists.importedOrigin))
+    assertIs<VerificationResult.Success>(
+      verifier.verify(CertLists.importedOrigin, InsecureSkipChallengeChecker)
+    )
   }
 
   @Test
@@ -431,7 +484,9 @@ class VerifierTest {
         { FakeCalendar.DEFAULT.now() },
         constraintConfig = constraintConfig { rootOfTrust { IgnoredConstraint } },
       )
-    assertIs<VerificationResult.Success>(verifier.verify(CertLists.missingRootOfTrust))
+    assertIs<VerificationResult.Success>(
+      verifier.verify(CertLists.missingRootOfTrust, InsecureSkipChallengeChecker)
+    )
   }
 
   @Test
@@ -447,7 +502,10 @@ class VerifierTest {
             additionalConstraint { IgnoredConstraint }
           },
       )
-    val result = assertIs<ConstraintViolation>(verifier.verify(CertLists.unorderedTags))
+    val result =
+      assertIs<ConstraintViolation>(
+        verifier.verify(CertLists.unorderedTags, InsecureSkipChallengeChecker)
+      )
     assertThat(result.constraintLabel).isEqualTo("Tag order")
     assertThat(result.cause).contains("Authorization list tags must be in ascending order")
   }
@@ -473,7 +531,9 @@ class VerifierTest {
   fun verifyAsync_success_keyDescriptionLogged(): Unit = runBlocking {
     val logHook = FakeLogHook()
     val chain = readCertList("blueline/sdk28/TEE_EC_NONE.pem")
-    assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain, log = logHook).await())
+    assertIs<VerificationResult.Success>(
+      verifier.verifyAsync(this, chain, InsecureSkipChallengeChecker, log = logHook).await()
+    )
     assertThat(logHook.fakeVerifyRequestLog.keyDescription)
       .isEqualTo(chain.first().keyDescription())
   }
@@ -488,7 +548,14 @@ class VerifierTest {
       )
     val logHook = FakeLogHook()
     assertIs<VerificationResult.Success>(
-      verifierWithTestRoot.verifyAsync(this, CertLists.invalidBootPatchLevel, log = logHook).await()
+      verifierWithTestRoot
+        .verifyAsync(
+          this,
+          CertLists.invalidBootPatchLevel,
+          InsecureSkipChallengeChecker,
+          log = logHook,
+        )
+        .await()
     )
     assertThat(logHook.fakeVerifyRequestLog.infoMessages).isNotEmpty()
   }
@@ -498,7 +565,9 @@ class VerifierTest {
     val logHook = FakeLogHook()
     val chain = readCertList("invalid/malformed_rot_device_locked.pem")
     val result =
-      assertIs<VerificationResult.Success>(verifier.verifyAsync(this, chain, log = logHook).await())
+      assertIs<VerificationResult.Success>(
+        verifier.verifyAsync(this, chain, InsecureSkipChallengeChecker, log = logHook).await()
+      )
     assertThat(result.deviceLocked).isTrue()
     assertThat(logHook.fakeVerifyRequestLog.infoMessages)
       .contains("Non-DER encoded boolean in RootOfTrust.deviceLocked: 1")
@@ -514,7 +583,9 @@ class VerifierTest {
       )
     val logHook = FakeLogHook()
     assertIs<VerificationResult.Success>(
-      verifierWithTestRoot.verifyAsync(this, CertLists.invalidKeySize, log = logHook).await()
+      verifierWithTestRoot
+        .verifyAsync(this, CertLists.invalidKeySize, InsecureSkipChallengeChecker, log = logHook)
+        .await()
     )
     assertThat(logHook.fakeVerifyRequestLog.infoMessages).isNotEmpty()
   }

@@ -18,7 +18,6 @@ package com.android.keyattestation.verifier.challengecheckers
 
 import com.android.keyattestation.verifier.ChallengeChecker
 import com.android.keyattestation.verifier.testing.TestUtils.falseChecker
-import com.android.keyattestation.verifier.testing.TestUtils.trueChecker
 import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.Futures
@@ -76,7 +75,7 @@ class ChainedChallengeCheckerTest {
   fun checkChallenge_lastCheckerFalse_returnsFalse() = runBlocking {
     val challengeCheckers: MutableList<ChallengeChecker> = mutableListOf()
     for (i in 1..10) {
-      challengeCheckers.add(trueChecker)
+      challengeCheckers.add(InsecureSkipChallengeChecker)
     }
     challengeCheckers.add(falseChecker)
     val challengeChecker = ChainedChallengeChecker(ImmutableList.copyOf(challengeCheckers), this)

@@ -21,6 +21,7 @@ import com.android.keyattestation.verifier.SecurityLevel
 import com.android.keyattestation.verifier.VerificationResult
 import com.android.keyattestation.verifier.VerifiedBootState
 import com.android.keyattestation.verifier.Verifier
+import com.android.keyattestation.verifier.challengecheckers.InsecureSkipChallengeChecker
 import com.android.keyattestation.verifier.testing.TestUtils
 import com.google.common.truth.Truth.assertThat
 import kotlin.test.assertIs
@@ -43,7 +44,8 @@ class M2RepoTest {
         revokedSerialsSource = { emptySet() },
         instantSource = { validTime },
       )
-    val result = assertIs<VerificationResult.Success>(verifier.verify(certs))
+    val result =
+      assertIs<VerificationResult.Success>(verifier.verify(certs, InsecureSkipChallengeChecker))
 
     assertThat(result.securityLevel).isEqualTo(SecurityLevel.TRUSTED_ENVIRONMENT)
     assertThat(result.verifiedBootState).isEqualTo(VerifiedBootState.VERIFIED)
